@@ -1,0 +1,286 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeftIcon, TruckIcon, ArchiveBoxIcon, ClockIcon } from '@heroicons/react/24/outline';
+
+export default function TrackOrderPage() {
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [trackingData, setTrackingData] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const locale = 'sv'; // This would come from context in a real app
+
+  const handleTrack = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackingNumber.trim()) return;
+
+    setLoading(true);
+    setError('');
+    setTrackingData(null);
+
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'track',
+          trackingNumber: trackingNumber.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to track order');
+      }
+
+      if (data.success) {
+        setTrackingData(data.data);
+      } else {
+        setError(data.error || 'Order not found');
+      }
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to track order');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString('sv-SE', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'delivered':
+        return 'text-green-600 bg-green-100';
+      case 'shipped':
+      case 'under transport':
+        return 'text-blue-600 bg-blue-100';
+      case 'pending':
+      case 'förbereds för transport':
+        return 'text-yellow-600 bg-yellow-100';
+      default:
+        return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'delivered':
+        return <ArchiveBoxIcon className="w-5 h-5" />;
+      case 'shipped':
+      case 'under transport':
+        return <TruckIcon className="w-5 h-5" />;
+      default:
+        return <ClockIcon className="w-5 h-5" />;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-12">
+      <div className="container mx-auto px-4">
+        {/* Header */}
+        <div className="mb-8">
+          <Link 
+            href="/"
+            className="inline-flex items-center text-purple-600 hover:text-purple-700 mb-4"
+          >
+            <ArrowLeftIcon className="h-4 w-4 mr-2" />
+            {locale === 'sv' ? 'Tillbaka till start' : 'Back to home'}
+          </Link>
+          
+          <h1 className="text-3xl font-bold text-gray-900">
+            {locale === 'sv' ? 'Spåra din beställning' : 'Track your order'}
+          </h1>
+          <p className="text-gray-600 mt-2">
+            {locale === 'sv' 
+              ? 'Ange ditt spårningsnummer för att se var ditt paket befinner sig'
+              : 'Enter your tracking number to see where your package is'
+            }
+          </p>
+        </div>
+
+        {/* Tracking Form */}
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
+            <form onSubmit={handleTrack} className="space-y-6">
+              <div>
+                <label htmlFor="tracking" className="block text-sm font-medium text-gray-700 mb-2">
+                  {locale === 'sv' ? 'Spårningsnummer' : 'Tracking number'}
+                </label>
+                <input
+                  id="tracking"
+                  type="text"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  placeholder={locale === 'sv' ? 'Ange spårningsnummer' : 'Enter tracking number'}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg"
+                  required
+                />
+                <p className="text-sm text-gray-500 mt-2">
+                  {locale === 'sv' 
+                    ? 'Du hittar spårningsnumret i orderbekräftelsen som skickades till din e-post'
+                    : 'You can find the tracking number in the order confirmation sent to your email'
+                  }
+                </p>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading || !trackingNumber.trim()}
+                className="w-full bg-purple-600 text-white font-medium py-3 px-6 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading 
+                  ? (locale === 'sv' ? 'Spårar...' : 'Tracking...') 
+                  : (locale === 'sv' ? 'Spåra paket' : 'Track package')
+                }
+              </button>
+            </form>
+          </div>
+
+          {/* Tracking Results */}
+          {trackingData && (
+            <div className="bg-white rounded-xl shadow-lg p-8">
+              <div className="mb-6">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                  {locale === 'sv' ? 'Spårningsinformation' : 'Tracking information'}
+                </h2>
+                
+                {/* Current Status */}
+                <div className="bg-gradient-to-r from-purple-50 to-yellow-50 rounded-lg p-6 mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        {locale === 'sv' ? 'Aktuell status' : 'Current status'}
+                      </h3>
+                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(trackingData.tracking.status)}`}>
+                        {getStatusIcon(trackingData.tracking.status)}
+                        <span className="ml-2">{trackingData.tracking.status}</span>
+                      </div>
+                      <p className="text-gray-600 mt-2">
+                        {trackingData.tracking.location}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500">
+                        {locale === 'sv' ? 'Beräknad leverans' : 'Estimated delivery'}
+                      </p>
+                      <p className="font-semibold text-gray-900">
+                        {formatDate(trackingData.tracking.estimatedDelivery)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Order Details */}
+                <div className="border-t border-gray-200 pt-6 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    {locale === 'sv' ? 'Orderdetaljer' : 'Order details'}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        {locale === 'sv' ? 'Ordernummer' : 'Order number'}
+                      </p>
+                      <p className="font-medium text-gray-900">#{trackingData.order.id}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        {locale === 'sv' ? 'Orderdatum' : 'Order date'}
+                      </p>
+                      <p className="font-medium text-gray-900">
+                        {formatDate(trackingData.order.createdAt)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        {locale === 'sv' ? 'Spårningsnummer' : 'Tracking number'}
+                      </p>
+                      <p className="font-medium text-gray-900">{trackingNumber}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        {locale === 'sv' ? 'Fraktfirma' : 'Carrier'}
+                      </p>
+                      <p className="font-medium text-gray-900">
+                        {trackingData.tracking.carrier || 'Standard'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tracking History */}
+                {trackingData.tracking.history && trackingData.tracking.history.length > 0 && (
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      {locale === 'sv' ? 'Spårningshistorik' : 'Tracking history'}
+                    </h3>
+                    <div className="space-y-4">
+                      {trackingData.tracking.history.map((event: any, index: number) => (
+                        <div key={index} className="flex items-start space-x-4">
+                          <div className={`w-3 h-3 rounded-full mt-2 ${
+                            index === 0 ? 'bg-purple-600' : 'bg-gray-300'
+                          }`}></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium text-gray-900">
+                                {event.status}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {formatDate(event.date)}
+                              </p>
+                            </div>
+                            <p className="text-sm text-gray-600">{event.location}</p>
+                            {event.description && (
+                              <p className="text-sm text-gray-500 mt-1">
+                                {event.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
+                <Link
+                  href="/account/orders"
+                  className="flex-1 text-center px-6 py-3 border border-purple-600 text-purple-600 font-medium rounded-lg hover:bg-purple-50 transition-colors"
+                >
+                  {locale === 'sv' ? 'Visa alla beställningar' : 'View all orders'}
+                </Link>
+                
+                <Link
+                  href="/contact"
+                  className="flex-1 text-center px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  {locale === 'sv' ? 'Kontakta kundservice' : 'Contact support'}
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

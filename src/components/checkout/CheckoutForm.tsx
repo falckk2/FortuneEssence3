@@ -1,0 +1,615 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useAuth } from '@/hooks/useAuth';
+import { useCartStore } from '@/stores/cartStore';
+import { Address, PaymentMethod, ShippingRate } from '@/types';
+import { PriceCalculator } from '@/utils/helpers';
+import { 
+  CreditCardIcon, 
+  BanknotesIcon, 
+  DevicePhoneMobileIcon,
+  BuildingLibraryIcon 
+} from '@heroicons/react/24/outline';
+
+const checkoutSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  phone: z.string().optional(),
+  shippingAddress: z.object({
+    street: z.string().min(1, 'Street address is required'),
+    city: z.string().min(1, 'City is required'),
+    postalCode: z.string().regex(/^\d{3}\s?\d{2}$/, 'Invalid Swedish postal code'),
+    country: z.string().default('Sweden'),
+  }),
+  billingAddress: z.object({
+    street: z.string().min(1, 'Street address is required'),
+    city: z.string().min(1, 'City is required'),
+    postalCode: z.string().regex(/^\d{3}\s?\d{2}$/, 'Invalid Swedish postal code'),
+    country: z.string().default('Sweden'),
+  }),
+  paymentMethod: z.enum(['card', 'swish', 'klarna', 'bank-transfer']),
+  sameAddress: z.boolean().default(true),
+  marketingOptIn: z.boolean().default(false),
+  termsAccepted: z.literal(true, { errorMap: () => ({ message: 'You must accept the terms and conditions' }) }),
+});
+
+type CheckoutFormData = z.infer<typeof checkoutSchema>;
+
+interface CheckoutFormProps {
+  locale?: 'sv' | 'en';
+  onSuccess?: (orderId: string) => void;
+}
+
+export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) => {
+  const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
+  const { items, total, clearCart } = useCartStore();
+  
+  const [step, setStep] = useState(1);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<ShippingRate | null>(null);
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentMethod[]>([]);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<CheckoutFormData>({
+    resolver: zodResolver(checkoutSchema),
+    defaultValues: {
+      email: user?.email || '',
+      firstName: user?.firstName || '',
+      lastName: user?.lastName || '',
+      shippingAddress: {
+        street: user?.address?.street || '',
+        city: user?.address?.city || '',
+        postalCode: user?.address?.postalCode || '',
+        country: 'Sweden',
+      },
+      billingAddress: {
+        street: user?.address?.street || '',
+        city: user?.address?.city || '',
+        postalCode: user?.address?.postalCode || '',
+        country: 'Sweden',
+      },
+      sameAddress: true,
+      paymentMethod: 'card',
+    },
+  });
+
+  const watchedFields = watch(['shippingAddress', 'sameAddress']);
+
+  // Auto-fill billing address when "same address" is checked
+  useEffect(() => {
+    if (watchedFields[1]) { // sameAddress
+      const shippingAddr = watchedFields[0]; // shippingAddress
+      setValue('billingAddress', shippingAddr);
+    }
+  }, [watchedFields, setValue]);
+
+  // Fetch shipping rates when shipping address changes
+  useEffect(() => {
+    const fetchShippingRates = async () => {
+      if (watchedFields[0]?.country && items.length > 0) {
+        try {
+          const response = await fetch('/api/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'calculate-shipping',
+              items,
+              country: watchedFields[0].country,
+              address: watchedFields[0],
+            }),
+          });
+
+          const result = await response.json();
+          if (result.success) {
+            setShippingRates(result.data.options);
+            setSelectedShipping(result.data.recommended);
+          }
+        } catch (error) {
+          console.error('Failed to fetch shipping rates:', error);
+        }
+      }
+    };
+
+    fetchShippingRates();
+  }, [watchedFields[0]?.country, items]);
+
+  // Fetch available payment methods
+  useEffect(() => {
+    const fetchPaymentMethods = async () => {
+      try {
+        const response = await fetch('/api/checkout?action=payment-methods');
+        const result = await response.json();
+        
+        if (result.success) {
+          setAvailablePaymentMethods(result.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch payment methods:', error);
+      }
+    };
+
+    fetchPaymentMethods();
+  }, []);
+
+  const onSubmit = async (data: CheckoutFormData) => {
+    if (!selectedShipping) {
+      alert(locale === 'sv' ? 'Välj ett leveransalternativ' : 'Please select a shipping option');
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      const orderData = {
+        customerId: user?.id || 'guest',
+        items,
+        shippingAddress: data.shippingAddress,
+        billingAddress: data.billingAddress,
+        paymentMethod: data.paymentMethod,
+        shippingRateId: selectedShipping.id,
+      };
+
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'process-payment',
+          ...orderData,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Clear cart after successful order
+        await clearCart();
+        
+        // Redirect based on payment method
+        if (result.data.payment.redirectUrl) {
+          window.location.href = result.data.payment.redirectUrl;
+        } else {
+          onSuccess?.(result.data.order.id);
+          router.push('/checkout/success');
+        }
+      } else {
+        alert(result.error || (locale === 'sv' ? 'Betalning misslyckades' : 'Payment failed'));
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert(locale === 'sv' ? 'Ett fel uppstod' : 'An error occurred');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const getPaymentIcon = (method: PaymentMethod) => {
+    switch (method) {
+      case 'card':
+        return CreditCardIcon;
+      case 'swish':
+        return DevicePhoneMobileIcon;
+      case 'klarna':
+        return BanknotesIcon;
+      case 'bank-transfer':
+        return BuildingLibraryIcon;
+      default:
+        return CreditCardIcon;
+    }
+  };
+
+  const getPaymentMethodName = (method: PaymentMethod) => {
+    const names = {
+      card: locale === 'sv' ? 'Kort' : 'Card',
+      swish: 'Swish',
+      klarna: 'Klarna',
+      'bank-transfer': locale === 'sv' ? 'Bankgiro' : 'Bank Transfer',
+    };
+    return names[method];
+  };
+
+  const subtotal = total;
+  const tax = PriceCalculator.calculateVAT(subtotal);
+  const shipping = selectedShipping?.price || 0;
+  const totalAmount = subtotal + tax + shipping;
+
+  if (items.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          {locale === 'sv' ? 'Din varukorg är tom' : 'Your cart is empty'}
+        </h2>
+        <p className="text-gray-600 mb-6">
+          {locale === 'sv' 
+            ? 'Lägg till produkter innan du går till kassan'
+            : 'Add products before proceeding to checkout'
+          }
+        </p>
+        <button
+          onClick={() => router.push('/products')}
+          className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+        >
+          {locale === 'sv' ? 'Handla produkter' : 'Shop products'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Left Column - Form */}
+        <div className="space-y-6">
+          {/* Contact Information */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-lg font-semibold mb-4">
+              {locale === 'sv' ? 'Kontaktuppgifter' : 'Contact Information'}
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {locale === 'sv' ? 'E-post' : 'Email'}
+                </label>
+                <input
+                  {...register('email')}
+                  type="email"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder={locale === 'sv' ? 'din@epost.se' : 'your@email.com'}
+                />
+                {errors.email && (
+                  <p className="text-sm text-red-600 mt-1">{errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {locale === 'sv' ? 'Förnamn' : 'First Name'}
+                  </label>
+                  <input
+                    {...register('firstName')}
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                  {errors.firstName && (
+                    <p className="text-sm text-red-600 mt-1">{errors.firstName.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {locale === 'sv' ? 'Efternamn' : 'Last Name'}
+                  </label>
+                  <input
+                    {...register('lastName')}
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  />
+                  {errors.lastName && (
+                    <p className="text-sm text-red-600 mt-1">{errors.lastName.message}</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {locale === 'sv' ? 'Telefon (valfritt)' : 'Phone (optional)'}
+                </label>
+                <input
+                  {...register('phone')}
+                  type="tel"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="+46 70 123 45 67"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Shipping Address */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-lg font-semibold mb-4">
+              {locale === 'sv' ? 'Leveransadress' : 'Shipping Address'}
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {locale === 'sv' ? 'Gatuadress' : 'Street Address'}
+                </label>
+                <input
+                  {...register('shippingAddress.street')}
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Storgatan 1"
+                />
+                {errors.shippingAddress?.street && (
+                  <p className="text-sm text-red-600 mt-1">{errors.shippingAddress.street.message}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {locale === 'sv' ? 'Stad' : 'City'}
+                  </label>
+                  <input
+                    {...register('shippingAddress.city')}
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Stockholm"
+                  />
+                  {errors.shippingAddress?.city && (
+                    <p className="text-sm text-red-600 mt-1">{errors.shippingAddress.city.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {locale === 'sv' ? 'Postnummer' : 'Postal Code'}
+                  </label>
+                  <input
+                    {...register('shippingAddress.postalCode')}
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="123 45"
+                  />
+                  {errors.shippingAddress?.postalCode && (
+                    <p className="text-sm text-red-600 mt-1">{errors.shippingAddress.postalCode.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Billing Address */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                {locale === 'sv' ? 'Fakturaadress' : 'Billing Address'}
+              </h3>
+              <label className="flex items-center">
+                <input
+                  {...register('sameAddress')}
+                  type="checkbox"
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="ml-2 text-sm text-gray-600">
+                  {locale === 'sv' ? 'Samma som leveransadress' : 'Same as shipping'}
+                </span>
+              </label>
+            </div>
+            
+            {!watch('sameAddress') && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {locale === 'sv' ? 'Gatuadress' : 'Street Address'}
+                  </label>
+                  <input
+                    {...register('billingAddress.street')}
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Storgatan 1"
+                  />
+                  {errors.billingAddress?.street && (
+                    <p className="text-sm text-red-600 mt-1">{errors.billingAddress.street.message}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {locale === 'sv' ? 'Stad' : 'City'}
+                    </label>
+                    <input
+                      {...register('billingAddress.city')}
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Stockholm"
+                    />
+                    {errors.billingAddress?.city && (
+                      <p className="text-sm text-red-600 mt-1">{errors.billingAddress.city.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {locale === 'sv' ? 'Postnummer' : 'Postal Code'}
+                    </label>
+                    <input
+                      {...register('billingAddress.postalCode')}
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="123 45"
+                    />
+                    {errors.billingAddress?.postalCode && (
+                      <p className="text-sm text-red-600 mt-1">{errors.billingAddress.postalCode.message}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Shipping Options */}
+          {shippingRates.length > 0 && (
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+              <h3 className="text-lg font-semibold mb-4">
+                {locale === 'sv' ? 'Leveransalternativ' : 'Shipping Options'}
+              </h3>
+              
+              <div className="space-y-3">
+                {shippingRates.map((rate) => (
+                  <label key={rate.id} className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        name="shipping"
+                        value={rate.id}
+                        checked={selectedShipping?.id === rate.id}
+                        onChange={() => setSelectedShipping(rate)}
+                        className="text-purple-600 focus:ring-purple-500"
+                      />
+                      <div className="ml-3">
+                        <p className="font-medium text-gray-900">{rate.name}</p>
+                        <p className="text-sm text-gray-600">{rate.description}</p>
+                        <p className="text-sm text-gray-500">
+                          {locale === 'sv' ? `${rate.estimatedDays} arbetsdagar` : `${rate.estimatedDays} business days`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">
+                        {rate.price === 0 
+                          ? (locale === 'sv' ? 'Gratis' : 'Free')
+                          : PriceCalculator.formatPrice(rate.price, locale)
+                        }
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Payment Method */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-lg font-semibold mb-4">
+              {locale === 'sv' ? 'Betalningsmetod' : 'Payment Method'}
+            </h3>
+            
+            <div className="grid grid-cols-2 gap-3">
+              {availablePaymentMethods.map((method) => {
+                const IconComponent = getPaymentIcon(method);
+                return (
+                  <label key={method} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      {...register('paymentMethod')}
+                      type="radio"
+                      value={method}
+                      className="text-purple-600 focus:ring-purple-500"
+                    />
+                    <IconComponent className="h-5 w-5 ml-3 text-gray-600" />
+                    <span className="ml-2 text-sm font-medium text-gray-900">
+                      {getPaymentMethodName(method)}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Terms and Marketing */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="space-y-4">
+              <label className="flex items-start">
+                <input
+                  {...register('termsAccepted')}
+                  type="checkbox"
+                  className="mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="ml-2 text-sm text-gray-600">
+                  {locale === 'sv' 
+                    ? 'Jag accepterar villkoren och GDPR-policyn'
+                    : 'I accept the terms and conditions and GDPR policy'
+                  }
+                </span>
+              </label>
+              {errors.termsAccepted && (
+                <p className="text-sm text-red-600">{errors.termsAccepted.message}</p>
+              )}
+
+              <label className="flex items-start">
+                <input
+                  {...register('marketingOptIn')}
+                  type="checkbox"
+                  className="mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <span className="ml-2 text-sm text-gray-600">
+                  {locale === 'sv' 
+                    ? 'Jag vill få marknadsföring och erbjudanden via e-post'
+                    : 'I would like to receive marketing and offers via email'
+                  }
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column - Order Summary */}
+        <div className="lg:sticky lg:top-4 lg:h-fit">
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-lg font-semibold mb-4">
+              {locale === 'sv' ? 'Ordersammanfattning' : 'Order Summary'}
+            </h3>
+            
+            <div className="space-y-4 mb-6">
+              {items.map((item) => (
+                <div key={item.productId} className="flex justify-between items-center">
+                  <div>
+                    <p className="font-medium text-gray-900">Product {item.quantity}x</p>
+                    <p className="text-sm text-gray-600">{PriceCalculator.formatPrice(item.price, locale)} each</p>
+                  </div>
+                  <p className="font-medium text-gray-900">
+                    {PriceCalculator.formatPrice(item.price * item.quantity, locale)}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t pt-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>{locale === 'sv' ? 'Subtotal' : 'Subtotal'}</span>
+                <span>{PriceCalculator.formatPrice(subtotal, locale)}</span>
+              </div>
+              
+              <div className="flex justify-between text-sm">
+                <span>{locale === 'sv' ? 'Moms (25%)' : 'VAT (25%)'}</span>
+                <span>{PriceCalculator.formatPrice(tax, locale)}</span>
+              </div>
+              
+              <div className="flex justify-between text-sm">
+                <span>{locale === 'sv' ? 'Frakt' : 'Shipping'}</span>
+                <span>
+                  {shipping === 0 
+                    ? (locale === 'sv' ? 'Gratis' : 'Free')
+                    : PriceCalculator.formatPrice(shipping, locale)
+                  }
+                </span>
+              </div>
+              
+              <div className="border-t pt-2 flex justify-between font-bold text-lg">
+                <span>{locale === 'sv' ? 'Totalt' : 'Total'}</span>
+                <span>{PriceCalculator.formatPrice(totalAmount, locale)}</span>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isProcessing || !selectedShipping}
+              className="w-full mt-6 px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isProcessing 
+                ? (locale === 'sv' ? 'Bearbetar...' : 'Processing...')
+                : (locale === 'sv' ? 'Slutför beställning' : 'Complete Order')
+              }
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+};

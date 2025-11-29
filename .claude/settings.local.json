@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app:*)",
+      "Bash(robocopy:*)",
+      "Bash(dir:*)",
+      "Bash(rmdir:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm install:*)",
+      "Bash(npx next:*)",
+      "Bash(timeout:*)",
+      "Bash(cmd /c \"if exist .next (rmdir /s /q .next && echo Build cache cleared) else echo No cache to clear\")",
+      "Bash(ping 127.0.0.1 -n 6)",
+      "Bash(nul)",
+      "mcp__MCP_DOCKER__API-post-search",
+      "mcp__MCP_DOCKER__API-get-self",
+      "mcp__MCP_DOCKER__API-post-page",
+      "Bash(npm run dev:*)",
+      "Bash(npm run build:*)",
+      "Bash(findstr:*)",
+      "Bash(rm:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

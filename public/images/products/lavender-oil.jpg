@@ -1,0 +1,61 @@
+<svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bottleGrad" cx="50%" cy="30%">
+      <stop offset="0%" style="stop-color:#f3e8ff;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#8b5cf6;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#6d28d9;stop-opacity:1" />
+    </radialGradient>
+    <linearGradient id="labelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fef3c7;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#d4af37;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="400" height="400" fill="#fefcf7"/>
+  
+  <!-- Lavender sprigs decoration -->
+  <g opacity="0.3">
+    <circle cx="80" cy="80" r="3" fill="#8b5cf6"/>
+    <rect x="78" y="85" width="4" height="20" fill="#10b981"/>
+    <circle cx="320" cy="320" r="3" fill="#8b5cf6"/>
+    <rect x="318" y="325" width="4" height="20" fill="#10b981"/>
+  </g>
+  
+  <!-- Essential oil bottle -->
+  <g transform="translate(150, 50)">
+    <!-- Bottle cap -->
+    <rect x="35" y="0" width="30" height="15" rx="3" fill="#374151"/>
+    
+    <!-- Bottle neck -->
+    <rect x="40" y="15" width="20" height="25" fill="url(#bottleGrad)"/>
+    
+    <!-- Main bottle body -->
+    <rect x="20" y="40" width="60" height="120" rx="8" fill="url(#bottleGrad)"/>
+    
+    <!-- Essential oil liquid inside -->
+    <rect x="25" y="45" width="50" height="110" rx="6" fill="#8b5cf6" opacity="0.7"/>
+    
+    <!-- Label -->
+    <rect x="25" y="80" width="50" height="40" rx="4" fill="url(#labelGrad)"/>
+    
+    <!-- Label text -->
+    <text x="50" y="95" text-anchor="middle" font-family="Arial" font-size="8" font-weight="bold" fill="#374151">LAVENDER</text>
+    <text x="50" y="105" text-anchor="middle" font-family="Arial" font-size="6" fill="#374151">Essential Oil</text>
+    <text x="50" y="115" text-anchor="middle" font-family="Arial" font-size="6" fill="#374151">10ml</text>
+  </g>
+  
+  <!-- Lavender flowers decoration -->
+  <g transform="translate(200, 250)">
+    <ellipse cx="0" cy="0" rx="8" ry="15" fill="#8b5cf6" opacity="0.8"/>
+    <rect x="-1" y="15" width="2" height="40" fill="#10b981"/>
+    <ellipse cx="-15" cy="-5" rx="6" ry="12" fill="#8b5cf6" opacity="0.6"/>
+    <rect x="-16" y="7" width="2" height="30" fill="#10b981"/>
+    <ellipse cx="15" cy="-3" rx="6" ry="12" fill="#8b5cf6" opacity="0.6"/>
+    <rect x="14" y="9" width="2" height="30" fill="#10b981"/>
+  </g>
+  
+  <!-- Brand watermark -->
+  <text x="200" y="350" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="#d4af37" opacity="0.8">Fortune Essence</text>
+  <text x="200" y="365" text-anchor="middle" font-family="Arial" font-size="8" fill="#6b7280">Premium Quality</text>
+</svg>
