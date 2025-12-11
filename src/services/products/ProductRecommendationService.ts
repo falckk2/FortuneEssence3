@@ -2,7 +2,7 @@
 // Following Single Responsibility Principle - only handles product recommendations
 
 import { injectable, inject } from 'tsyringe';
-import { IProductRepository } from '@/interfaces/repositories';
+import type { IProductRepository } from '@/interfaces';
 import { Product, ApiResponse } from '@/types';
 import { TOKENS } from '@/config/di-container';
 

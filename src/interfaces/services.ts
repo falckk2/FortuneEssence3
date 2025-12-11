@@ -16,6 +16,8 @@ export interface IAuthService {
   signOut(): Promise<ApiResponse<void>>;
   getCurrentUser(): Promise<ApiResponse<Customer>>;
   resetPassword(email: string): Promise<ApiResponse<void>>;
+  verifyResetToken(token: string): Promise<ApiResponse<{ email: string }>>;
+  completePasswordReset(token: string, newPassword: string): Promise<ApiResponse<void>>;
 }
 
 export interface SignUpData {
@@ -33,6 +35,8 @@ export interface IProductService {
   searchProducts(query: string, locale: string): Promise<ApiResponse<Product[]>>;
   getProductsByCategory(category: string): Promise<ApiResponse<Product[]>>;
   getFeaturedProducts(): Promise<ApiResponse<Product[]>>;
+  getProductWithLocalization(id: string, locale: string): Promise<ApiResponse<Product>>;
+  getProductCategories(): Promise<ApiResponse<Array<{ category: string; count: number; displayName: { sv: string; en: string } }>>>;
 }
 
 export interface ProductSearchParams {
@@ -51,6 +55,33 @@ export interface ICartService {
   updateQuantity(cartId: string, productId: string, quantity: number): Promise<ApiResponse<Cart>>;
   clearCart(cartId: string): Promise<ApiResponse<void>>;
   calculateTotal(items: CartItem[]): Promise<number>;
+  validateCartItems(cartId: string): Promise<ApiResponse<{ valid: boolean; issues?: string[] }>>;
+  syncCartPrices(cartId: string): Promise<ApiResponse<Cart>>;
+  mergeGuestCart(sessionId: string, userId: string): Promise<ApiResponse<Cart>>;
+  getCartSummary(cartId: string): Promise<ApiResponse<{
+    itemCount: number;
+    subtotal: number;
+    estimatedTax: number;
+    totalWeight: number;
+  }>>;
+  // Abandoned cart recovery methods
+  trackAbandonedCart(
+    cartId: string,
+    email: string,
+    customerId?: string,
+    sessionId?: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<ApiResponse<{ abandonedCartId: string; recoveryToken: string }>>;
+  getAbandonedCartsForReminder(hoursAbandoned?: number, maxReminders?: number): Promise<ApiResponse<any[]>>;
+  markCartReminded(abandonedCartId: string): Promise<ApiResponse<void>>;
+  markCartRecovered(recoveryToken: string, orderId: string): Promise<ApiResponse<void>>;
+  recoverAbandonedCart(recoveryToken: string): Promise<ApiResponse<{
+    cartId: string;
+    items: CartItem[];
+    total: number;
+    email: string;
+  }>>;
 }
 
 export interface IOrderService {
@@ -59,6 +90,17 @@ export interface IOrderService {
   getUserOrders(userId: string): Promise<ApiResponse<Order[]>>;
   updateOrderStatus(orderId: string, status: string): Promise<ApiResponse<Order>>;
   cancelOrder(orderId: string): Promise<ApiResponse<Order>>;
+  getOrdersByStatus(status: string): Promise<ApiResponse<Order[]>>;
+  getOrderStatistics(customerId?: string): Promise<ApiResponse<{
+    total: number;
+    pending: number;
+    confirmed: number;
+    shipped: number;
+    delivered: number;
+    cancelled: number;
+  }>>;
+  getRecentOrders(days: number, limit: number): Promise<ApiResponse<Order[]>>;
+  trackOrder(trackingNumber: string): Promise<ApiResponse<{ order: Order; tracking: any }>>;
 }
 
 export interface CreateOrderData {
@@ -75,6 +117,8 @@ export interface IPaymentService {
   createSwishPayment(amount: number, phone: string, message: string): Promise<ApiResponse<SwishPayment>>;
   createKlarnaSession(orderData: KlarnaOrderData): Promise<ApiResponse<KlarnaSession>>;
   verifyPayment(paymentId: string, method: PaymentMethod): Promise<ApiResponse<boolean>>;
+  createPaymentIntent(amount: number, currency: string): Promise<ApiResponse<{ clientSecret: string; paymentIntentId: string }>>;
+  getPaymentMethods(): Promise<ApiResponse<Array<{ id: string; name: string; enabled: boolean }>>>;
 }
 
 export interface PaymentData {
@@ -127,6 +171,35 @@ export interface IShippingService {
   calculateShipping(items: CartItem[], country: string): Promise<ApiResponse<ShippingRate>>;
   createShipment(orderId: string, shippingRateId: string): Promise<ApiResponse<Shipment>>;
   trackShipment(trackingNumber: string): Promise<ApiResponse<TrackingInfo>>;
+  validateDeliveryAddress(address: Address): Promise<ApiResponse<{ valid: boolean; suggestions?: Address[] }>>;
+  getSupportedCountries(): Promise<ApiResponse<Array<{ code: string; name: string }>>>;
+  getSwedishCarrierServices(): Promise<ApiResponse<Array<{
+    carrier: string;
+    services: Array<{
+      name: string;
+      description: string;
+      estimatedDays: number;
+      maxWeight: number;
+      features: string[];
+    }>;
+  }>>>;
+  validateSwedishPostalCode(postalCode: string): Promise<ApiResponse<{ valid: boolean; city?: string }>>;
+  calculateSwedishShippingWithZones(items: CartItem[], postalCode: string): Promise<ApiResponse<{
+    baseRate: ShippingRate;
+    adjustedRate: ShippingRate;
+    zoneInfo: { zone: string; additionalDays: number };
+  }>>;
+  getShippingCosts(items: CartItem[], country: string): Promise<ApiResponse<{
+    options: ShippingRate[];
+    recommended: ShippingRate;
+    freeShippingThreshold?: number;
+  }>>;
+  calculateEcoShipping(items: CartItem[], country: string): Promise<ApiResponse<{
+    standardRate: ShippingRate;
+    ecoRate: ShippingRate;
+    carbonOffset: { kg: number; cost: number };
+  }>>;
+  getSwedishHolidayImpact(date: string): Promise<ApiResponse<{ isHoliday: boolean; estimatedDelay?: number }>>;
 }
 
 export interface Shipment {
@@ -155,10 +228,13 @@ export interface TrackingEvent {
 
 export interface IInventoryService {
   checkAvailability(productId: string, quantity: number): Promise<ApiResponse<boolean>>;
-  reserveStock(items: CartItem[]): Promise<ApiResponse<string>>;
+  reserveStock(items: CartItem[], customerId?: string, sessionId?: string): Promise<ApiResponse<string>>;
   releaseReservation(reservationId: string): Promise<ApiResponse<void>>;
+  completeReservation(reservationId: string): Promise<ApiResponse<void>>;
   updateStock(productId: string, quantity: number): Promise<ApiResponse<void>>;
   getLowStockAlerts(): Promise<ApiResponse<Product[]>>;
+  cleanupExpiredReservations(): Promise<ApiResponse<{ expiredCount: number }>>;
+  getActiveReservations(productId: string): Promise<ApiResponse<number>>;
 }
 
 export interface IGDPRService {
@@ -166,6 +242,10 @@ export interface IGDPRService {
   deleteUserData(userId: string): Promise<ApiResponse<void>>;
   updateConsent(userId: string, consentData: ConsentData): Promise<ApiResponse<void>>;
   getConsentStatus(userId: string): Promise<ApiResponse<ConsentData>>;
+  requestDataPortability(userId: string, format: 'json' | 'csv'): Promise<ApiResponse<any>>;
+  getDataProcessingPurposes(): Promise<ApiResponse<Array<{ id: string; name: string; description: string }>>>;
+  getDataRetentionPolicies(): Promise<ApiResponse<Array<{ dataType: string; retentionPeriod: string; purpose: string }>>>;
+  getGDPRActivityLog(userId: string): Promise<ApiResponse<Array<{ action: string; timestamp: string; details: string }>>>;
 }
 
 export interface UserData {

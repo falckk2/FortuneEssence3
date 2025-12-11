@@ -1,9 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+import { container } from '@/config/di-container';
+import { TOKENS } from '@/config/di-container';
+import type { IEmailService } from '@/interfaces/email';
 
 // Rate limiting helper (in-memory, for production use Redis or similar)
 const contactRequests = new Map<string, number[]>();
 const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
 const MAX_REQUESTS_PER_WINDOW = 5;
+
+function detectSpam(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+
+  // Check for excessive URLs (more than 3)
+  const urlPattern = /(https?:\/\/[^\s]+)/gi;
+  const urls = lowerMessage.match(urlPattern) || [];
+  if (urls.length > 3) {
+    return true;
+  }
+
+  // Check if message is mostly uppercase (more than 70%)
+  const uppercaseCount = (message.match(/[A-Z]/g) || []).length;
+  const letterCount = (message.match(/[a-zA-Z]/g) || []).length;
+  if (letterCount > 20 && uppercaseCount / letterCount > 0.7) {
+    return true;
+  }
+
+  // Common spam keywords
+  const spamKeywords = [
+    'viagra', 'cialis', 'pharmacy', 'casino', 'lottery', 'winner',
+    'inheritance', 'nigerian prince', 'click here', 'buy now',
+    'limited time', 'act now', 'congratulations', 'free money',
+    'work from home', 'make money fast', 'crypto', 'bitcoin investment',
+    'forex trading', 'binary options', 'mlm', 'network marketing'
+  ];
+
+  const keywordMatches = spamKeywords.filter(keyword =>
+    lowerMessage.includes(keyword)
+  );
+
+  // If 2 or more spam keywords found, likely spam
+  if (keywordMatches.length >= 2) {
+    return true;
+  }
+
+  // Check for excessive repetition (same word repeated 5+ times)
+  const words = lowerMessage.split(/\s+/);
+  const wordCounts = new Map<string, number>();
+  words.forEach(word => {
+    if (word.length > 3) {
+      wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+    }
+  });
+
+  for (const count of wordCounts.values()) {
+    if (count >= 5) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -83,68 +140,144 @@ export async function POST(request: NextRequest) {
       ip,
     };
 
-    // TODO: Implement the following in production:
-    // 1. Save contact form submission to database for tracking
-    // 2. Send email to support team
-    // 3. Send auto-reply confirmation email to user
-    // 4. Optionally create support ticket in CRM/helpdesk system
-    // 5. Add spam detection (check for suspicious patterns)
+    // Basic spam detection
+    const isSpam = detectSpam(sanitizedData.message);
+    const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    // Example implementation outline:
-    /*
     // Save to database
-    const contactSubmission = await createContactSubmission({
-      ...sanitizedData,
-      status: 'new',
-      assignedTo: null,
-    });
-
-    // Send notification to support team
-    await sendEmail({
-      to: 'support@fortuneessence.se',
-      subject: `New Contact Form: ${sanitizedData.subject}`,
-      template: 'contact-notification',
-      data: {
+    const { data: contactSubmission, error: dbError } = await supabase
+      .from('contact_form_submissions')
+      .insert({
         name: sanitizedData.name,
         email: sanitizedData.email,
         phone: sanitizedData.phone,
         subject: sanitizedData.subject,
         message: sanitizedData.message,
-        submissionId: contactSubmission.id,
-        adminUrl: `${process.env.NEXTAUTH_URL}/admin/support/${contactSubmission.id}`
-      }
-    });
+        status: isSpam ? 'spam' : 'new',
+        ip_address: ip,
+        user_agent: userAgent,
+      })
+      .select()
+      .single();
 
-    // Send auto-reply to customer
-    await sendEmail({
-      to: sanitizedData.email,
-      subject: 'Vi har tagit emot ditt meddelande - Fortune Essence',
-      template: 'contact-auto-reply',
-      data: {
-        name: sanitizedData.name,
-        subject: sanitizedData.subject,
-        ticketNumber: contactSubmission.id.substring(0, 8),
-        expectedResponseTime: '24 timmar'
-      }
-    });
-
-    // Spam detection
-    const spamScore = await checkSpamScore(sanitizedData.message);
-    if (spamScore > 0.8) {
-      await markAsSpam(contactSubmission.id);
+    if (dbError) {
+      console.error('Database error saving contact submission:', dbError);
+      return NextResponse.json(
+        { success: false, error: 'Failed to save contact submission' },
+        { status: 500 }
+      );
     }
-    */
 
-    // For now, just log the submission
-    console.log('Contact form submission received:');
-    console.log(JSON.stringify(sanitizedData, null, 2));
-    console.log('In production, would send emails to support team and customer');
+    console.log('Contact form submission saved to database:', contactSubmission.id);
+
+    // If marked as spam, log and return success but don't send emails
+    if (isSpam) {
+      console.warn('Spam submission detected and marked:', {
+        id: contactSubmission.id,
+        email: sanitizedData.email,
+      });
+      return NextResponse.json({
+        success: true,
+        message: 'Thank you for your message! We will get back to you within 24 hours.',
+        data: {
+          submissionId: contactSubmission.id,
+        }
+      });
+    }
+
+    // Get EmailService from DI container
+    const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
+
+    // Send notification to support team
+    try {
+      const adminUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/admin/support/${contactSubmission.id}`;
+
+      await emailService.sendEmail({
+        to: 'support@fortuneessence.se',
+        subject: `New Contact Form: ${sanitizedData.subject}`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: #8B4513; color: white; padding: 15px; }
+              .content { padding: 20px; background: #f9f9f9; }
+              .field { margin: 15px 0; padding: 10px; background: white; border-left: 3px solid #8B4513; }
+              .label { font-weight: bold; color: #666; }
+              .button { display: inline-block; padding: 10px 20px; background: #8B4513; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h2>New Contact Form Submission</h2>
+              </div>
+              <div class="content">
+                <div class="field">
+                  <span class="label">Submission ID:</span> ${contactSubmission.id}
+                </div>
+                <div class="field">
+                  <span class="label">Name:</span> ${sanitizedData.name}
+                </div>
+                <div class="field">
+                  <span class="label">Email:</span> ${sanitizedData.email}
+                </div>
+                ${sanitizedData.phone ? `
+                  <div class="field">
+                    <span class="label">Phone:</span> ${sanitizedData.phone}
+                  </div>
+                ` : ''}
+                <div class="field">
+                  <span class="label">Subject:</span> ${sanitizedData.subject}
+                </div>
+                <div class="field">
+                  <span class="label">Message:</span><br>
+                  ${sanitizedData.message.replace(/\n/g, '<br>')}
+                </div>
+                <div class="field">
+                  <span class="label">IP Address:</span> ${ip}
+                </div>
+                <div class="field">
+                  <span class="label">Submitted At:</span> ${sanitizedData.submittedAt}
+                </div>
+                <a href="${adminUrl}" class="button">View in Admin Panel</a>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `New Contact Form Submission\n\nID: ${contactSubmission.id}\nName: ${sanitizedData.name}\nEmail: ${sanitizedData.email}\nPhone: ${sanitizedData.phone || 'N/A'}\nSubject: ${sanitizedData.subject}\nMessage:\n${sanitizedData.message}\n\nIP: ${ip}\nSubmitted: ${sanitizedData.submittedAt}`,
+      });
+
+      console.log('Support team notification email sent');
+    } catch (emailError) {
+      console.error('Failed to send support team notification:', emailError);
+      // Don't fail the request if email fails
+    }
+
+    // Send auto-reply confirmation to customer
+    try {
+      const locale = request.headers.get('accept-language')?.startsWith('sv') ? 'sv' : 'en';
+      await emailService.sendContactFormConfirmation(
+        sanitizedData.email,
+        sanitizedData.name,
+        locale as 'sv' | 'en'
+      );
+
+      console.log('Customer confirmation email sent');
+    } catch (emailError) {
+      console.error('Failed to send customer confirmation:', emailError);
+      // Don't fail the request if email fails
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Thank you for your message! We will get back to you within 24 hours.',
       data: {
-        ticketNumber: `CF${Date.now().toString().slice(-8)}`,
+        submissionId: contactSubmission.id,
       }
     });
 

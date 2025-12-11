@@ -1,9 +1,11 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { OrderService } from '@/services/orders/OrderService';
+import { authOptions } from '@/lib/auth';
+import { IOrderService } from '@/interfaces';
+import { container, TOKENS } from '@/config/di-container';
 
-const orderService = new OrderService();
+const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
 
 export async function GET(request: NextRequest) {
   try {

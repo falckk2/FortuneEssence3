@@ -44,16 +44,17 @@ export default function ContactPage() {
   const contactInfo = [
     {
       icon: MapPinIcon,
-      title: locale === 'sv' ? 'Adress' : 'Address',
-      content: locale === 'sv' 
-        ? 'Drottninggatan 123\n111 51 Stockholm\nSverige'
-        : 'Drottninggatan 123\n111 51 Stockholm\nSweden',
+      title: locale === 'sv' ? 'Plats' : 'Location',
+      content: locale === 'sv'
+        ? 'Göteborg, Sverige\n(Endast online)'
+        : 'Gothenburg, Sweden\n(Online only)',
     },
-    {
-      icon: PhoneIcon,
-      title: locale === 'sv' ? 'Telefon' : 'Phone',
-      content: '+46 8 123 456 78',
-    },
+    // Phone section commented out - no company phone yet
+    // {
+    //   icon: PhoneIcon,
+    //   title: locale === 'sv' ? 'Telefon' : 'Phone',
+    //   content: '+46 31 123 456 78',
+    // },
     {
       icon: EnvelopeIcon,
       title: locale === 'sv' ? 'E-post' : 'Email',
@@ -61,10 +62,10 @@ export default function ContactPage() {
     },
     {
       icon: ClockIcon,
-      title: locale === 'sv' ? 'Öppettider' : 'Business Hours',
-      content: locale === 'sv' 
-        ? 'Mån-Fre: 9:00-17:00\nLör: 10:00-15:00\nSön: Stängt'
-        : 'Mon-Fri: 9:00-17:00\nSat: 10:00-15:00\nSun: Closed',
+      title: locale === 'sv' ? 'Kundservice' : 'Customer Service',
+      content: locale === 'sv'
+        ? 'Mån-Fre: 9:00-17:00\nSvarar på e-post inom 24h'
+        : 'Mon-Fri: 9:00-17:00\nEmail replies within 24h',
     },
   ];
 
@@ -261,14 +262,68 @@ export default function ContactPage() {
                 </div>
               </div>
 
-              {/* Map Placeholder */}
-              <div className="bg-gray-200 rounded-xl h-64 flex items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <MapPinIcon className="h-16 w-16 mx-auto mb-4" />
-                  <p className="font-medium">
-                    {locale === 'sv' ? 'Karta kommer snart' : 'Map coming soon'}
+              {/* Online Only Benefits */}
+              <div className="bg-gradient-to-br from-purple-50 to-yellow-50 rounded-xl p-8">
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MapPinIcon className="h-8 w-8 text-purple-600" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                    {locale === 'sv' ? 'Endast Online' : 'Online Only'}
+                  </h3>
+                  <p className="text-gray-600">
+                    {locale === 'sv'
+                      ? 'Vi är en digital butik baserad i Göteborg'
+                      : 'We are a digital store based in Gothenburg'
+                    }
                   </p>
-                  <p className="text-sm">Stockholm, Sverige</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center mt-0.5">
+                      <span className="text-white text-sm">✓</span>
+                    </div>
+                    <p className="ml-3 text-gray-700">
+                      {locale === 'sv'
+                        ? 'Lägre priser tack vare färre omkostnader'
+                        : 'Lower prices thanks to reduced overhead costs'
+                      }
+                    </p>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center mt-0.5">
+                      <span className="text-white text-sm">✓</span>
+                    </div>
+                    <p className="ml-3 text-gray-700">
+                      {locale === 'sv'
+                        ? 'Handla när det passar dig, 24/7'
+                        : 'Shop whenever it suits you, 24/7'
+                      }
+                    </p>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center mt-0.5">
+                      <span className="text-white text-sm">✓</span>
+                    </div>
+                    <p className="ml-3 text-gray-700">
+                      {locale === 'sv'
+                        ? 'Snabb leverans till hela Sverige'
+                        : 'Fast delivery throughout Sweden'
+                      }
+                    </p>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center mt-0.5">
+                      <span className="text-white text-sm">✓</span>
+                    </div>
+                    <p className="ml-3 text-gray-700">
+                      {locale === 'sv'
+                        ? 'Hållbart och miljövänligt utan fysisk butik'
+                        : 'Sustainable and eco-friendly without physical store'
+                      }
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,14 +1,23 @@
-import { IAuthService, SignUpData } from '@/interfaces/services';
+import 'reflect-metadata';
+import { injectable, inject } from 'tsyringe';
+import type { IAuthService, SignUpData, IEmailService } from '@/interfaces';
 import { Customer, ApiResponse } from '@/types';
 import { CustomerRepository } from '@/repositories/customers/CustomerRepository';
 import { signUpSchema } from '@/utils/validation';
 import { signIn, signOut, getSession } from 'next-auth/react';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import { supabase } from '@/lib/supabase';
+import { TOKENS } from '@/config/di-container';
 
+@injectable()
 export class AuthService implements IAuthService {
   private customerRepository: CustomerRepository;
+  private emailService: IEmailService;
 
-  constructor() {
+  constructor(@inject(TOKENS.IEmailService) emailService: IEmailService) {
     this.customerRepository = new CustomerRepository();
+    this.emailService = emailService;
   }
 
   async signIn(email: string, password: string): Promise<ApiResponse<{ user: Customer; token: string }>> {
@@ -57,7 +66,7 @@ export class AuthService implements IAuthService {
       if (!validation.success) {
         return {
           success: false,
-          error: validation.error.errors.map(err => err.message).join(', '),
+          error: validation.error.issues.map((issue) => issue.message).join(', '),
         };
       }
 
@@ -84,7 +93,7 @@ export class AuthService implements IAuthService {
           postalCode: '',
           country: 'Sweden',
         },
-        consentGiven: validatedData.consentGiven,
+        consentGiven: true, // Always true after validation (z.literal(true))
         marketingOptIn: validatedData.marketingOptIn,
       };
 
@@ -160,30 +169,195 @@ export class AuthService implements IAuthService {
 
   async resetPassword(email: string): Promise<ApiResponse<void>> {
     try {
+      console.log(`Password reset requested for: ${email}`);
+
       // Check if customer exists
       const customerResult = await this.customerRepository.findByEmail(email);
-      if (!customerResult.success) {
-        // Don't reveal whether the email exists or not for security
-        return {
-          success: true,
-        };
+
+      // Generate token and send email only if customer exists
+      // But always return success to prevent email enumeration attacks
+      if (customerResult.success && customerResult.data) {
+        const customer = customerResult.data;
+
+        // Generate secure random token (32 bytes = 64 hex characters)
+        const token = crypto.randomBytes(32).toString('hex');
+
+        // Set expiration to 1 hour from now
+        const expiresAt = new Date(Date.now() + 3600000); // 1 hour = 3600000ms
+
+        console.log(`Generated reset token for customer ${customer.id}, expires at ${expiresAt.toISOString()}`);
+
+        // Store token in password_reset_tokens table
+        const { error: insertError } = await supabase
+          .from('password_reset_tokens')
+          .insert({
+            customer_id: customer.id,
+            token: token,
+            email: email.toLowerCase(),
+            expires_at: expiresAt.toISOString(),
+            created_at: new Date().toISOString(),
+          });
+
+        if (insertError) {
+          console.error(`Failed to store reset token: ${insertError.message}`);
+          // Don't reveal the error to the user
+          return {
+            success: true,
+          };
+        }
+
+        // Send password reset email
+        const emailResult = await this.emailService.sendPasswordReset(email, token);
+
+        if (!emailResult.success) {
+          console.error(`Failed to send reset email: ${emailResult.error}`);
+          // Don't reveal the error to the user
+        } else {
+          console.log(`Password reset email sent to ${email}`);
+        }
       }
 
-      // In a real implementation, this would:
-      // 1. Generate a password reset token
-      // 2. Send an email with the reset link
-      // 3. Store the token with expiration time
-
-      // For now, we'll just return success
-      console.log(`Password reset requested for: ${email}`);
-      
+      // Always return success to prevent email enumeration
       return {
         success: true,
       };
     } catch (error) {
+      console.error(`Password reset error: ${error}`);
+      // Return success even on error to prevent information leakage
+      return {
+        success: true,
+      };
+    }
+  }
+
+  async verifyResetToken(token: string): Promise<ApiResponse<{ email: string }>> {
+    try {
+      console.log(`Verifying reset token: ${token.substring(0, 10)}...`);
+
+      // Query password_reset_tokens table for the token
+      const { data, error } = await supabase
+        .from('password_reset_tokens')
+        .select('*')
+        .eq('token', token)
+        .single();
+
+      if (error || !data) {
+        console.log(`Token not found in database`);
+        return {
+          success: false,
+          error: 'Invalid or expired reset token',
+        };
+      }
+
+      // Check if token has been used
+      if (data.used_at) {
+        console.log(`Token already used at ${data.used_at}`);
+        return {
+          success: false,
+          error: 'Reset token has already been used',
+        };
+      }
+
+      // Check if token is expired
+      const expiresAt = new Date(data.expires_at);
+      const now = new Date();
+
+      if (now > expiresAt) {
+        console.log(`Token expired at ${expiresAt.toISOString()}`);
+        return {
+          success: false,
+          error: 'Reset token has expired',
+        };
+      }
+
+      console.log(`Token verified successfully for email: ${data.email}`);
+
+      return {
+        success: true,
+        data: { email: data.email },
+      };
+    } catch (error) {
+      console.error(`Token verification error: ${error}`);
       return {
         success: false,
-        error: `Password reset failed: ${error}`,
+        error: `Failed to verify reset token: ${error}`,
+      };
+    }
+  }
+
+  async completePasswordReset(token: string, newPassword: string): Promise<ApiResponse<void>> {
+    try {
+      console.log(`Completing password reset with token: ${token.substring(0, 10)}...`);
+
+      // Verify token is valid
+      const tokenVerification = await this.verifyResetToken(token);
+
+      if (!tokenVerification.success || !tokenVerification.data) {
+        console.log(`Token verification failed: ${tokenVerification.error}`);
+        return {
+          success: false,
+          error: tokenVerification.error || 'Invalid reset token',
+        };
+      }
+
+      const email = tokenVerification.data.email;
+
+      // Get customer by email
+      const customerResult = await this.customerRepository.findByEmail(email);
+
+      if (!customerResult.success || !customerResult.data) {
+        console.error(`Customer not found for email: ${email}`);
+        return {
+          success: false,
+          error: 'Customer not found',
+        };
+      }
+
+      const customer = customerResult.data;
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+      console.log(`Updating password for customer: ${customer.id}`);
+
+      // Update customer password in database
+      const { error: updateError } = await supabase
+        .from('customers')
+        .update({
+          password_hash: hashedPassword,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', customer.id);
+
+      if (updateError) {
+        console.error(`Failed to update password: ${updateError.message}`);
+        return {
+          success: false,
+          error: 'Failed to update password',
+        };
+      }
+
+      // Mark token as used
+      const { error: tokenError } = await supabase
+        .from('password_reset_tokens')
+        .update({ used_at: new Date().toISOString() })
+        .eq('token', token);
+
+      if (tokenError) {
+        console.error(`Failed to mark token as used: ${tokenError.message}`);
+        // Don't fail the operation if we can't mark the token as used
+      }
+
+      console.log(`Password reset completed successfully for customer: ${customer.id}`);
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      console.error(`Password reset completion error: ${error}`);
+      return {
+        success: false,
+        error: `Failed to reset password: ${error}`,
       };
     }
   }

@@ -1,9 +1,11 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { CartService } from '@/services/cart/CartService';
+import { authOptions } from '@/lib/auth';
+import { ICartService } from '@/interfaces';
+import { container, TOKENS } from '@/config/di-container';
 
-const cartService = new CartService();
+const cartService = container.resolve<ICartService>(TOKENS.ICartService);
 
 export async function GET(request: NextRequest) {
   try {

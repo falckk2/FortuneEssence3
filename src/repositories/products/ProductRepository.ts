@@ -1,6 +1,7 @@
 import { injectable, inject } from 'tsyringe';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { IProductRepository, ProductSearchParams } from '@/interfaces/repositories';
+import type { IProductRepository } from '@/interfaces';
+import { ProductSearchParams } from '@/interfaces';
 import { Product, ApiResponse, ProductCategory } from '@/types';
 import { TOKENS } from '@/config/di-container';
 

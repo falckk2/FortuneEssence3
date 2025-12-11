@@ -25,18 +25,18 @@ const checkoutSchema = z.object({
     street: z.string().min(1, 'Street address is required'),
     city: z.string().min(1, 'City is required'),
     postalCode: z.string().regex(/^\d{3}\s?\d{2}$/, 'Invalid Swedish postal code'),
-    country: z.string().default('Sweden'),
+    country: z.string().min(1, 'Country is required'),
   }),
   billingAddress: z.object({
     street: z.string().min(1, 'Street address is required'),
     city: z.string().min(1, 'City is required'),
     postalCode: z.string().regex(/^\d{3}\s?\d{2}$/, 'Invalid Swedish postal code'),
-    country: z.string().default('Sweden'),
+    country: z.string().min(1, 'Country is required'),
   }),
   paymentMethod: z.enum(['card', 'swish', 'klarna', 'bank-transfer']),
-  sameAddress: z.boolean().default(true),
-  marketingOptIn: z.boolean().default(false),
-  termsAccepted: z.literal(true, { errorMap: () => ({ message: 'You must accept the terms and conditions' }) }),
+  sameAddress: z.boolean(),
+  marketingOptIn: z.boolean(),
+  termsAccepted: z.literal(true, { message: 'You must accept the terms and conditions' }),
 });
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
@@ -82,6 +82,7 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
         country: 'Sweden',
       },
       sameAddress: true,
+      marketingOptIn: false,
       paymentMethod: 'card',
     },
   });
@@ -197,6 +198,8 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
 
   const getPaymentIcon = (method: PaymentMethod) => {
     switch (method) {
+      case 'stripe':
+        return CreditCardIcon;
       case 'card':
         return CreditCardIcon;
       case 'swish':
@@ -211,7 +214,8 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
   };
 
   const getPaymentMethodName = (method: PaymentMethod) => {
-    const names = {
+    const names: Record<PaymentMethod, string> = {
+      stripe: locale === 'sv' ? 'Kort (Stripe)' : 'Card (Stripe)',
       card: locale === 'sv' ? 'Kort' : 'Card',
       swish: 'Swish',
       klarna: 'Klarna',

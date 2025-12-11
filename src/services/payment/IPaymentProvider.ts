@@ -18,6 +18,7 @@ export interface PaymentResult {
   redirectUrl?: string;
   qrCode?: string;
   deepLink?: string;
+  clientSecret?: string; // Stripe payment intent client secret for frontend
 }
 
 export interface IPaymentProvider {

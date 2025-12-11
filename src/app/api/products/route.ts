@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { container } from '@/config/di-container';
 import { TOKENS } from '@/config/di-container';
-import { IProductService, ProductSearchParams } from '@/interfaces/services';
+import { IProductService, ProductSearchParams } from '@/interfaces';
 import '@/config/di-init'; // Initialize DI container
 
 export async function GET(request: NextRequest) {

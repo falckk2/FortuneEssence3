@@ -1,16 +1,17 @@
 import { injectable, inject } from 'tsyringe';
-import type { ICartService } from '@/interfaces/services';
-import type { ICartRepository, IProductRepository } from '@/interfaces/repositories';
+import type { ICartService, ICartRepository, IProductRepository, IAbandonedCartRepository } from '@/interfaces';
 import type { Cart, CartItem, ApiResponse } from '@/types';
 import { TOKENS } from '@/config/di-container';
 import { PriceCalculator } from '@/utils/helpers';
 import { cartItemSchema } from '@/utils/validation';
+import crypto from 'crypto';
 
 @injectable()
 export class CartService implements ICartService {
   constructor(
     @inject(TOKENS.ICartRepository) private readonly cartRepository: ICartRepository,
-    @inject(TOKENS.IProductRepository) private readonly productRepository: IProductRepository
+    @inject(TOKENS.IProductRepository) private readonly productRepository: IProductRepository,
+    @inject(TOKENS.IAbandonedCartRepository) private readonly abandonedCartRepository: IAbandonedCartRepository
   ) {}
 
   async getCart(userId?: string, sessionId?: string): Promise<ApiResponse<Cart>> {
@@ -46,7 +47,7 @@ export class CartService implements ICartService {
       if (!validation.success) {
         return {
           success: false,
-          error: validation.error.errors.map(err => err.message).join(', '),
+          error: validation.error.issues.map((issue) => issue.message).join(', '),
         };
       }
 
@@ -431,5 +432,191 @@ export class CartService implements ICartService {
       success: false,
       error: 'Method not implemented',
     };
+  }
+
+  // Abandoned Cart Recovery Methods
+
+  async trackAbandonedCart(
+    cartId: string,
+    email: string,
+    customerId?: string,
+    sessionId?: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<ApiResponse<{ abandonedCartId: string; recoveryToken: string }>> {
+    try {
+      // Get cart details
+      const cartResult = await this.getCart(customerId, sessionId);
+      if (!cartResult.success || !cartResult.data) {
+        return {
+          success: false,
+          error: 'Cart not found',
+        };
+      }
+
+      const cart = cartResult.data;
+
+      // Don't track empty carts
+      if (!cart.items || cart.items.length === 0) {
+        return {
+          success: false,
+          error: 'Cannot track empty cart',
+        };
+      }
+
+      // Generate recovery token
+      const recoveryToken = crypto.randomBytes(32).toString('hex');
+
+      // Calculate subtotal (before shipping/tax)
+      const subtotal = await this.calculateTotal(cart.items);
+
+      // Check if cart is already tracked
+      const existingCartResult = await this.abandonedCartRepository.findByCartId(cartId, 'abandoned');
+
+      if (existingCartResult.success && existingCartResult.data) {
+        // Update existing abandoned cart
+        const updateResult = await this.abandonedCartRepository.update(existingCartResult.data.id, {
+          email,
+          items: cart.items,
+          subtotal,
+          total: cart.total,
+          abandonedAt: new Date(),
+        });
+
+        if (!updateResult.success || !updateResult.data) {
+          return {
+            success: false,
+            error: updateResult.error || 'Failed to update abandoned cart',
+          };
+        }
+
+        return {
+          success: true,
+          data: {
+            abandonedCartId: updateResult.data.id,
+            recoveryToken: updateResult.data.recoveryToken,
+          },
+        };
+      } else {
+        // Create new abandoned cart record
+        const createResult = await this.abandonedCartRepository.create({
+          cartId,
+          customerId,
+          email,
+          sessionId,
+          items: cart.items,
+          subtotal,
+          total: cart.total,
+          currency: 'SEK',
+          recoveryToken,
+          abandonedAt: new Date(),
+          status: 'abandoned',
+          reminderCount: 0,
+          ipAddress,
+          userAgent,
+        });
+
+        if (!createResult.success || !createResult.data) {
+          return {
+            success: false,
+            error: createResult.error || 'Failed to track abandoned cart',
+          };
+        }
+
+        return {
+          success: true,
+          data: {
+            abandonedCartId: createResult.data.id,
+            recoveryToken: createResult.data.recoveryToken,
+          },
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to track abandoned cart: ${error}`,
+      };
+    }
+  }
+
+  async getAbandonedCartsForReminder(hoursAbandoned: number = 1, maxReminders: number = 3): Promise<ApiResponse<any[]>> {
+    return this.abandonedCartRepository.findForReminder(hoursAbandoned, maxReminders);
+  }
+
+  async markCartReminded(abandonedCartId: string): Promise<ApiResponse<void>> {
+    try {
+      // Note: The repository method now handles getting the current count and incrementing it
+      // We pass the ID and the repository will fetch the current count, increment it, and update
+      // To do this properly, we need to first get the cart to know the current reminder count
+      const cartResult = await this.abandonedCartRepository.findByCartId(abandonedCartId);
+
+      if (!cartResult.success || !cartResult.data) {
+        return {
+          success: false,
+          error: cartResult.error || 'Cart not found',
+        };
+      }
+
+      const newReminderCount = cartResult.data.reminderCount + 1;
+      return this.abandonedCartRepository.markReminded(abandonedCartId, newReminderCount);
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to mark cart as reminded: ${error}`,
+      };
+    }
+  }
+
+  async markCartRecovered(recoveryToken: string, orderId: string): Promise<ApiResponse<void>> {
+    return this.abandonedCartRepository.markRecovered(recoveryToken, orderId);
+  }
+
+  async recoverAbandonedCart(recoveryToken: string): Promise<ApiResponse<{
+    cartId: string;
+    items: CartItem[];
+    total: number;
+    email: string;
+  }>> {
+    try {
+      const abandonedCartResult = await this.abandonedCartRepository.findByRecoveryToken(recoveryToken);
+
+      if (!abandonedCartResult.success || !abandonedCartResult.data) {
+        return {
+          success: false,
+          error: abandonedCartResult.error || 'Invalid or expired recovery link',
+        };
+      }
+
+      const abandonedCart = abandonedCartResult.data;
+
+      // Check if cart is not too old (e.g., 30 days)
+      const abandonedDate = abandonedCart.abandonedAt;
+      const daysSinceAbandoned = (Date.now() - abandonedDate.getTime()) / (1000 * 60 * 60 * 24);
+
+      if (daysSinceAbandoned > 30) {
+        // Mark as expired
+        await this.abandonedCartRepository.markExpired(abandonedCart.id);
+
+        return {
+          success: false,
+          error: 'Recovery link has expired',
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          cartId: abandonedCart.cartId,
+          items: abandonedCart.items,
+          total: abandonedCart.total,
+          email: abandonedCart.email,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to recover abandoned cart: ${error}`,
+      };
+    }
   }
 }

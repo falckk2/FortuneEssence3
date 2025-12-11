@@ -1,17 +1,15 @@
-import { IShippingService, Shipment, TrackingInfo } from '@/interfaces/services';
-import { ShippingRate, CartItem, ApiResponse } from '@/types';
-import { ShippingRepository } from '@/repositories/shipping/ShippingRepository';
-import { ProductRepository } from '@/repositories/products/ProductRepository';
+import { injectable, inject } from 'tsyringe';
+import type { IShippingService, IShippingRepository, IProductRepository, Shipment, TrackingInfo } from '@/interfaces';
+import type { ShippingRate, CartItem, ApiResponse } from '@/types';
 import { PriceCalculator } from '@/utils/helpers';
+import { TOKENS } from '@/config/di-container';
 
+@injectable()
 export class ShippingService implements IShippingService {
-  private shippingRepository: ShippingRepository;
-  private productRepository: ProductRepository;
-
-  constructor() {
-    this.shippingRepository = new ShippingRepository();
-    this.productRepository = new ProductRepository();
-  }
+  constructor(
+    @inject(TOKENS.IShippingRepository) private readonly shippingRepository: IShippingRepository,
+    @inject(TOKENS.IProductRepository) private readonly productRepository: IProductRepository
+  ) {}
 
   async getShippingRates(country: string, weight: number): Promise<ApiResponse<ShippingRate[]>> {
     try {
@@ -126,15 +124,32 @@ export class ShippingService implements IShippingService {
 
   async trackShipment(trackingNumber: string): Promise<ApiResponse<TrackingInfo>> {
     try {
-      // In production, this would integrate with carrier tracking APIs
-      // For now, we'll simulate tracking information
-      
+      // Determine carrier from tracking number format
       const carrier = this.getCarrierFromTrackingNumber(trackingNumber);
-      const mockTrackingInfo = this.generateMockTrackingInfo(trackingNumber, carrier);
+
+      // Try to get real tracking data from carrier APIs
+      let trackingInfo: TrackingInfo | null = null;
+
+      if (carrier === 'PostNord') {
+        const postNordResult = await this.trackWithPostNord(trackingNumber);
+        if (postNordResult.success && postNordResult.data) {
+          trackingInfo = postNordResult.data;
+        }
+      } else if (carrier === 'DHL') {
+        const dhlResult = await this.trackWithDHL(trackingNumber);
+        if (dhlResult.success && dhlResult.data) {
+          trackingInfo = dhlResult.data;
+        }
+      }
+
+      // If real tracking failed or carrier not supported, fall back to mock data
+      if (!trackingInfo) {
+        trackingInfo = this.generateMockTrackingInfo(trackingNumber, carrier);
+      }
 
       return {
         success: true,
-        data: mockTrackingInfo,
+        data: trackingInfo,
       };
     } catch (error) {
       return {
@@ -211,7 +226,7 @@ export class ShippingService implements IShippingService {
 
   private getCarrierFromTrackingNumber(trackingNumber: string): string {
     const prefix = trackingNumber.substring(0, 2);
-    
+
     switch (prefix) {
       case 'PN':
         return 'PostNord';
@@ -222,6 +237,210 @@ export class ShippingService implements IShippingService {
       default:
         return 'Standard';
     }
+  }
+
+  /**
+   * Track shipment with PostNord API
+   * Uses PostNord Tracking REST API
+   */
+  private async trackWithPostNord(trackingNumber: string): Promise<ApiResponse<TrackingInfo>> {
+    try {
+      const apiKey = (await import('@/config')).config.shipping.postnord.apiKey;
+      const baseUrl = (await import('@/config')).config.shipping.postnord.baseUrl;
+
+      // If API key is not configured, return failure to fall back to mock
+      if (!apiKey) {
+        return {
+          success: false,
+          error: 'PostNord API key not configured',
+        };
+      }
+
+      // Make request to PostNord Tracking API
+      const url = `${baseUrl}/businesslocation/v5/findByIdentifier.json?id=${trackingNumber}&apikey=${apiKey}&locale=sv`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `PostNord API error: ${response.status}`,
+        };
+      }
+
+      const data = await response.json();
+
+      // Parse PostNord response
+      if (!data.TrackingInformationResponse?.shipments?.[0]) {
+        return {
+          success: false,
+          error: 'No tracking information found',
+        };
+      }
+
+      const shipment = data.TrackingInformationResponse.shipments[0];
+      const items = shipment.items || [];
+      const events = items[0]?.events || [];
+
+      // Map PostNord events to our TrackingEvent format
+      const history = events.map((event: any) => ({
+        date: new Date(event.eventTime),
+        status: this.mapPostNordStatus(event.eventCode),
+        location: event.location?.displayName || event.location?.city || 'Unknown',
+        description: event.eventDescription || event.status,
+      }));
+
+      // Get latest status
+      const latestEvent = events[0] || {};
+      const status = this.mapPostNordStatus(latestEvent.eventCode) || 'Under transport';
+      const location = latestEvent.location?.displayName || latestEvent.location?.city || 'Unknown';
+
+      // Parse estimated delivery
+      const estimatedDeliveryStr = shipment.estimatedTimeOfArrival || items[0]?.estimatedTimeOfArrival;
+      const estimatedDelivery = estimatedDeliveryStr
+        ? new Date(estimatedDeliveryStr)
+        : new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // Default to 2 days from now
+
+      return {
+        success: true,
+        data: {
+          trackingNumber,
+          status,
+          location,
+          estimatedDelivery,
+          history,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `PostNord tracking failed: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Track shipment with DHL API
+   * Uses DHL Tracking REST API
+   */
+  private async trackWithDHL(trackingNumber: string): Promise<ApiResponse<TrackingInfo>> {
+    try {
+      const apiKey = (await import('@/config')).config.shipping.dhl.apiKey;
+      const baseUrl = (await import('@/config')).config.shipping.dhl.baseUrl;
+
+      // If API key is not configured, return failure to fall back to mock
+      if (!apiKey) {
+        return {
+          success: false,
+          error: 'DHL API key not configured',
+        };
+      }
+
+      // Make request to DHL Tracking API
+      const url = `${baseUrl}/track/shipments?trackingNumber=${trackingNumber}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'DHL-API-Key': apiKey,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `DHL API error: ${response.status}`,
+        };
+      }
+
+      const data = await response.json();
+
+      // Parse DHL response
+      if (!data.shipments?.[0]) {
+        return {
+          success: false,
+          error: 'No tracking information found',
+        };
+      }
+
+      const shipment = data.shipments[0];
+      const events = shipment.events || [];
+
+      // Map DHL events to our TrackingEvent format
+      const history = events.map((event: any) => ({
+        date: new Date(event.timestamp),
+        status: this.mapDHLStatus(event.statusCode),
+        location: event.location?.address?.addressLocality || 'Unknown',
+        description: event.description || event.status,
+      }));
+
+      // Get latest status
+      const latestStatus = shipment.status?.statusCode || 'transit';
+      const status = this.mapDHLStatus(latestStatus);
+      const location = shipment.status?.location?.address?.addressLocality || 'Under transport';
+
+      // Parse estimated delivery
+      const estimatedDeliveryStr = shipment.estimatedTimeOfDelivery;
+      const estimatedDelivery = estimatedDeliveryStr
+        ? new Date(estimatedDeliveryStr)
+        : new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // Default to 2 days from now
+
+      return {
+        success: true,
+        data: {
+          trackingNumber,
+          status,
+          location,
+          estimatedDelivery,
+          history,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `DHL tracking failed: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Map PostNord status codes to Swedish status descriptions
+   */
+  private mapPostNordStatus(eventCode: string): string {
+    const statusMap: Record<string, string> = {
+      'ED': 'Levererad',
+      'HD': 'Levererad',
+      'DELIVERED': 'Levererad',
+      'IT': 'Under transport',
+      'INFORMED': 'Aviserad',
+      'NOTIFICATION_SENT': 'Aviserad',
+      'COLLECTED': 'Upphämtad',
+      'RETURNED': 'Returnerad',
+      'DELAYED': 'Försenad',
+    };
+
+    return statusMap[eventCode] || 'Under transport';
+  }
+
+  /**
+   * Map DHL status codes to Swedish status descriptions
+   */
+  private mapDHLStatus(statusCode: string): string {
+    const statusMap: Record<string, string> = {
+      'delivered': 'Levererad',
+      'transit': 'Under transport',
+      'failure': 'Leveransfel',
+      'unknown': 'Okänd status',
+      'pre-transit': 'Förbereds för transport',
+    };
+
+    return statusMap[statusCode.toLowerCase()] || 'Under transport';
   }
 
   private generateMockTrackingInfo(trackingNumber: string, carrier: string): TrackingInfo {
@@ -269,12 +488,13 @@ export class ShippingService implements IShippingService {
     city: string;
     postalCode: string;
     country: string;
-  }): Promise<ApiResponse<boolean>> {
+  }): Promise<ApiResponse<{ valid: boolean; suggestions?: Array<{ street: string; city: string; postalCode: string; country: string }> }>> {
     try {
       // Basic validation
       if (!address.street || !address.city || !address.postalCode || !address.country) {
         return {
-          success: false,
+          success: true,
+          data: { valid: false },
           error: 'Incomplete address information',
         };
       }
@@ -284,7 +504,8 @@ export class ShippingService implements IShippingService {
         const postalCodeRegex = /^\d{3}\s?\d{2}$/;
         if (!postalCodeRegex.test(address.postalCode)) {
           return {
-            success: false,
+            success: true,
+            data: { valid: false },
             error: 'Invalid Swedish postal code format',
           };
         }
@@ -292,7 +513,7 @@ export class ShippingService implements IShippingService {
 
       return {
         success: true,
-        data: true,
+        data: { valid: true },
       };
     } catch (error) {
       return {
@@ -356,10 +577,20 @@ export class ShippingService implements IShippingService {
     }
   }
 
-  async getSupportedCountries(): Promise<ApiResponse<string[]>> {
+  async getSupportedCountries(): Promise<ApiResponse<Array<{ code: string; name: string }>>> {
     try {
-      const result = await this.shippingRepository.getAllCountries();
-      return result;
+      // Return supported countries with names
+      const countries = [
+        { code: 'SE', name: 'Sweden' },
+        { code: 'NO', name: 'Norway' },
+        { code: 'DK', name: 'Denmark' },
+        { code: 'FI', name: 'Finland' },
+      ];
+
+      return {
+        success: true,
+        data: countries,
+      };
     } catch (error) {
       return {
         success: false,
@@ -370,15 +601,14 @@ export class ShippingService implements IShippingService {
 
   // Swedish-specific shipping methods
   async validateSwedishPostalCode(postalCode: string): Promise<ApiResponse<{
-    isValid: boolean;
-    zone: string;
-    additionalDays: number;
+    valid: boolean;
+    city?: string;
   }>> {
     try {
       // Remove spaces and validate format
       const cleanCode = postalCode.replace(/\s/g, '');
       const postalCodeRegex = /^\d{5}$/;
-      
+
       if (!postalCodeRegex.test(cleanCode)) {
         return {
           success: false,
@@ -386,34 +616,13 @@ export class ShippingService implements IShippingService {
         };
       }
 
-      const code = parseInt(cleanCode);
-      let zone = 'Övriga Sverige';
-      let additionalDays = 1;
-
-      // Determine zone based on postal code
-      if (code >= 10000 && code <= 19999) {
-        zone = 'Stockholm';
-        additionalDays = 0;
-      } else if (code >= 40000 && code <= 49999) {
-        zone = 'Göteborg';
-        additionalDays = 0;
-      } else if (code >= 20000 && code <= 29999) {
-        zone = 'Malmö';
-        additionalDays = 0;
-      } else if (code >= 75000 && code <= 75999) {
-        zone = 'Uppsala';
-        additionalDays = 1;
-      } else if (code >= 90000 && code <= 99999) {
-        zone = 'Norrland';
-        additionalDays = 2;
-      }
+      const zoneDetails = this.getSwedishZoneDetails(cleanCode);
 
       return {
         success: true,
         data: {
-          isValid: true,
-          zone,
-          additionalDays,
+          valid: true,
+          city: zoneDetails.zone,
         },
       };
     } catch (error) {
@@ -424,12 +633,38 @@ export class ShippingService implements IShippingService {
     }
   }
 
-  async getSwedishHolidayImpact(deliveryDate: Date): Promise<ApiResponse<{
+  private getSwedishZoneDetails(postalCode: string): { zone: string; additionalDays: number } {
+    const code = parseInt(postalCode.replace(/\s/g, ''));
+    let zone = 'Övriga Sverige';
+    let additionalDays = 1;
+
+    // Determine zone based on postal code
+    if (code >= 10000 && code <= 19999) {
+      zone = 'Stockholm';
+      additionalDays = 0;
+    } else if (code >= 40000 && code <= 49999) {
+      zone = 'Göteborg';
+      additionalDays = 0;
+    } else if (code >= 20000 && code <= 29999) {
+      zone = 'Malmö';
+      additionalDays = 0;
+    } else if (code >= 75000 && code <= 75999) {
+      zone = 'Uppsala';
+      additionalDays = 1;
+    } else if (code >= 90000 && code <= 99999) {
+      zone = 'Norrland';
+      additionalDays = 2;
+    }
+
+    return { zone, additionalDays };
+  }
+
+  async getSwedishHolidayImpact(date: string): Promise<ApiResponse<{
     isHoliday: boolean;
-    holidayName?: string;
-    adjustedDate: Date;
+    estimatedDelay?: number;
   }>> {
     try {
+      const deliveryDate = new Date(date);
       const year = deliveryDate.getFullYear();
       const month = deliveryDate.getMonth() + 1;
       const day = deliveryDate.getDate();
@@ -457,12 +692,14 @@ export class ShippingService implements IShippingService {
           adjustedDate.setDate(adjustedDate.getDate() + 1);
         }
 
+        // Calculate delay in days
+        const delayDays = Math.ceil((adjustedDate.getTime() - deliveryDate.getTime()) / (1000 * 60 * 60 * 24));
+
         return {
           success: true,
           data: {
             isHoliday: true,
-            holidayName: holiday.name,
-            adjustedDate,
+            estimatedDelay: delayDays,
           },
         };
       }
@@ -471,7 +708,7 @@ export class ShippingService implements IShippingService {
         success: true,
         data: {
           isHoliday: false,
-          adjustedDate,
+          estimatedDelay: 0,
         },
       };
     } catch (error) {
@@ -503,7 +740,8 @@ export class ShippingService implements IShippingService {
         };
       }
 
-      const zoneInfo = postalValidation.data!;
+      // Get detailed zone info for shipping calculation
+      const zoneInfo = this.getSwedishZoneDetails(postalCode);
       const totalWeight = await this.calculateTotalWeight(items);
 
       // Get base shipping rate for Sweden

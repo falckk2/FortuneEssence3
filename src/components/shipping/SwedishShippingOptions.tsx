@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  TruckIcon, 
-  ClockIcon, 
-  LeafIcon,
+import {
+  TruckIcon,
+  ClockIcon,
+  SparklesIcon,
   MapPinIcon,
-  InformationCircleIcon 
+  InformationCircleIcon
 } from '@heroicons/react/24/outline';
 
 interface ShippingRate {
@@ -283,7 +283,7 @@ export function SwedishShippingOptions({
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <LeafIcon className="w-5 h-5 text-green-600" />
+              <SparklesIcon className="w-5 h-5 text-green-600" />
               <h3 className="text-lg font-semibold text-gray-900">
                 {locale === 'sv' ? 'Miljövänlig leverans' : 'Eco-friendly shipping'}
               </h3>
@@ -320,7 +320,7 @@ export function SwedishShippingOptions({
                     />
                     <div>
                       <div className="flex items-center space-x-2">
-                        <LeafIcon className="w-5 h-5 text-green-600" />
+                        <SparklesIcon className="w-5 h-5 text-green-600" />
                         <span className="font-medium text-gray-900">{ecoOptions.ecoRate.name}</span>
                         <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
                           CO₂-neutral

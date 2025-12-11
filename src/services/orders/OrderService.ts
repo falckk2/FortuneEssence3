@@ -1,14 +1,15 @@
 import { injectable, inject } from 'tsyringe';
-import {
+import type {
   IOrderService,
   ICartService,
   IPaymentService,
   IShippingService,
   IInventoryService,
-  CreateOrderData
-} from '@/interfaces/services';
-import { IOrderRepository } from '@/interfaces/repositories';
-import { Order, ApiResponse, CartItem } from '@/types';
+  IOrderRepository,
+  IProductService
+} from '@/interfaces';
+import { CreateOrderData } from '@/interfaces';
+import { Order, ApiResponse, CartItem, OrderItem } from '@/types';
 import { TOKENS } from '@/config/di-container';
 
 @injectable()
@@ -18,7 +19,8 @@ export class OrderService implements IOrderService {
     @inject(TOKENS.ICartService) private readonly cartService: ICartService,
     @inject(TOKENS.IPaymentService) private readonly paymentService: IPaymentService,
     @inject(TOKENS.IShippingService) private readonly shippingService: IShippingService,
-    @inject(TOKENS.IInventoryService) private readonly inventoryService: IInventoryService
+    @inject(TOKENS.IInventoryService) private readonly inventoryService: IInventoryService,
+    @inject(TOKENS.IProductService) private readonly productService: IProductService
   ) {}
 
   async createOrder(orderData: CreateOrderData): Promise<ApiResponse<Order>> {
@@ -26,7 +28,7 @@ export class OrderService implements IOrderService {
       // Validate cart items and check stock
       const stockValidation = await this.validateOrderStock(orderData.items);
       if (!stockValidation.success) {
-        return stockValidation as ApiResponse<Order>;
+        return { success: false, error: stockValidation.error };
       }
 
       // Calculate totals
@@ -74,10 +76,19 @@ export class OrderService implements IOrderService {
         };
       }
 
+      // Transform CartItems to OrderItems
+      const orderItemsResult = await this.transformCartItemsToOrderItems(orderData.items);
+      if (!orderItemsResult.success) {
+        return {
+          success: false,
+          error: `Failed to prepare order items: ${orderItemsResult.error}`,
+        };
+      }
+
       // Create order
       const order = await this.orderRepository.create({
         customerId: orderData.customerId,
-        items: orderData.items,
+        items: orderItemsResult.data!,
         total: totalAmount,
         tax,
         shipping: shippingCost,
@@ -86,7 +97,7 @@ export class OrderService implements IOrderService {
         billingAddress: orderData.billingAddress,
         paymentMethod: orderData.paymentMethod,
         paymentId: paymentResult.data!.paymentId,
-        trackingNumber: null,
+        trackingNumber: undefined,
       });
 
       if (!order.success) {
@@ -94,6 +105,9 @@ export class OrderService implements IOrderService {
         await this.inventoryService.releaseReservation(stockReservation.data!);
         return order;
       }
+
+      // Mark reservation as completed (order finalized)
+      await this.inventoryService.completeReservation(stockReservation.data!);
 
       // Create shipment if payment was successful
       if (paymentResult.data!.status === 'success') {
@@ -296,6 +310,56 @@ export class OrderService implements IOrderService {
   }
 
   // Private helper methods
+
+  /**
+   * Transforms CartItems to OrderItems by enriching them with product information.
+   * This method fetches product names and calculates item totals.
+   *
+   * @param cartItems - Array of cart items to transform
+   * @returns ApiResponse containing array of OrderItems or error
+   */
+  private async transformCartItemsToOrderItems(cartItems: CartItem[]): Promise<ApiResponse<OrderItem[]>> {
+    try {
+      const orderItems: OrderItem[] = [];
+
+      for (const cartItem of cartItems) {
+        // Fetch product details to get the product name
+        const productResult = await this.productService.getProduct(cartItem.productId);
+
+        if (!productResult.success || !productResult.data) {
+          return {
+            success: false,
+            error: `Product with ID ${cartItem.productId} not found`,
+          };
+        }
+
+        const product = productResult.data;
+
+        // Transform CartItem to OrderItem
+        const orderItem: OrderItem = {
+          productId: cartItem.productId,
+          productName: product.name,
+          quantity: cartItem.quantity,
+          price: cartItem.price,
+          total: cartItem.price * cartItem.quantity,
+        };
+
+        orderItems.push(orderItem);
+      }
+
+      return {
+        success: true,
+        data: orderItems,
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to transform cart items: ${error}`,
+      };
+    }
+  }
+
   private async validateOrderStock(items: CartItem[]): Promise<ApiResponse<boolean>> {
     try {
       for (const item of items) {
@@ -303,7 +367,7 @@ export class OrderService implements IOrderService {
         if (!availability.success || !availability.data) {
           return {
             success: false,
-            error: `Product ${item.name} is not available in requested quantity`,
+            error: `Product is not available in requested quantity`,
           };
         }
       }
@@ -353,7 +417,7 @@ export class OrderService implements IOrderService {
     }
   }
 
-  private calculateOrderWeight(items: CartItem[]): number {
+  private calculateOrderWeight(items: OrderItem[]): number {
     // Simplified weight calculation - would use actual product weights
     return items.reduce((total, item) => total + (item.quantity * 0.5), 0); // 0.5kg per item
   }

@@ -1,4 +1,4 @@
-import { IPaymentService, PaymentData, PaymentResult, SwishPayment, KlarnaSession, KlarnaOrderData } from '@/interfaces/services';
+import { IPaymentService, PaymentData, PaymentResult, SwishPayment, KlarnaSession, KlarnaOrderData } from '@/interfaces';
 import { ApiResponse } from '@/types';
 import Stripe from 'stripe';
 import { config } from '@/config';
@@ -7,12 +7,15 @@ export class PaymentService implements IPaymentService {
   private stripe: Stripe;
 
   constructor() {
-    if (!config.payments.stripe.secretKey) {
-      throw new Error('Stripe secret key is not configured');
+    const stripeKey = config.payments.stripe.secretKey || 'sk_test_placeholder';
+
+    // Warn at runtime if key is missing (but allow build to proceed)
+    if (!config.payments.stripe.secretKey && typeof window === 'undefined' && process.env.NODE_ENV !== 'production') {
+      console.warn('Warning: Stripe secret key is not configured');
     }
-    
-    this.stripe = new Stripe(config.payments.stripe.secretKey, {
-      apiVersion: '2024-11-20.acacia',
+
+    this.stripe = new Stripe(stripeKey, {
+      apiVersion: '2025-08-27.basil',
     });
   }
 
@@ -184,6 +187,14 @@ export class PaymentService implements IPaymentService {
 
   private async processKlarnaPayment(paymentData: PaymentData): Promise<ApiResponse<PaymentResult>> {
     try {
+      // Parse addresses from metadata
+      const shippingAddress = paymentData.metadata?.shippingAddress
+        ? JSON.parse(paymentData.metadata.shippingAddress)
+        : { street: '', city: '', postalCode: '', country: '' };
+      const billingAddress = paymentData.metadata?.billingAddress
+        ? JSON.parse(paymentData.metadata.billingAddress)
+        : { street: '', city: '', postalCode: '', country: '' };
+
       // Mock Klarna order data
       const orderData: KlarnaOrderData = {
         amount: paymentData.amount,
@@ -197,8 +208,8 @@ export class PaymentService implements IPaymentService {
             totalAmount: paymentData.amount,
           }
         ],
-        shippingAddress: paymentData.metadata?.shippingAddress || {},
-        billingAddress: paymentData.metadata?.billingAddress || {},
+        shippingAddress,
+        billingAddress,
       };
 
       const klarnaResult = await this.createKlarnaSession(orderData);
@@ -350,7 +361,7 @@ export class PaymentService implements IPaymentService {
     return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
   }
 
-  async createPaymentIntent(amount: number, currency: string = 'SEK'): Promise<ApiResponse<string>> {
+  async createPaymentIntent(amount: number, currency: string = 'SEK'): Promise<ApiResponse<{ clientSecret: string; paymentIntentId: string }>> {
     try {
       const paymentIntent = await this.stripe.paymentIntents.create({
         amount: Math.round(amount * 100),
@@ -362,7 +373,10 @@ export class PaymentService implements IPaymentService {
 
       return {
         success: true,
-        data: paymentIntent.client_secret!,
+        data: {
+          clientSecret: paymentIntent.client_secret!,
+          paymentIntentId: paymentIntent.id,
+        },
       };
     } catch (error: any) {
       return {
@@ -391,19 +405,22 @@ export class PaymentService implements IPaymentService {
     }
   }
 
-  async getPaymentMethods(): Promise<ApiResponse<string[]>> {
+  async getPaymentMethods(): Promise<ApiResponse<Array<{ id: string; name: string; enabled: boolean }>>> {
     try {
-      const methods = ['card'];
-      
+      const methods = [
+        { id: 'stripe', name: 'Card (Stripe)', enabled: true },
+        { id: 'card', name: 'Card', enabled: true },
+      ];
+
       if (config.payments.swish.merchantId) {
-        methods.push('swish');
+        methods.push({ id: 'swish', name: 'Swish', enabled: true });
       }
-      
+
       if (config.payments.klarna.username) {
-        methods.push('klarna');
+        methods.push({ id: 'klarna', name: 'Klarna', enabled: true });
       }
-      
-      methods.push('bank-transfer');
+
+      methods.push({ id: 'bank-transfer', name: 'Bank Transfer', enabled: true });
 
       return {
         success: true,

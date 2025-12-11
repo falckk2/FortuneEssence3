@@ -1,4 +1,4 @@
-import { IGDPRService, UserData, ConsentData, UserPreferences } from '@/interfaces/services';
+import { IGDPRService, UserData, ConsentData, UserPreferences } from '@/interfaces';
 import { Customer, Order, ApiResponse } from '@/types';
 import { supabase } from '@/lib/supabase/client';
 
@@ -63,6 +63,8 @@ export class GDPRService implements IGDPRService {
         lastName: customer.last_name,
         phone: customer.phone,
         dateOfBirth: customer.date_of_birth ? new Date(customer.date_of_birth) : undefined,
+        address: customer.address || { street: '', city: '', postalCode: '', country: '' },
+        consentGiven: customer.consent_given || false,
         marketingOptIn: customer.marketing_opt_in,
         createdAt: new Date(customer.created_at),
         updatedAt: new Date(customer.updated_at),
@@ -73,26 +75,21 @@ export class GDPRService implements IGDPRService {
         id: order.id,
         customerId: order.customer_id,
         items: order.order_items.map((item: any) => ({
-          id: item.id,
           productId: item.products.id,
-          name: item.products.name,
-          nameSwedish: item.products.name_sv,
+          productName: item.products.name,
           quantity: item.quantity,
           price: item.price,
-          sku: item.products.sku,
+          total: item.price * item.quantity,
         })),
         status: order.status,
-        subtotal: order.subtotal,
         tax: order.tax,
-        shippingCost: order.shipping_cost,
-        totalAmount: order.total_amount,
+        shipping: order.shipping_cost || 0,
+        total: order.total_amount,
         paymentMethod: order.payment_method,
         paymentId: order.payment_id,
-        paymentStatus: order.payment_status,
         shippingAddress: order.shipping_address,
         billingAddress: order.billing_address,
         trackingNumber: order.tracking_number,
-        estimatedDelivery: order.estimated_delivery ? new Date(order.estimated_delivery) : undefined,
         createdAt: new Date(order.created_at),
         updatedAt: new Date(order.updated_at),
       }));
@@ -132,17 +129,28 @@ export class GDPRService implements IGDPRService {
       await this.logGDPRActivity(userId, 'data_deletion', 'User requested account deletion');
 
       // Delete user data in the correct order to maintain referential integrity
-      
-      // 1. Delete order items first
-      const { error: orderItemsError } = await supabase
-        .from('order_items')
-        .delete()
-        .in('order_id', 
-          supabase.from('orders').select('id').eq('customer_id', userId)
-        );
 
-      if (orderItemsError && orderItemsError.code !== 'PGRST116') { // PGRST116 = no rows found
-        throw new Error(`Failed to delete order items: ${orderItemsError.message}`);
+      // 1. Get order IDs for this user
+      const { data: userOrders, error: ordersQueryError } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('customer_id', userId);
+
+      if (ordersQueryError && ordersQueryError.code !== 'PGRST116') {
+        throw new Error(`Failed to query orders: ${ordersQueryError.message}`);
+      }
+
+      // 2. Delete order items first (if there are any orders)
+      if (userOrders && userOrders.length > 0) {
+        const orderIds = userOrders.map(o => o.id);
+        const { error: orderItemsError } = await supabase
+          .from('order_items')
+          .delete()
+          .in('order_id', orderIds);
+
+        if (orderItemsError && orderItemsError.code !== 'PGRST116') {
+          throw new Error(`Failed to delete order items: ${orderItemsError.message}`);
+        }
       }
 
       // 2. Delete orders
@@ -155,16 +163,27 @@ export class GDPRService implements IGDPRService {
         throw new Error(`Failed to delete orders: ${ordersError.message}`);
       }
 
-      // 3. Delete cart items
-      const { error: cartItemsError } = await supabase
-        .from('cart_items')
-        .delete()
-        .in('cart_id',
-          supabase.from('carts').select('id').eq('customer_id', userId)
-        );
+      // 3. Get cart IDs for this user
+      const { data: userCarts, error: cartsQueryError } = await supabase
+        .from('carts')
+        .select('id')
+        .eq('customer_id', userId);
 
-      if (cartItemsError && cartItemsError.code !== 'PGRST116') {
-        throw new Error(`Failed to delete cart items: ${cartItemsError.message}`);
+      if (cartsQueryError && cartsQueryError.code !== 'PGRST116') {
+        throw new Error(`Failed to query carts: ${cartsQueryError.message}`);
+      }
+
+      // 4. Delete cart items (if there are any carts)
+      if (userCarts && userCarts.length > 0) {
+        const cartIds = userCarts.map(c => c.id);
+        const { error: cartItemsError } = await supabase
+          .from('cart_items')
+          .delete()
+          .in('cart_id', cartIds);
+
+        if (cartItemsError && cartItemsError.code !== 'PGRST116') {
+          throw new Error(`Failed to delete cart items: ${cartItemsError.message}`);
+        }
       }
 
       // 4. Delete carts
@@ -325,41 +344,35 @@ export class GDPRService implements IGDPRService {
   // Additional GDPR utility methods
 
   async getDataProcessingPurposes(): Promise<ApiResponse<Array<{
-    purpose: string;
+    id: string;
+    name: string;
     description: string;
-    legalBasis: string;
-    dataTypes: string[];
   }>>> {
     const purposes = [
       {
-        purpose: 'Order Processing',
-        description: 'Processing customer orders and payments',
-        legalBasis: 'Contract Performance',
-        dataTypes: ['Name', 'Email', 'Address', 'Payment Information'],
+        id: 'order-processing',
+        name: 'Order Processing',
+        description: 'Processing customer orders and payments (Legal basis: Contract Performance)',
       },
       {
-        purpose: 'Customer Service',
-        description: 'Providing customer support and handling inquiries',
-        legalBasis: 'Legitimate Interest',
-        dataTypes: ['Name', 'Email', 'Order History'],
+        id: 'customer-service',
+        name: 'Customer Service',
+        description: 'Providing customer support and handling inquiries (Legal basis: Legitimate Interest)',
       },
       {
-        purpose: 'Marketing Communications',
-        description: 'Sending promotional emails and newsletters',
-        legalBasis: 'Consent',
-        dataTypes: ['Name', 'Email', 'Purchase History'],
+        id: 'marketing',
+        name: 'Marketing Communications',
+        description: 'Sending promotional emails and newsletters (Legal basis: Consent)',
       },
       {
-        purpose: 'Analytics',
-        description: 'Understanding website usage and improving services',
-        legalBasis: 'Consent',
-        dataTypes: ['Usage Data', 'Device Information'],
+        id: 'analytics',
+        name: 'Analytics',
+        description: 'Understanding website usage and improving services (Legal basis: Consent)',
       },
       {
-        purpose: 'Legal Compliance',
-        description: 'Meeting tax and regulatory requirements',
-        legalBasis: 'Legal Obligation',
-        dataTypes: ['Transaction Records', 'Tax Information'],
+        id: 'legal-compliance',
+        name: 'Legal Compliance',
+        description: 'Meeting tax and regulatory requirements (Legal basis: Legal Obligation)',
       },
     ];
 
@@ -446,10 +459,9 @@ export class GDPRService implements IGDPRService {
   }
 
   async getGDPRActivityLog(userId: string): Promise<ApiResponse<Array<{
-    id: string;
-    activity: string;
-    description: string;
-    timestamp: Date;
+    action: string;
+    timestamp: string;
+    details: string;
   }>>> {
     try {
       const { data: activities, error } = await supabase
@@ -467,10 +479,9 @@ export class GDPRService implements IGDPRService {
       }
 
       const transformedActivities = activities.map(activity => ({
-        id: activity.id,
-        activity: activity.activity,
-        description: activity.description,
-        timestamp: new Date(activity.created_at),
+        action: activity.activity,
+        timestamp: new Date(activity.created_at).toISOString(),
+        details: activity.description,
       }));
 
       return {
@@ -523,8 +534,8 @@ export class GDPRService implements IGDPRService {
     csv += 'Orders\n';
     csv += 'Order ID,Status,Total Amount,Created At,Items\n';
     userData.orders.forEach(order => {
-      const items = order.items.map(item => `${item.name} (${item.quantity}x)`).join('; ');
-      csv += `${order.id},${order.status},${order.totalAmount},${order.createdAt},${items}\n`;
+      const items = order.items.map(item => `${item.productName} (${item.quantity}x)`).join('; ');
+      csv += `${order.id},${order.status},${order.total},${order.createdAt},${items}\n`;
     });
     csv += '\n';
 

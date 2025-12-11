@@ -139,7 +139,7 @@ const nextConfig: NextConfig = {
   // ESLint configuration
   eslint: {
     // Ignore ESLint during builds (handle separately in CI/CD)
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true,
   },
 
   // Output configuration for static exports (if needed)

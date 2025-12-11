@@ -18,6 +18,12 @@ interface HeaderProps {
   locale?: 'sv' | 'en';
 }
 
+interface NavigationItem {
+  name: string;
+  href: string;
+  children?: NavigationItem[];
+}
+
 export const Header = ({ locale = 'sv' }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,7 +31,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
   const { user, isAuthenticated, signOut } = useAuth();
   const { getItemCount } = useWishlistStore();
 
-  const navigationItems = [
+  const navigationItems: NavigationItem[] = [
     {
       name: locale === 'sv' ? 'Hem' : 'Home',
       href: '/',

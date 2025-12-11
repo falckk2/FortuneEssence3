@@ -2,9 +2,11 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import { useState, useCallback } from 'react';
 import { Customer, ApiResponse } from '@/types';
 import { AuthService } from '@/services/auth/AuthService';
-import { SignUpData } from '@/interfaces/services';
+import { EmailService } from '@/services/email/EmailService';
+import { SignUpData } from '@/interfaces';
 
-const authService = new AuthService();
+const emailService = new EmailService();
+const authService = new AuthService(emailService);
 
 export interface UseAuthResult {
   user: Customer | null;

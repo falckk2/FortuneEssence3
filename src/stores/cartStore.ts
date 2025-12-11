@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { CartItem } from '@/types';
 import { LocalStorageHelper } from '@/utils/helpers';
 
@@ -142,18 +142,7 @@ export const useCartStore = create<CartStore>()(
     }),
     {
       name: 'fortune-essence-cart',
-      getStorage: () => ({
-        getItem: (name) => {
-          const item = LocalStorageHelper.getItem(name);
-          return item ? JSON.stringify(item) : null;
-        },
-        setItem: (name, value) => {
-          LocalStorageHelper.setItem(name, JSON.parse(value));
-        },
-        removeItem: (name) => {
-          LocalStorageHelper.removeItem(name);
-        },
-      }),
+      storage: typeof window !== 'undefined' ? createJSONStorage(() => localStorage) : undefined,
     }
   )
 );

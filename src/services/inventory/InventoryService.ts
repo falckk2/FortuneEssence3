@@ -1,4 +1,4 @@
-import { IInventoryService } from '@/interfaces/services';
+import { IInventoryService } from '@/interfaces';
 import { Product, CartItem, ApiResponse } from '@/types';
 import { supabase } from '@/lib/supabase/client';
 
@@ -41,29 +41,52 @@ export class InventoryService implements IInventoryService {
     }
   }
 
-  async reserveStock(items: CartItem[]): Promise<ApiResponse<string>> {
+  async reserveStock(items: CartItem[], customerId?: string, sessionId?: string): Promise<ApiResponse<string>> {
     try {
-      // In a production system, this would create actual stock reservations
-      // For now, we'll just verify availability and return a mock reservation ID
-      
+      // First, verify all items are available
       for (const item of items) {
         const availabilityResult = await this.checkAvailability(item.productId, item.quantity);
-        
+
         if (!availabilityResult.success || !availabilityResult.data) {
           return {
             success: false,
-            error: `Product ${item.name} is not available in requested quantity`,
+            error: `Product ${item.productId} is not available in requested quantity`,
           };
         }
       }
 
-      // Generate mock reservation ID
-      const reservationId = `reservation_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      // Generate unique reservation ID
+      const reservationId = `RSV_${Date.now()}_${Math.random().toString(36).substring(7).toUpperCase()}`;
 
-      // In production, you would:
-      // 1. Create reservation records in the database
-      // 2. Temporarily reduce available stock
-      // 3. Set expiration timers for reservations
+      // Set expiration time (15 minutes from now)
+      const expiresAt = new Date();
+      expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
+      // Create reservation records for each item
+      const reservationRecords = items.map(item => ({
+        reservation_id: reservationId,
+        product_id: item.productId,
+        quantity: item.quantity,
+        customer_id: customerId || null,
+        session_id: sessionId || null,
+        status: 'active',
+        expires_at: expiresAt.toISOString(),
+      }));
+
+      const { error: insertError } = await supabase
+        .from('stock_reservations')
+        .insert(reservationRecords);
+
+      if (insertError) {
+        console.error('Failed to create stock reservations:', insertError);
+        return {
+          success: false,
+          error: `Failed to reserve stock: ${insertError.message}`,
+        };
+      }
+
+      // Log the reservation
+      console.log(`Stock reserved: ${reservationId} for ${items.length} items, expires at ${expiresAt.toISOString()}`);
 
       return {
         success: true,
@@ -80,12 +103,25 @@ export class InventoryService implements IInventoryService {
 
   async releaseReservation(reservationId: string): Promise<ApiResponse<void>> {
     try {
-      // In production, this would:
-      // 1. Find the reservation record
-      // 2. Release the reserved stock back to available inventory
-      // 3. Delete the reservation record
+      // Update reservation status to cancelled instead of deleting (for audit trail)
+      const { error: updateError } = await supabase
+        .from('stock_reservations')
+        .update({
+          status: 'cancelled',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('reservation_id', reservationId)
+        .eq('status', 'active');
 
-      console.log(`Releasing reservation: ${reservationId}`);
+      if (updateError) {
+        console.error('Failed to release reservation:', updateError);
+        return {
+          success: false,
+          error: `Failed to release reservation: ${updateError.message}`,
+        };
+      }
+
+      console.log(`Reservation released: ${reservationId}`);
 
       return {
         success: true,
@@ -176,23 +212,25 @@ export class InventoryService implements IInventoryService {
       const transformedProducts: Product[] = products.map(product => ({
         id: product.id,
         name: product.name,
-        nameSwedish: product.name_sv,
         description: product.description,
-        descriptionSwedish: product.description_sv,
         price: product.price,
-        compareAtPrice: product.compare_at_price,
-        costPrice: product.cost_price,
-        sku: product.sku,
         category: product.category,
-        subcategory: product.subcategory,
-        tags: product.tags || [],
-        imageUrl: product.image_url,
         images: product.images || [],
-        inStock: product.stock_quantity > 0,
-        stockQuantity: product.stock_quantity,
-        weight: product.weight,
-        status: product.status,
-        featured: product.featured,
+        stock: product.stock_quantity,
+        sku: product.sku,
+        weight: product.weight || 0,
+        dimensions: product.dimensions || { length: 0, width: 0, height: 0 },
+        isActive: product.status === 'active',
+        translations: {
+          sv: {
+            name: product.name_sv || product.name,
+            description: product.description_sv || product.description,
+          },
+          en: {
+            name: product.name,
+            description: product.description,
+          },
+        },
         createdAt: new Date(product.created_at),
         updatedAt: new Date(product.updated_at),
       }));
@@ -422,6 +460,128 @@ export class InventoryService implements IInventoryService {
       return {
         success: false,
         error: `Failed to adjust stock: ${error}`,
+      };
+    }
+  }
+
+  async completeReservation(reservationId: string): Promise<ApiResponse<void>> {
+    try {
+      // Mark reservation as completed (order was finalized)
+      const { error: updateError } = await supabase
+        .from('stock_reservations')
+        .update({
+          status: 'completed',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('reservation_id', reservationId)
+        .eq('status', 'active');
+
+      if (updateError) {
+        console.error('Failed to complete reservation:', updateError);
+        return {
+          success: false,
+          error: `Failed to complete reservation: ${updateError.message}`,
+        };
+      }
+
+      console.log(`Reservation completed: ${reservationId}`);
+
+      return {
+        success: true,
+        data: undefined,
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to complete reservation: ${error}`,
+      };
+    }
+  }
+
+  async cleanupExpiredReservations(): Promise<ApiResponse<{ expiredCount: number }>> {
+    try {
+      // Find and expire reservations past their expiration time
+      const { data: expiredReservations, error: selectError } = await supabase
+        .from('stock_reservations')
+        .select('id')
+        .eq('status', 'active')
+        .lt('expires_at', new Date().toISOString());
+
+      if (selectError) {
+        console.error('Failed to fetch expired reservations:', selectError);
+        return {
+          success: false,
+          error: `Failed to cleanup expired reservations: ${selectError.message}`,
+        };
+      }
+
+      const expiredCount = expiredReservations?.length || 0;
+
+      if (expiredCount > 0) {
+        // Update status to expired
+        const { error: updateError } = await supabase
+          .from('stock_reservations')
+          .update({
+            status: 'expired',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('status', 'active')
+          .lt('expires_at', new Date().toISOString());
+
+        if (updateError) {
+          console.error('Failed to expire reservations:', updateError);
+          return {
+            success: false,
+            error: `Failed to expire reservations: ${updateError.message}`,
+          };
+        }
+
+        console.log(`Expired ${expiredCount} stock reservations`);
+      }
+
+      return {
+        success: true,
+        data: { expiredCount },
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to cleanup expired reservations: ${error}`,
+      };
+    }
+  }
+
+  async getActiveReservations(productId: string): Promise<ApiResponse<number>> {
+    try {
+      // Get total quantity of active reservations for a product
+      const { data: reservations, error } = await supabase
+        .from('stock_reservations')
+        .select('quantity')
+        .eq('product_id', productId)
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString());
+
+      if (error) {
+        console.error('Failed to get active reservations:', error);
+        return {
+          success: false,
+          error: `Failed to get active reservations: ${error.message}`,
+        };
+      }
+
+      const totalReserved = reservations?.reduce((sum, r) => sum + r.quantity, 0) || 0;
+
+      return {
+        success: true,
+        data: totalReserved,
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get active reservations: ${error}`,
       };
     }
   }

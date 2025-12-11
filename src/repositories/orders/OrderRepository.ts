@@ -1,4 +1,4 @@
-import { IOrderRepository } from '@/interfaces/repositories';
+import { IOrderRepository } from '@/interfaces';
 import { Order, ApiResponse, OrderStatus, PaymentMethod } from '@/types';
 import { supabase } from '@/lib/supabase';
 

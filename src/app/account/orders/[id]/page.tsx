@@ -15,6 +15,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 interface Address {
+  firstName?: string;
+  lastName?: string;
   street: string;
   city: string;
   postalCode: string;

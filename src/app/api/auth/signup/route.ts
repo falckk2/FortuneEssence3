@@ -1,8 +1,10 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService } from '@/services/auth/AuthService';
+import { IAuthService } from '@/interfaces';
+import { container, TOKENS } from '@/config/di-container';
 import { signUpSchema } from '@/utils/validation';
 
-const authService = new AuthService();
+const authService = container.resolve<IAuthService>(TOKENS.IAuthService);
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: validation.error.errors.map(err => err.message).join(', '),
+          error: validation.error.issues.map((issue) => issue.message).join(', '),
         },
         { status: 400 }
       );

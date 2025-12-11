@@ -212,7 +212,8 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
                 </a>
               </div>
             </div>
-            <div className="flex items-start gap-3">
+            {/* Phone section commented out - no company phone yet */}
+            {/* <div className="flex items-start gap-3">
               <PhoneIcon className="h-6 w-6 text-sage-500 flex-shrink-0 mt-1" />
               <div>
                 <p className="text-sm font-medium text-white mb-1">
@@ -222,7 +223,7 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
                   +46 12 345 67 89
                 </a>
               </div>
-            </div>
+            </div> */}
             <div className="flex items-start gap-3">
               <MapPinIcon className="h-6 w-6 text-sage-500 flex-shrink-0 mt-1" />
               <div>

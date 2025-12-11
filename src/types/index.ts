@@ -48,6 +48,7 @@ export interface CartItem {
 export interface Cart {
   id: string;
   userId?: string;
+  sessionId?: string;
   items: CartItem[];
   total: number;
   createdAt: Date;
@@ -60,6 +61,7 @@ export interface Customer {
   firstName: string;
   lastName: string;
   phone?: string;
+  dateOfBirth?: Date;
   address: Address;
   createdAt: Date;
   updatedAt: Date;
@@ -68,6 +70,8 @@ export interface Customer {
 }
 
 export interface Address {
+  firstName?: string;
+  lastName?: string;
   street: string;
   city: string;
   postalCode: string;
@@ -108,7 +112,8 @@ export type OrderStatus =
   | 'delivered'
   | 'cancelled';
 
-export type PaymentMethod = 
+export type PaymentMethod =
+  | 'stripe'
   | 'swish'
   | 'klarna'
   | 'card'
@@ -130,6 +135,52 @@ export interface InventoryItem {
   reservedQuantity: number;
   reorderLevel: number;
   lastUpdated: Date;
+}
+
+export interface AbandonedCart {
+  id: string;
+  cartId: string;
+  customerId?: string;
+  email: string;
+  sessionId?: string;
+  items: CartItem[];
+  subtotal: number;
+  total: number;
+  currency: string;
+  recoveryToken: string;
+  abandonedAt: Date;
+  remindedAt?: Date;
+  recoveredAt?: Date;
+  recoveryOrderId?: string;
+  reminderCount: number;
+  status: AbandonedCartStatus;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type AbandonedCartStatus =
+  | 'abandoned'
+  | 'reminded'
+  | 'recovered'
+  | 'expired';
+
+export interface AbandonedCartCreateData {
+  cartId: string;
+  customerId?: string;
+  email: string;
+  sessionId?: string;
+  items: CartItem[];
+  subtotal: number;
+  total: number;
+  currency: string;
+  recoveryToken: string;
+  abandonedAt: Date;
+  status: AbandonedCartStatus;
+  reminderCount: number;
+  ipAddress?: string;
+  userAgent?: string;
 }
 
 export type Locale = 'en' | 'sv';

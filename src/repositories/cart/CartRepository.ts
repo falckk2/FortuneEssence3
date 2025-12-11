@@ -1,9 +1,36 @@
-import { ICartRepository } from '@/interfaces/repositories';
+import { ICartRepository } from '@/interfaces';
 import { Cart, ApiResponse } from '@/types';
 import { supabase } from '@/lib/supabase';
 
 export class CartRepository implements ICartRepository {
   private readonly tableName = 'carts';
+
+  async findById(id: string): Promise<ApiResponse<Cart>> {
+    try {
+      const { data, error } = await supabase
+        .from(this.tableName)
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      return {
+        success: true,
+        data: this.transformDbRecord(data),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to find cart: ${error}`,
+      };
+    }
+  }
 
   async findByUserId(userId: string): Promise<ApiResponse<Cart>> {
     try {

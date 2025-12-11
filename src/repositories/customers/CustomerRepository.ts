@@ -1,4 +1,4 @@
-import { ICustomerRepository } from '@/interfaces/repositories';
+import { ICustomerRepository } from '@/interfaces';
 import { Customer, ApiResponse } from '@/types';
 import { supabase } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';

@@ -19,7 +19,18 @@
       "Bash(npm run build:*)",
       "Bash(findstr:*)",
       "Bash(rm:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npm audit:*)",
+      "Bash(npx tsc:*)",
+      "Bash(tasklist:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(test:*)",
+      "Bash(cat:*)",
+      "Bash(npm test:*)",
+      "Bash(cmd /c dir /b)",
+      "Bash(git init:*)",
+      "Bash(git commit:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

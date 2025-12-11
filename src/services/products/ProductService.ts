@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
-import { IProductService, ProductSearchParams } from '@/interfaces/services';
-import { IProductRepository } from '@/interfaces/repositories';
+import type { IProductService, IProductRepository } from '@/interfaces';
+import { ProductSearchParams } from '@/interfaces';
 import { Product, ApiResponse } from '@/types';
 import { TOKENS } from '@/config/di-container';
 import { CategoryService } from '@/config/categories';

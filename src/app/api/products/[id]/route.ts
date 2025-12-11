@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { container, TOKENS } from '@/config/di-container';
-import { IProductService } from '@/interfaces/services';
+import { IProductService } from '@/interfaces';
 import '@/config/di-init';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const productService = container.resolve<IProductService>(TOKENS.IProductService);
     const { searchParams } = new URL(request.url);
     const locale = (searchParams.get('locale') as 'sv' | 'en') || 'sv';
+    const { id } = await params;
 
-    const result = await productService.getProductWithLocalization(params.id, locale);
+    const result = await productService.getProductWithLocalization(id, locale);
 
     if (!result.success) {
       return NextResponse.json(

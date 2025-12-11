@@ -1,7 +1,9 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { ProductService } from '@/services/products/ProductService';
+import { IProductService } from '@/interfaces';
+import { container, TOKENS } from '@/config/di-container';
 
-const productService = new ProductService();
+const productService = container.resolve<IProductService>(TOKENS.IProductService);
 
 export async function GET(request: NextRequest) {
   try {

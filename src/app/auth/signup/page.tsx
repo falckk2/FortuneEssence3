@@ -86,6 +86,7 @@ export default function SignUpPage() {
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
+        marketingOptIn: formData.newsletter,
       });
       router.push('/');
     } catch (err) {

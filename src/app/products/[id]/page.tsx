@@ -38,7 +38,7 @@ export default function ProductDetailPage() {
   const { addItem, isLoading: cartLoading } = useCartStore();
   const { items: wishlistItems, addItem: addToWishlist, removeItem: removeFromWishlist } = useWishlistStore();
 
-  const isInWishlist = wishlistItems.some(item => item.id === productId);
+  const isInWishlist = wishlistItems.some(item => item.productId === productId);
 
   useEffect(() => {
     const fetchProductData = async () => {
@@ -129,7 +129,7 @@ export default function ProductDetailPage() {
       removeFromWishlist(productId);
       toast.success(locale === 'sv' ? 'Borttagen från önskelista' : 'Removed from wishlist');
     } else {
-      addToWishlist(product);
+      addToWishlist({ productId: product.id, addedAt: new Date() });
       toast.success(locale === 'sv' ? 'Tillagd i önskelista' : 'Added to wishlist');
     }
   };
@@ -192,12 +192,12 @@ export default function ProductDetailPage() {
     const relatedProduct = relatedProducts.find(p => p.id === relatedProductId);
     if (!relatedProduct) return;
 
-    const inWishlist = wishlistItems.some(item => item.id === relatedProductId);
+    const inWishlist = wishlistItems.some(item => item.productId === relatedProductId);
     if (inWishlist) {
       removeFromWishlist(relatedProductId);
       toast.success(locale === 'sv' ? 'Borttagen från önskelista' : 'Removed from wishlist');
     } else {
-      addToWishlist(relatedProduct);
+      addToWishlist({ productId: relatedProduct.id, addedAt: new Date() });
       toast.success(locale === 'sv' ? 'Tillagd i önskelista' : 'Added to wishlist');
     }
   };
@@ -455,9 +455,6 @@ export default function ProductDetailPage() {
             <ProductGrid
               products={relatedProducts}
               locale={locale}
-              onAddToCart={handleAddToCartFromRelated}
-              onToggleWishlist={handleToggleWishlistFromRelated}
-              wishlistItems={wishlistItems}
             />
           </div>
         )}

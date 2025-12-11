@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { container, TOKENS } from '@/config/di-container';
-import { ICartService } from '@/interfaces/services';
+import { ICartService } from '@/interfaces';
 import { SessionHelper } from '@/utils/helpers';
 import '@/config/di-init';
 

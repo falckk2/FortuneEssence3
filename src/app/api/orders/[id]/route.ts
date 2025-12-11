@@ -1,15 +1,18 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { OrderService } from '@/services/orders/OrderService';
+import { authOptions } from '@/lib/auth';
+import { IOrderService } from '@/interfaces';
+import { container, TOKENS } from '@/config/di-container';
 
-const orderService = new OrderService();
+const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -21,8 +24,7 @@ export async function GET(
       );
     }
 
-    const orderId = params.id;
-    const result = await orderService.getOrder(orderId);
+    const result = await orderService.getOrder(id);
 
     if (!result.success) {
       return NextResponse.json(
@@ -64,9 +66,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -78,7 +81,7 @@ export async function PATCH(
       );
     }
 
-    const orderId = params.id;
+    const orderId = id;
     const body = await request.json();
     const { status } = body;
 

@@ -1,4 +1,4 @@
-import { IShippingRepository } from '@/interfaces/repositories';
+import { IShippingRepository } from '@/interfaces';
 import { ShippingRate, ApiResponse } from '@/types';
 import { supabase } from '@/lib/supabase';
 
@@ -322,9 +322,12 @@ export class ShippingRepository implements IShippingRepository {
   async validateShippingToAddress(country: string, weight: number): Promise<ApiResponse<boolean>> {
     try {
       const ratesResult = await this.findRatesByCountry(country);
-      
+
       if (!ratesResult.success) {
-        return ratesResult;
+        return {
+          success: false,
+          error: ratesResult.error,
+        };
       }
 
       const rates = ratesResult.data!;

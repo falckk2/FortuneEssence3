@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
-
-// This would integrate with your database
-// For now, this is a basic implementation structure
+import { container } from '@/config/di-container';
+import { TOKENS } from '@/config/di-container';
+import type { IAuthService } from '@/interfaces';
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,43 +30,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Implement the following:
-    // 1. Find user by reset token
-    // 2. Check if token is valid and not expired
-    // 3. Hash the new password
-    // 4. Update user's password in database
-    // 5. Invalidate/delete the reset token
-    // 6. Send confirmation email
+    // Get AuthService from DI container
+    const authService = container.resolve<IAuthService>(TOKENS.IAuthService);
 
-    // Example implementation outline:
-    /*
-    const resetRecord = await findPasswordResetToken(token);
+    // Complete password reset
+    const result = await authService.completePasswordReset(token, password);
 
-    if (!resetRecord || resetRecord.expiresAt < new Date()) {
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, error: 'Invalid or expired reset token' },
+        { success: false, error: result.error || 'Failed to reset password' },
         { status: 400 }
       );
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await updateUserPassword(resetRecord.userId, hashedPassword);
-    await deletePasswordResetToken(token);
-
-    await sendEmail({
-      to: resetRecord.userEmail,
-      subject: 'Ditt lösenord har återställts - Fortune Essence',
-      template: 'password-reset-confirmation',
-      data: {
-        timestamp: new Date().toLocaleString('sv-SE')
-      }
-    });
-    */
-
-    // For now, return success (in production, this would actually update the database)
-    console.log(`Password reset processed for token: ${token.substring(0, 10)}...`);
-    console.log(`New password would be hashed and stored in database`);
 
     return NextResponse.json({
       success: true,

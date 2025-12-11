@@ -8,8 +8,8 @@ export const config = {
   
   database: {
     url: process.env.DATABASE_URL || '',
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xxxxxxxxxxxxxxxxxxx.supabase.co',
+    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MjAwMDAwMDAsImV4cCI6MTkzNTU3NjAwMH0.placeholder',
   },
   
   auth: {
@@ -48,7 +48,14 @@ export const config = {
       baseUrl: 'https://api-eu.dhl.com',
     },
   },
-  
+
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY || '',
+    fromEmail: process.env.EMAIL_FROM || 'noreply@fortuneessence.se',
+    fromName: process.env.EMAIL_FROM_NAME || 'Fortune Essence',
+    supportEmail: process.env.EMAIL_SUPPORT || 'support@fortuneessence.se',
+  },
+
   features: {
     multiLanguage: true,
     gdprCompliance: true,

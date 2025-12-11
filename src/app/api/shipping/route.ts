@@ -1,7 +1,9 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { ShippingService } from '@/services/shipping/ShippingService';
+import { IShippingService } from '@/interfaces';
+import { container, TOKENS } from '@/config/di-container';
 
-const shippingService = new ShippingService();
+const shippingService = container.resolve<IShippingService>(TOKENS.IShippingService);
 
 export async function GET(request: NextRequest) {
   try {
@@ -247,12 +249,12 @@ async function handleCalculateShipping(body: any) {
     // If Swedish postal code provided, use Swedish-specific calculation
     if (country === 'Sweden' && postalCode) {
       const result = await shippingService.calculateSwedishShippingWithZones(items, postalCode);
-      
-      if (!result.success) {
+
+      if (!result.success || !result.data) {
         return NextResponse.json(
           {
             success: false,
-            error: result.error,
+            error: result.error || 'Failed to calculate shipping',
           },
           { status: 400 }
         );
@@ -261,9 +263,9 @@ async function handleCalculateShipping(body: any) {
       return NextResponse.json({
         success: true,
         data: {
-          options: [result.data.adjustedRate],
-          recommended: result.data.adjustedRate,
-          zoneInfo: result.data.zoneInfo,
+          options: [(result.data as any).adjustedRate],
+          recommended: (result.data as any).adjustedRate,
+          zoneInfo: (result.data as any).zoneInfo,
         },
       });
     }
@@ -438,7 +440,7 @@ async function handleGetHolidayImpact(body: any) {
     }
 
     const date = new Date(deliveryDate);
-    const result = await shippingService.getSwedishHolidayImpact(date);
+    const result = await shippingService.getSwedishHolidayImpact(date.toISOString());
 
     if (!result.success) {
       return NextResponse.json(

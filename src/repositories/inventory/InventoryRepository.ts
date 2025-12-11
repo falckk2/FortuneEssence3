@@ -1,4 +1,4 @@
-import { IInventoryRepository } from '@/interfaces/repositories';
+import { IInventoryRepository } from '@/interfaces';
 import { InventoryItem, ApiResponse } from '@/types';
 import { supabase } from '@/lib/supabase';
 
@@ -282,16 +282,12 @@ export class InventoryRepository implements IInventoryRepository {
     try {
       let query = supabase
         .from(this.tableName)
-        .select('*');
+        .select('*')
+        .order('quantity', { ascending: true });
 
       if (threshold !== undefined) {
         query = query.lte('quantity', threshold);
-      } else {
-        // Use reorder level as threshold
-        query = query.filter('quantity', 'lte', supabase.raw('reorder_level'));
       }
-
-      query = query.order('quantity', { ascending: true });
 
       const { data, error } = await query;
 
@@ -302,9 +298,16 @@ export class InventoryRepository implements IInventoryRepository {
         };
       }
 
+      let filteredData = data;
+
+      // If no threshold provided, filter by reorder_level (client-side)
+      if (threshold === undefined) {
+        filteredData = data.filter(item => item.quantity <= item.reorder_level);
+      }
+
       return {
         success: true,
-        data: data.map(record => this.transformDbRecord(record)),
+        data: filteredData.map(record => this.transformDbRecord(record)),
       };
     } catch (error) {
       return {

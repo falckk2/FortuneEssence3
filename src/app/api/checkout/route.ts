@@ -1,14 +1,14 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { CartService } from '@/services/cart/CartService';
-import { ShippingService } from '@/services/shipping/ShippingService';
-import { PaymentService } from '@/services/payment/PaymentService';
+import { authOptions } from '@/lib/auth';
+import { ICartService, IShippingService, IPaymentService } from '@/interfaces';
+import { container, TOKENS } from '@/config/di-container';
 import { orderSchema } from '@/utils/validation';
 
-const cartService = new CartService();
-const shippingService = new ShippingService();
-const paymentService = new PaymentService();
+const cartService = container.resolve<ICartService>(TOKENS.ICartService);
+const shippingService = container.resolve<IShippingService>(TOKENS.IShippingService);
+const paymentService = container.resolve<IPaymentService>(TOKENS.IPaymentService);
 
 export async function POST(request: NextRequest) {
   try {
@@ -141,7 +141,7 @@ async function handleCalculateShipping(body: any) {
     }
 
     // Get shipping costs
-    const shippingResult = await shippingService.getShippingCosts(items, country);
+    const shippingResult = await shippingService.calculateShipping(items, country);
     
     if (!shippingResult.success) {
       return NextResponse.json({
@@ -202,7 +202,7 @@ async function handleProcessPayment(body: any, userId?: string) {
     if (!validation.success) {
       return NextResponse.json({
         success: false,
-        error: validation.error.errors.map(err => err.message).join(', '),
+        error: validation.error.issues.map((issue) => issue.message).join(', '),
       }, { status: 400 });
     }
 
@@ -241,8 +241,8 @@ async function handleProcessPayment(body: any, userId?: string) {
       orderId: `temp_${Date.now()}`, // Temporary ID, will be replaced with actual order ID
       customerId: orderData.customerId,
       metadata: {
-        shippingAddress: orderData.shippingAddress,
-        billingAddress: orderData.billingAddress,
+        shippingAddress: JSON.stringify(orderData.shippingAddress),
+        billingAddress: JSON.stringify(orderData.billingAddress),
       },
     });
 

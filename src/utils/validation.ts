@@ -51,7 +51,7 @@ export const signUpSchema = z.object({
   lastName: z.string().min(1, 'Last name is required').max(50),
   phone: z.string().optional(),
   marketingOptIn: z.boolean().default(false),
-  consentGiven: z.literal(true, { errorMap: () => ({ message: 'You must accept the terms and conditions' }) }),
+  consentGiven: z.literal(true, { message: 'You must accept the terms and conditions' }),
 });
 
 export const contactSchema = z.object({

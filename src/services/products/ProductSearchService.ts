@@ -2,7 +2,8 @@
 // Following Single Responsibility Principle - only handles product search and filtering
 
 import { injectable, inject } from 'tsyringe';
-import { IProductRepository, ProductSearchParams } from '@/interfaces/repositories';
+import type { IProductRepository } from '@/interfaces';
+import { ProductSearchParams } from '@/interfaces';
 import { Product, ApiResponse } from '@/types';
 import { TOKENS } from '@/config/di-container';
 
