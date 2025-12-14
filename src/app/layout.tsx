@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { CookieConsent } from "@/components/gdpr/CookieConsent";
+import { Toaster } from 'react-hot-toast';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,17 +46,21 @@ export default function RootLayout({
   return (
     <html lang="sv">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-cream-100`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-cream-100 dark:bg-[#1a1f1e]`}
       >
-        <AuthProvider>
-          <div className="flex flex-col min-h-screen">
-            <Header locale="sv" />
-            <main className="flex-1">
-              {children}
-            </main>
-            <Footer locale="sv" />
-          </div>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <div className="flex flex-col min-h-screen">
+              <Header locale="sv" />
+              <main className="flex-1">
+                {children}
+              </main>
+              <Footer locale="sv" />
+            </div>
+            <CookieConsent locale="sv" />
+            <Toaster position="top-right" />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

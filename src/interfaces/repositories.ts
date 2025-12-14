@@ -7,6 +7,7 @@ import {
   ShippingRate,
   AbandonedCart,
   AbandonedCartCreateData,
+  BundleConfiguration,
   ApiResponse
 } from '@/types';
 
@@ -29,6 +30,11 @@ export interface ProductSearchParams {
   inStock?: boolean;
   search?: string;
   locale?: string;
+}
+
+export interface IBundleRepository {
+  findByProductId(bundleProductId: string): Promise<ApiResponse<BundleConfiguration>>;
+  findAll(): Promise<ApiResponse<BundleConfiguration[]>>;
 }
 
 export interface ICustomerRepository {

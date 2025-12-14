@@ -49,9 +49,6 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
       links: [
         { label: locale === 'sv' ? 'Alla produkter' : 'All Products', href: '/products' },
         { label: locale === 'sv' ? 'Eteriska oljor' : 'Essential Oils', href: '/products?category=essential-oils' },
-        { label: locale === 'sv' ? 'Bäraroljor' : 'Carrier Oils', href: '/products?category=carrier-oils' },
-        { label: locale === 'sv' ? 'Diffusers' : 'Diffusers', href: '/products?category=diffusers' },
-        { label: locale === 'sv' ? 'Presentset' : 'Gift Sets', href: '/products?category=gift-sets' },
       ]
     },
     account: {
@@ -72,22 +69,13 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
         { label: locale === 'sv' ? 'Frakt & Leverans' : 'Shipping & Delivery', href: '/shipping-policy' },
         { label: locale === 'sv' ? 'Returer' : 'Returns', href: '/refund' },
       ]
-    },
-    legal: {
-      title: locale === 'sv' ? 'Juridisk information' : 'Legal',
-      links: [
-        { label: locale === 'sv' ? 'Allmänna villkor' : 'Terms & Conditions', href: '/terms' },
-        { label: locale === 'sv' ? 'Integritetspolicy' : 'Privacy Policy', href: '/privacy' },
-        { label: locale === 'sv' ? 'Returpolicy' : 'Refund Policy', href: '/refund' },
-        { label: locale === 'sv' ? 'GDPR' : 'GDPR', href: '/account/privacy' },
-      ]
     }
   };
 
   return (
     <footer className="bg-forest-900 text-white mt-auto">
-      {/* Newsletter Section */}
-      <div className="border-b border-forest-700">
+      {/* Newsletter Section - Commented out for now */}
+      {/* <div className="border-b border-forest-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="max-w-3xl mx-auto text-center">
             <h3 className="text-2xl lg:text-3xl font-serif font-bold mb-3">
@@ -121,13 +109,13 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
             </form>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Main Footer Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand Column */}
-          <div className="lg:col-span-1">
+          <div>
             <Link href="/" className="inline-block mb-4">
               <span className="text-2xl font-serif font-bold text-white">
                 Fortune Essence

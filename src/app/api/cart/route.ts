@@ -114,6 +114,26 @@ export async function POST(request: NextRequest) {
         });
         break;
 
+      case 'add-bundle':
+        if (!body.bundleProductId || !body.selectedProductIds) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'Bundle product ID and selected product IDs are required',
+            },
+            { status: 400 }
+          );
+        }
+
+        const bundleQuantity = body.quantity || 1;
+        result = await cartService.addBundleToCart(
+          targetCartId,
+          body.bundleProductId,
+          body.selectedProductIds,
+          bundleQuantity
+        );
+        break;
+
       case 'remove':
         if (!productId) {
           return NextResponse.json(

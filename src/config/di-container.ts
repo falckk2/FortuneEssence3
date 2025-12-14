@@ -19,6 +19,7 @@ export const TOKENS = {
   IInventoryRepository: Symbol.for('IInventoryRepository'),
   IShippingRepository: Symbol.for('IShippingRepository'),
   IAbandonedCartRepository: Symbol.for('IAbandonedCartRepository'),
+  IBundleRepository: Symbol.for('IBundleRepository'),
 
   // Services
   IProductService: Symbol.for('IProductService'),
@@ -30,6 +31,7 @@ export const TOKENS = {
   IAuthService: Symbol.for('IAuthService'),
   IGDPRService: Symbol.for('IGDPRService'),
   IEmailService: Symbol.for('IEmailService'),
+  IBundleService: Symbol.for('IBundleService'),
 
   // Utilities
   CategoryService: Symbol.for('CategoryService'),
@@ -51,6 +53,7 @@ export function configureDependencyInjection() {
   const { InventoryRepository } = require('@/repositories/inventory/InventoryRepository');
   const { ShippingRepository } = require('@/repositories/shipping/ShippingRepository');
   const { AbandonedCartRepository } = require('@/repositories/cart/AbandonedCartRepository');
+  const { BundleRepository } = require('@/repositories/bundles/BundleRepository');
 
   container.register(TOKENS.IProductRepository, { useClass: ProductRepository });
   container.register(TOKENS.ICartRepository, { useClass: CartRepository });
@@ -59,6 +62,7 @@ export function configureDependencyInjection() {
   container.register(TOKENS.IInventoryRepository, { useClass: InventoryRepository });
   container.register(TOKENS.IShippingRepository, { useClass: ShippingRepository });
   container.register(TOKENS.IAbandonedCartRepository, { useClass: AbandonedCartRepository });
+  container.register(TOKENS.IBundleRepository, { useClass: BundleRepository });
 
   // Register Services
   const { ProductService } = require('@/services/products/ProductService');
@@ -70,6 +74,7 @@ export function configureDependencyInjection() {
   const { AuthService } = require('@/services/auth/AuthService');
   const { GDPRService } = require('@/services/gdpr/GDPRService');
   const { EmailService } = require('@/services/email/EmailService');
+  const { BundleService } = require('@/services/bundles/BundleService');
 
   container.register(TOKENS.IProductService, { useClass: ProductService });
   container.register(TOKENS.ICartService, { useClass: CartService });
@@ -80,6 +85,7 @@ export function configureDependencyInjection() {
   container.register(TOKENS.IAuthService, { useClass: AuthService });
   container.register(TOKENS.IGDPRService, { useClass: GDPRService });
   container.register(TOKENS.IEmailService, { useClass: EmailService });
+  container.register(TOKENS.IBundleService, { useClass: BundleService });
 
   // Register Utilities
   const { CategoryService } = require('@/config/categories');

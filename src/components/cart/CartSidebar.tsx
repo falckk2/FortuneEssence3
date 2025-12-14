@@ -4,7 +4,7 @@ import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { XMarkIcon, TrashIcon, PlusIcon, MinusIcon } from '@heroicons/react/24/outline';
 import { useCartStore } from '@/stores/cartStore';
-import { Product } from '@/types';
+import { Product, BundleSelection } from '@/types';
 import { PriceCalculator } from '@/utils/helpers';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -20,6 +20,8 @@ interface CartItemWithProduct {
   quantity: number;
   price: number;
   product?: Product;
+  bundleSelection?: BundleSelection;
+  selectedProducts?: Product[];
 }
 
 export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps) => {
@@ -43,15 +45,28 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
           const response = await fetch(`/api/products/${item.productId}?locale=${locale}`);
           const result = await response.json();
 
-          if (result.success) {
-            itemsWithProducts.push({
-              ...item,
-              product: result.data,
-            });
-          } else {
-            // Keep item even if product fetch fails
-            itemsWithProducts.push(item);
+          const cartItem: CartItemWithProduct = {
+            ...item,
+            product: result.success ? result.data : undefined,
+          };
+
+          // If this is a bundle with selected products, fetch those products too
+          if (item.bundleSelection && item.bundleSelection.selectedProductIds) {
+            const selectedProducts: Product[] = [];
+
+            for (const selectedProductId of item.bundleSelection.selectedProductIds) {
+              const prodResponse = await fetch(`/api/products/${selectedProductId}?locale=${locale}`);
+              const prodResult = await prodResponse.json();
+
+              if (prodResult.success) {
+                selectedProducts.push(prodResult.data);
+              }
+            }
+
+            cartItem.selectedProducts = selectedProducts;
           }
+
+          itemsWithProducts.push(cartItem);
         }
 
         setCartItems(itemsWithProducts);
@@ -194,7 +209,7 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
                                     <div>
                                       <div className="flex justify-between text-base font-medium text-gray-900">
                                         <h3>
-                                          <Link 
+                                          <Link
                                             href={`/products/${item.productId}`}
                                             onClick={onClose}
                                             className="hover:text-purple-600"
@@ -209,6 +224,23 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
                                       <p className="mt-1 text-sm text-gray-500">
                                         {PriceCalculator.formatPrice(item.price, locale)} {locale === 'sv' ? 'st' : 'each'}
                                       </p>
+
+                                      {/* Bundle Contents */}
+                                      {item.bundleSelection && item.selectedProducts && item.selectedProducts.length > 0 && (
+                                        <div className="mt-2 space-y-1">
+                                          <p className="text-xs font-medium text-sage-700 uppercase tracking-wide">
+                                            {locale === 'sv' ? 'Innehåller:' : 'Contains:'}
+                                          </p>
+                                          <ul className="space-y-1">
+                                            {item.selectedProducts.map((selectedProduct) => (
+                                              <li key={selectedProduct.id} className="flex items-center text-xs text-gray-600">
+                                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-sage-500 mr-2"></span>
+                                                {locale === 'sv' ? selectedProduct.translations.sv.name : selectedProduct.translations.en.name}
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="flex flex-1 items-end justify-between text-sm">
                                       <div className="flex items-center space-x-2">

@@ -32,17 +32,43 @@ export interface ProductTranslations {
   };
 }
 
-export type ProductCategory = 
+export type ProductCategory =
   | 'essential-oils'
-  | 'carrier-oils' 
+  | 'carrier-oils'
   | 'diffusers'
   | 'accessories'
-  | 'gift-sets';
+  | 'gift-sets'
+  | 'bundles';
+
+export interface ProductSearchParams {
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  inStock?: boolean;
+  search?: string;
+  locale?: string;
+}
+
+export interface BundleConfiguration {
+  id: string;
+  bundleProductId: string;
+  requiredQuantity: number;
+  allowedCategory: ProductCategory;
+  discountPercentage: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface BundleSelection {
+  bundleProductId: string;
+  selectedProductIds: string[];
+}
 
 export interface CartItem {
   productId: string;
   quantity: number;
   price: number;
+  bundleSelection?: BundleSelection;
 }
 
 export interface Cart {
@@ -102,6 +128,7 @@ export interface OrderItem {
   quantity: number;
   price: number;
   total: number;
+  bundleSelection?: BundleSelection;
 }
 
 export type OrderStatus = 

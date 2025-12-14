@@ -5,9 +5,10 @@ import { PriceCalculator } from '@/utils/helpers';
 import { getProductBenefits } from '@/utils/productBenefits';
 import { ShoppingCartIcon, HeartIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
+import { BundleImage } from '@/components/bundles';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ProductCardProps {
   product: Product;
@@ -18,16 +19,31 @@ interface ProductCardProps {
   className?: string;
 }
 
-export const ProductCard = ({ 
-  product, 
-  locale = 'sv', 
-  onAddToCart, 
+export const ProductCard = ({
+  product,
+  locale = 'sv',
+  onAddToCart,
   onToggleWishlist,
   isInWishlist = false,
-  className = '' 
+  className = ''
 }: ProductCardProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [bundleQuantity, setBundleQuantity] = useState<number>(2); // Default to 2 for bundles
+
+  // Fetch bundle quantity if this is a bundle product
+  useEffect(() => {
+    if (product.category === 'bundles') {
+      fetch(`/api/bundles/${product.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data) {
+            setBundleQuantity(data.data.requiredQuantity);
+          }
+        })
+        .catch(err => console.error('Failed to fetch bundle config:', err));
+    }
+  }, [product.id, product.category]);
 
   const localizedName = product.translations[locale].name;
   const localizedDescription = product.translations[locale].description;
@@ -66,6 +82,7 @@ export const ProductCard = ({
       'diffusers': 'bg-cream-300 text-forest-700 border-cream-400',
       'accessories': 'bg-forest-100 text-forest-700 border-forest-200',
       'gift-sets': 'bg-rose-100 text-rose-700 border-rose-200',
+      'bundles': 'bg-gradient-to-r from-sage-100 to-forest-100 text-forest-800 border-sage-300',
     };
     return colors[category] || 'bg-cream-200 text-forest-700 border-cream-300';
   };
@@ -77,6 +94,7 @@ export const ProductCard = ({
       'diffusers': { sv: 'Diffusers', en: 'Diffusers' },
       'accessories': { sv: 'Tillbehör', en: 'Accessories' },
       'gift-sets': { sv: 'Presentset', en: 'Gift Sets' },
+      'bundles': { sv: 'Paket', en: 'Bundles' },
     };
     return names[category]?.[locale] || category;
   };
@@ -87,16 +105,24 @@ export const ProductCard = ({
     <div className={`bg-white rounded-3xl shadow-soft hover:shadow-xl transition-all duration-300 overflow-hidden group hover:-translate-y-1 transform ${className}`}>
       <div className="relative">
         <Link href={`/products/${product.id}`}>
-          <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden bg-cream-100">
-            <Image
-              src={getProductImage()}
-              alt={localizedName}
-              width={300}
-              height={300}
-              className="h-64 w-full object-cover object-center group-hover:scale-110 transition-transform duration-500"
-              onError={() => setImageError(true)}
-              priority={false}
-            />
+          <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden bg-gradient-to-br from-sage-50 to-forest-50">
+            {product.category === 'bundles' ? (
+              // Show layered bundle image
+              <div className="h-64 w-full flex items-center justify-center p-6">
+                <BundleImage quantity={bundleQuantity} />
+              </div>
+            ) : (
+              // Show regular product image
+              <Image
+                src={getProductImage()}
+                alt={localizedName}
+                width={300}
+                height={300}
+                className="h-64 w-full object-cover object-center group-hover:scale-110 transition-transform duration-500"
+                onError={() => setImageError(true)}
+                priority={false}
+              />
+            )}
           </div>
         </Link>
 

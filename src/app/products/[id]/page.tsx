@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Product } from '@/types';
+import { Product, BundleConfiguration } from '@/types';
 import { PriceCalculator } from '@/utils/helpers';
 import { getProductBenefits } from '@/utils/productBenefits';
 import { useCartStore } from '@/stores/cartStore';
 import { useWishlistStore } from '@/stores/wishlistStore';
 import { ProductGrid } from '@/components/products/ProductGrid';
 import { ProductReviews } from '@/components/products/ProductReviews';
+import { BundleSelector, BundleImage } from '@/components/bundles';
 import {
   ShoppingCartIcon,
   HeartIcon,
@@ -28,6 +29,7 @@ export default function ProductDetailPage() {
   const productId = params.id as string;
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [bundleConfig, setBundleConfig] = useState<BundleConfiguration | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -50,6 +52,15 @@ export default function ProductDetailPage() {
 
         if (productData.success && productData.data) {
           setProduct(productData.data);
+
+          // If this is a bundle product, fetch bundle configuration
+          if (productData.data.category === 'bundles') {
+            const bundleResponse = await fetch(`/api/bundles/${productId}`);
+            const bundleData = await bundleResponse.json();
+            if (bundleData.success && bundleData.data) {
+              setBundleConfig(bundleData.data);
+            }
+          }
 
           // Fetch related products
           const relatedResponse = await fetch(`/api/products?category=${productData.data.category}&limit=4`);
@@ -153,6 +164,7 @@ export default function ProductDetailPage() {
       'diffusers': 'bg-cream-300 text-forest-700 border-cream-400',
       'accessories': 'bg-forest-100 text-forest-700 border-forest-200',
       'gift-sets': 'bg-rose-100 text-rose-700 border-rose-200',
+      'bundles': 'bg-gradient-to-r from-sage-100 to-forest-100 text-forest-800 border-sage-300',
     };
     return colors[category] || 'bg-cream-200 text-forest-700 border-cream-300';
   };
@@ -164,6 +176,7 @@ export default function ProductDetailPage() {
       'diffusers': { sv: 'Diffusers', en: 'Diffusers' },
       'accessories': { sv: 'Tillbehör', en: 'Accessories' },
       'gift-sets': { sv: 'Presentset', en: 'Gift Sets' },
+      'bundles': { sv: 'Paket', en: 'Bundles' },
     };
     return names[category]?.[locale] || category;
   };
@@ -225,15 +238,23 @@ export default function ProductDetailPage() {
           {/* Image Gallery */}
           <div className="space-y-4">
             {/* Main Image */}
-            <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-white shadow-soft">
-              <Image
-                src={images[selectedImage]}
-                alt={localizedName}
-                fill
-                className="object-cover object-center"
-                onError={() => setImageError(true)}
-                priority
-              />
+            <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-gradient-to-br from-sage-50 to-forest-50 shadow-soft flex items-center justify-center">
+              {product.category === 'bundles' && bundleConfig ? (
+                // Show layered bundle image
+                <div className="p-8">
+                  <BundleImage quantity={bundleConfig.requiredQuantity} />
+                </div>
+              ) : (
+                // Show regular product image
+                <Image
+                  src={images[selectedImage]}
+                  alt={localizedName}
+                  fill
+                  className="object-cover object-center"
+                  onError={() => setImageError(true)}
+                  priority
+                />
+              )}
 
               {/* Benefit Badges on Image */}
               {productBenefits.length > 0 && (
@@ -251,8 +272,8 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* Thumbnail Images */}
-            {images.length > 1 && (
+            {/* Thumbnail Images - only show for non-bundle products with multiple images */}
+            {product.category !== 'bundles' && images.length > 1 && (
               <div className="grid grid-cols-4 gap-3">
                 {images.map((image, index) => (
                   <button
@@ -338,69 +359,86 @@ export default function ProductDetailPage() {
               </p>
             </div>
 
-            {/* Quantity Selector & Add to Cart */}
-            <div className="space-y-4 pt-4">
-              {!isOutOfStock && (
-                <div>
-                  <label className="block text-sm font-medium text-forest-700 mb-2">
-                    {locale === 'sv' ? 'Antal' : 'Quantity'}
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={decrementQuantity}
-                      disabled={quantity <= 1}
-                      className="w-12 h-12 rounded-full bg-white border-2 border-cream-300 text-forest-700 font-bold hover:border-sage-600 hover:bg-sage-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    >
-                      -
-                    </button>
-                    <span className="text-2xl font-bold text-forest-800 w-16 text-center">
-                      {quantity}
-                    </span>
-                    <button
-                      onClick={incrementQuantity}
-                      disabled={quantity >= product.stock}
-                      className="w-12 h-12 rounded-full bg-white border-2 border-cream-300 text-forest-700 font-bold hover:border-sage-600 hover:bg-sage-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  onClick={handleAddToCart}
-                  disabled={isOutOfStock || cartLoading}
-                  className={`flex-1 flex items-center justify-center px-8 py-4 rounded-full text-lg font-semibold transition-all shadow-lg ${
-                    isOutOfStock
-                      ? 'bg-cream-200 text-forest-400 cursor-not-allowed'
-                      : 'bg-sage-600 text-white hover:bg-sage-700 hover:shadow-xl hover:-translate-y-0.5 transform active:translate-y-0'
-                  } ${cartLoading ? 'opacity-75 cursor-wait' : ''}`}
-                >
-                  {cartLoading ? (
-                    <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin mr-3" />
-                  ) : (
-                    !isOutOfStock && <ShoppingCartIcon className="h-6 w-6 mr-3" />
-                  )}
-                  {isOutOfStock
-                    ? (locale === 'sv' ? 'Slutsåld' : 'Sold Out')
-                    : (locale === 'sv' ? 'Lägg i varukorg' : 'Add to Cart')
-                  }
-                </button>
-
-                <button
-                  onClick={handleToggleWishlist}
-                  className="w-16 h-16 flex items-center justify-center rounded-full bg-white border-2 border-cream-300 hover:border-rose-500 hover:bg-rose-50 transition-all shadow-lg hover:shadow-xl"
-                  aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
-                >
-                  {isInWishlist ? (
-                    <HeartSolidIcon className="h-7 w-7 text-rose-500" />
-                  ) : (
-                    <HeartIcon className="h-7 w-7 text-forest-400" />
-                  )}
-                </button>
+            {/* Bundle Selector or Regular Add to Cart */}
+            {product.category === 'bundles' && bundleConfig ? (
+              <div className="pt-4">
+                <BundleSelector
+                  bundleProduct={product}
+                  bundleConfig={bundleConfig}
+                  locale={locale}
+                  onAddToCart={() => {
+                    toast.success(
+                      locale === 'sv'
+                        ? 'Paket tillagt i varukorgen!'
+                        : 'Bundle added to cart!'
+                    );
+                  }}
+                />
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4 pt-4">
+                {!isOutOfStock && (
+                  <div>
+                    <label className="block text-sm font-medium text-forest-700 mb-2">
+                      {locale === 'sv' ? 'Antal' : 'Quantity'}
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={decrementQuantity}
+                        disabled={quantity <= 1}
+                        className="w-12 h-12 rounded-full bg-white border-2 border-cream-300 text-forest-700 font-bold hover:border-sage-600 hover:bg-sage-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      >
+                        -
+                      </button>
+                      <span className="text-2xl font-bold text-forest-800 w-16 text-center">
+                        {quantity}
+                      </span>
+                      <button
+                        onClick={incrementQuantity}
+                        disabled={quantity >= product.stock}
+                        className="w-12 h-12 rounded-full bg-white border-2 border-cream-300 text-forest-700 font-bold hover:border-sage-600 hover:bg-sage-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={isOutOfStock || cartLoading}
+                    className={`flex-1 flex items-center justify-center px-8 py-4 rounded-full text-lg font-semibold transition-all shadow-lg ${
+                      isOutOfStock
+                        ? 'bg-cream-200 text-forest-400 cursor-not-allowed'
+                        : 'bg-sage-600 text-white hover:bg-sage-700 hover:shadow-xl hover:-translate-y-0.5 transform active:translate-y-0'
+                    } ${cartLoading ? 'opacity-75 cursor-wait' : ''}`}
+                  >
+                    {cartLoading ? (
+                      <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin mr-3" />
+                    ) : (
+                      !isOutOfStock && <ShoppingCartIcon className="h-6 w-6 mr-3" />
+                    )}
+                    {isOutOfStock
+                      ? (locale === 'sv' ? 'Slutsåld' : 'Sold Out')
+                      : (locale === 'sv' ? 'Lägg i varukorg' : 'Add to Cart')
+                    }
+                  </button>
+
+                  <button
+                    onClick={handleToggleWishlist}
+                    className="w-16 h-16 flex items-center justify-center rounded-full bg-white border-2 border-cream-300 hover:border-rose-500 hover:bg-rose-50 transition-all shadow-lg hover:shadow-xl"
+                    aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+                  >
+                    {isInWishlist ? (
+                      <HeartSolidIcon className="h-7 w-7 text-rose-500" />
+                    ) : (
+                      <HeartIcon className="h-7 w-7 text-forest-400" />
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Trust Badges */}
             <div className="grid grid-cols-2 gap-4 pt-6 border-t border-cream-200">

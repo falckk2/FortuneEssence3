@@ -3,14 +3,15 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { 
-  MagnifyingGlassIcon, 
-  UserIcon, 
-  Bars3Icon, 
+import {
+  MagnifyingGlassIcon,
+  UserIcon,
+  Bars3Icon,
   XMarkIcon,
-  HeartIcon 
+  HeartIcon
 } from '@heroicons/react/24/outline';
 import { CartIcon } from '@/components/cart/CartIcon';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
 import { useWishlistStore } from '@/stores/wishlistStore';
 
@@ -66,25 +67,25 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
   const wishlistCount = getItemCount();
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
+    <header className="bg-white dark:bg-[#242a28] shadow-sm border-b border-gray-200 dark:border-gray-700">
       {/* Top bar */}
-      <div className="bg-gradient-to-r from-yellow-100 to-purple-100">
+      <div className="bg-gradient-to-r from-sage-100 to-cream-100 dark:from-sage-900 dark:to-[#2a3330] border-b border-sage-200 dark:border-sage-800">
         <div className="container mx-auto px-4 py-2">
           <div className="flex items-center justify-between text-sm">
-            <p className="text-gray-700">
+            <p className="text-forest-700 dark:text-sage-300">
               {locale === 'sv' 
                 ? 'Fri frakt över 500 kr | Snabb leverans i hela Sverige'
                 : 'Free shipping over 500 SEK | Fast delivery across Sweden'
               }
             </p>
             <div className="flex items-center space-x-4">
-              <Link 
-                href="/help" 
-                className="text-gray-600 hover:text-purple-600 transition-colors"
+              <Link
+                href="/help"
+                className="text-forest-600 dark:text-sage-400 hover:text-sage-700 dark:hover:text-sage-300 transition-colors font-medium"
               >
                 {locale === 'sv' ? 'Hjälp' : 'Help'}
               </Link>
-              <button className="text-gray-600 hover:text-purple-600 transition-colors">
+              <button className="text-forest-600 dark:text-sage-400 hover:text-sage-700 dark:hover:text-sage-300 transition-colors font-medium">
                 {locale === 'sv' ? 'SV' : 'EN'}
               </button>
             </div>
@@ -94,14 +95,28 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
 
       {/* Main header */}
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-sm">FE</span>
+            <Link href="/" className="flex items-center space-x-3 group">
+              <div className="relative">
+                {/* Botanical leaf icon */}
+                <div className="w-10 h-10 bg-gradient-to-br from-sage-500 to-forest-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c-1.5 4.5-4.5 7.5-9 9 4.5 1.5 7.5 4.5 9 9 1.5-4.5 4.5-7.5 9-9-4.5-1.5-7.5-4.5-9-9z" />
+                  </svg>
+                </div>
+                {/* Subtle glow effect */}
+                <div className="absolute inset-0 bg-sage-400 rounded-full blur-md opacity-20 group-hover:opacity-30 transition-opacity"></div>
               </div>
-              <span className="text-xl font-bold text-gray-900">Fortune Essence</span>
+              <div className="flex flex-col">
+                <span className="text-2xl font-serif font-bold text-forest-800 tracking-tight leading-none group-hover:text-sage-700 transition-colors">
+                  Fortune Essence
+                </span>
+                <span className="text-xs text-sage-600 font-light tracking-widest uppercase">
+                  Premium Essential Oils
+                </span>
+              </div>
             </Link>
           </div>
 
@@ -111,18 +126,18 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
               <div key={item.name} className="relative group">
                 <Link
                   href={item.href}
-                  className="text-gray-700 hover:text-purple-600 px-3 py-2 text-sm font-medium transition-colors"
+                  className="text-forest-700 dark:text-sage-300 hover:text-sage-700 dark:hover:text-sage-200 px-3 py-2 text-sm font-medium transition-colors"
                 >
                   {item.name}
                 </Link>
                 {item.children && (
-                  <div className="absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-[#2a3330] ring-1 ring-black ring-opacity-5 dark:ring-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                     <div className="py-1">
                       {item.children.map((child) => (
                         <Link
                           key={child.name}
                           href={child.href}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                          className="block px-4 py-2 text-sm text-forest-700 dark:text-sage-300 hover:bg-sage-50 dark:hover:bg-sage-900 hover:text-sage-700 dark:hover:text-sage-200 transition-colors"
                         >
                           {child.name}
                         </Link>
@@ -142,10 +157,10 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={locale === 'sv' ? 'Sök produkter...' : 'Search products...'}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-sage-300 dark:border-sage-700 rounded-full focus:outline-none focus:ring-2 focus:ring-sage-500 dark:focus:ring-sage-600 focus:border-transparent bg-cream-50 dark:bg-[#2a3330] focus:bg-white dark:focus:bg-[#343c39] text-forest-700 dark:text-sage-200 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
               </div>
             </form>
           </div>
@@ -153,12 +168,15 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
           {/* Right side icons */}
           <div className="flex items-center space-x-4">
             {/* Search icon for mobile */}
-            <button className="md:hidden p-2 text-gray-600 hover:text-gray-900 transition-colors">
+            <button className="md:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
               <MagnifyingGlassIcon className="h-6 w-6" />
             </button>
 
+            {/* Theme Toggle */}
+            <ThemeToggle />
+
             {/* Wishlist */}
-            <Link href="/wishlist" className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors">
+            <Link href="/wishlist" className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
               <HeartIcon className="h-6 w-6" />
               {wishlistCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
@@ -172,32 +190,32 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
 
             {/* User menu */}
             <div className="relative group">
-              <button className="p-2 text-gray-600 hover:text-gray-900 transition-colors">
+              <button className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
                 <UserIcon className="h-6 w-6" />
               </button>
-              
-              <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+
+              <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-[#2a3330] ring-1 ring-black ring-opacity-5 dark:ring-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                 <div className="py-1">
                   {isAuthenticated ? (
                     <>
-                      <div className="px-4 py-2 text-sm text-gray-700 border-b">
+                      <div className="px-4 py-2 text-sm text-forest-700 dark:text-sage-300 border-b border-sage-200 dark:border-sage-800">
                         {locale === 'sv' ? 'Hej' : 'Hello'} {user?.firstName}
                       </div>
                       <Link
                         href="/account"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                        className="block px-4 py-2 text-sm text-forest-700 dark:text-sage-300 hover:bg-sage-50 dark:hover:bg-sage-900 hover:text-sage-700 dark:hover:text-sage-200 transition-colors"
                       >
                         {locale === 'sv' ? 'Mitt konto' : 'My Account'}
                       </Link>
                       <Link
                         href="/orders"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                        className="block px-4 py-2 text-sm text-forest-700 dark:text-sage-300 hover:bg-sage-50 dark:hover:bg-sage-900 hover:text-sage-700 dark:hover:text-sage-200 transition-colors"
                       >
                         {locale === 'sv' ? 'Mina beställningar' : 'My Orders'}
                       </Link>
                       <button
                         onClick={handleSignOut}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                        className="block w-full text-left px-4 py-2 text-sm text-forest-700 hover:bg-sage-50 hover:text-sage-700 transition-colors"
                       >
                         {locale === 'sv' ? 'Logga ut' : 'Sign Out'}
                       </button>
@@ -206,13 +224,13 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                     <>
                       <Link
                         href="/auth/signin"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                        className="block px-4 py-2 text-sm text-forest-700 hover:bg-sage-50 hover:text-sage-700 transition-colors"
                       >
                         {locale === 'sv' ? 'Logga in' : 'Sign In'}
                       </Link>
                       <Link
                         href="/auth/signup"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                        className="block px-4 py-2 text-sm text-forest-700 hover:bg-sage-50 hover:text-sage-700 transition-colors"
                       >
                         {locale === 'sv' ? 'Skapa konto' : 'Sign Up'}
                       </Link>
@@ -248,7 +266,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={locale === 'sv' ? 'Sök produkter...' : 'Search products...'}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-sage-300 rounded-full focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent bg-cream-50 focus:bg-white transition-colors"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
@@ -260,7 +278,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
               <div key={item.name}>
                 <Link
                   href={item.href}
-                  className="block py-2 text-gray-700 hover:text-purple-600 transition-colors"
+                  className="block py-2 text-forest-700 hover:text-sage-700 font-medium transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {item.name}
@@ -271,7 +289,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                       <Link
                         key={child.name}
                         href={child.href}
-                        className="block py-1 text-sm text-gray-600 hover:text-purple-600 transition-colors"
+                        className="block py-1 text-sm text-forest-600 hover:text-sage-700 transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         {child.name}

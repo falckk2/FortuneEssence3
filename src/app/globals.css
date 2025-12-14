@@ -69,11 +69,30 @@
   --color-forest-800: #1E3330;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #1E3330;
-    --foreground: #EEF2ED;
-  }
+/* Dark mode */
+.dark {
+  --background: #1a1f1e; /* Dark forest background */
+  --background-light: #242a28;
+  --foreground: #E8EDE8; /* Light sage text */
+  --foreground-light: #B8C5B8;
+
+  --text-primary: #E8EDE8;
+  --text-secondary: #B8C5B8;
+  --text-muted: #8A9A8A;
+
+  --cream: #2a3330;
+  --cream-light: #343c39;
+  --cream-dark: #1f2624;
+
+  /* Adjust other colors for dark mode */
+  --color-cream-100: #2a3330;
+  --color-cream-200: #343c39;
+  --color-cream-300: #3f4946;
+
+  --color-forest-600: #E8EDE8;
+  --color-forest-700: #B8C5B8;
+  --color-forest-800: #8FAB87;
+  --color-forest-900: #E8EDE8;
 }
 
 body {

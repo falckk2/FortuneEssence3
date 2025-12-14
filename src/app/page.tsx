@@ -57,45 +57,39 @@ export default function HomePage() {
     {
       icon: TruckIcon,
       title: locale === 'sv' ? 'Snabb Leverans' : 'Fast Delivery',
-      description: locale === 'sv' 
+      description: locale === 'sv'
         ? 'Fri frakt över 500 kr och snabb leverans i hela Sverige.'
         : 'Free shipping over 500 SEK and fast delivery across Sweden.',
     },
-    {
-      icon: HeartIcon,
-      title: locale === 'sv' ? 'Etiskt Producerat' : 'Ethically Produced',
-      description: locale === 'sv' 
-        ? 'Vi stödjer hållbara metoder och rättvis handel med våra partners.'
-        : 'We support sustainable practices and fair trade with our partners.',
-    },
   ];
 
-  const testimonials = [
-    {
-      name: 'Anna Larsson',
-      rating: 5,
-      comment: locale === 'sv' 
-        ? 'Fantastiska oljor! Lavendel oljan hjälper mig att sova bättre varje natt.'
-        : 'Amazing oils! The lavender oil helps me sleep better every night.',
-      location: 'Stockholm',
-    },
-    {
-      name: 'Erik Svensson',
-      rating: 5,
-      comment: locale === 'sv' 
-        ? 'Högsta kvalitet och snabb leverans. Kommer definitivt att beställa igen.'
-        : 'Highest quality and fast delivery. Will definitely order again.',
-      location: 'Göteborg',
-    },
-    {
-      name: 'Maria Nilsson',
-      rating: 5,
-      comment: locale === 'sv' 
-        ? 'Eucalyptus oljan är perfekt för min diffuser. Rekommenderar varmt!'
-        : 'The eucalyptus oil is perfect for my diffuser. Highly recommend!',
-      location: 'Malmö',
-    },
-  ];
+  // TODO: Uncomment when we have real reviews from the database
+  // const testimonials = [
+  //   {
+  //     name: 'Anna Larsson',
+  //     rating: 5,
+  //     comment: locale === 'sv'
+  //       ? 'Fantastiska oljor! Lavendel oljan hjälper mig att sova bättre varje natt.'
+  //       : 'Amazing oils! The lavender oil helps me sleep better every night.',
+  //     location: 'Stockholm',
+  //   },
+  //   {
+  //     name: 'Erik Svensson',
+  //     rating: 5,
+  //     comment: locale === 'sv'
+  //       ? 'Högsta kvalitet och snabb leverans. Kommer definitivt att beställa igen.'
+  //       : 'Highest quality and fast delivery. Will definitely order again.',
+  //     location: 'Göteborg',
+  //   },
+  //   {
+  //     name: 'Maria Nilsson',
+  //     rating: 5,
+  //     comment: locale === 'sv'
+  //       ? 'Eucalyptus oljan är perfekt för min diffuser. Rekommenderar varmt!'
+  //       : 'The eucalyptus oil is perfect for my diffuser. Highly recommend!',
+  //     location: 'Malmö',
+  //   },
+  // ];
 
 
   return (
@@ -150,10 +144,6 @@ export default function HomePage() {
                   <span>{locale === 'sv' ? '100% Naturligt' : '100% Natural'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <HeartIcon className="h-5 w-5 text-sage-600" />
-                  <span>{locale === 'sv' ? 'Etiskt Producerat' : 'Ethically Sourced'}</span>
-                </div>
-                <div className="flex items-center gap-2">
                   <TruckIcon className="h-5 w-5 text-sage-600" />
                   <span>{locale === 'sv' ? 'Fri frakt över 500kr' : 'Free shipping over 500 SEK'}</span>
                 </div>
@@ -162,9 +152,9 @@ export default function HomePage() {
 
             {/* Image - Lifestyle Photography */}
             <div className="relative">
-              <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl">
+              <div className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl">
                 <Image
-                  src="/images/hero-lifestyle.jpg"
+                  src="/images/hero-lifestyle.png"
                   alt={locale === 'sv' ? 'Ung kvinna i fredlig morgonrutin med eteriska oljor' : 'Young woman in peaceful morning routine with essential oils'}
                   fill
                   className="object-cover"
@@ -214,7 +204,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {features.map((feature, index) => (
               <div
                 key={index}
@@ -281,8 +271,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* TODO: Uncomment when we have real reviews from the database */}
       {/* Testimonials Section - Instagram Style */}
-      <section className="py-20 bg-white">
+      {/* <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-serif font-bold text-forest-700 mb-4">
@@ -323,14 +314,13 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Instagram Feed */}
       <InstagramFeed locale={locale} />
 
-      {/* Newsletter Section - Softer Approach */}
-      <section className="py-20 bg-sage-700 relative overflow-hidden">
-        {/* Decorative elements */}
+      {/* Newsletter Section - Commented out for now */}
+      {/* <section className="py-20 bg-sage-700 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 right-10 w-64 h-64 bg-sage-300 rounded-full blur-3xl"></div>
           <div className="absolute bottom-10 left-10 w-64 h-64 bg-terracotta-300 rounded-full blur-3xl"></div>
@@ -369,7 +359,7 @@ export default function HomePage() {
             </p>
           </div>
         </div>
-      </section>
+      </section> */}
     </div>
   );
 }

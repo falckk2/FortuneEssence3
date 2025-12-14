@@ -1,14 +1,16 @@
-import { 
-  Product, 
-  Customer, 
-  Order, 
-  Cart, 
+import {
+  Product,
+  Customer,
+  Order,
+  Cart,
   CartItem,
   PaymentMethod,
   ShippingRate,
   Address,
-  ApiResponse 
+  BundleConfiguration,
+  ApiResponse
 } from '@/types';
+import { BundleValidationResult } from '@/types/bundles';
 
 export interface IAuthService {
   signIn(email: string, password: string): Promise<ApiResponse<{ user: Customer; token: string }>>;
@@ -46,6 +48,21 @@ export interface ProductSearchParams {
   inStock?: boolean;
   search?: string;
   locale?: string;
+}
+
+export interface IBundleService {
+  getBundleConfiguration(bundleProductId: string): Promise<ApiResponse<BundleConfiguration>>;
+  getAllBundleConfigurations(): Promise<ApiResponse<BundleConfiguration[]>>;
+  getEligibleProducts(bundleProductId: string): Promise<ApiResponse<Product[]>>;
+  validateBundleSelection(
+    bundleProductId: string,
+    selectedProductIds: string[],
+    quantities?: { [productId: string]: number }
+  ): Promise<ApiResponse<BundleValidationResult>>;
+  calculateBundlePrice(
+    bundleProductId: string,
+    selectedProductIds: string[]
+  ): Promise<ApiResponse<{ bundlePrice: number; individualTotal: number; savings: number }>>;
 }
 
 export interface ICartService {

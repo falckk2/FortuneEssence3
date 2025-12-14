@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Product } from '@/types';
+import { Product, BundleConfiguration } from '@/types';
 import { ProductGrid } from '@/components/products/ProductGrid';
 import { ProductFilters } from '@/components/products/ProductFilters';
+import { BundleCard } from '@/components/bundles';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -23,6 +24,8 @@ interface ActiveFilters {
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [bundles, setBundles] = useState<Product[]>([]);
+  const [bundleConfigs, setBundleConfigs] = useState<Record<string, BundleConfiguration>>({});
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,20 +42,39 @@ export default function ProductsPage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      
+
       try {
         // Fetch products
         const productsResponse = await fetch(`/api/products?locale=${locale}`);
         const productsData = await productsResponse.json();
-        
+
         if (productsData.success) {
-          setProducts(productsData.data);
+          // Separate bundles from regular products
+          const bundleProducts = productsData.data.filter((p: Product) => p.category === 'bundles');
+          const regularProducts = productsData.data.filter((p: Product) => p.category !== 'bundles');
+
+          setBundles(bundleProducts);
+          setProducts(regularProducts);
+
+          // Fetch bundle configurations
+          if (bundleProducts.length > 0) {
+            const bundlesResponse = await fetch('/api/bundles');
+            const bundlesData = await bundlesResponse.json();
+
+            if (bundlesData.success) {
+              const configs: Record<string, BundleConfiguration> = {};
+              bundlesData.data.forEach((config: BundleConfiguration) => {
+                configs[config.bundleProductId] = config;
+              });
+              setBundleConfigs(configs);
+            }
+          }
         }
 
         // Fetch categories
         const categoriesResponse = await fetch('/api/products/categories');
         const categoriesData = await categoriesResponse.json();
-        
+
         if (categoriesData.success && productsData.success) {
           const prices = productsData.data.map((p: Product) => p.price);
           setFilterOptions({
@@ -204,6 +226,37 @@ export default function ProductsPage() {
             />
           </form>
         </div>
+
+        {/* Bundles Section */}
+        {bundles.length > 0 && (
+          <div className="mb-12">
+            <div className="mb-6">
+              <h2 className="text-2xl font-serif font-bold text-forest-800 mb-2">
+                {locale === 'sv' ? 'Spara med våra paket' : 'Save with our bundles'}
+              </h2>
+              <p className="text-gray-600">
+                {locale === 'sv'
+                  ? 'Välj dina favoritoljor och spara upp till 16% jämfört med att köpa dem separat'
+                  : 'Choose your favorite oils and save up to 16% compared to buying them separately'}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {bundles.map((bundle) => {
+                const config = bundleConfigs[bundle.id];
+                if (!config) return null;
+                return (
+                  <BundleCard
+                    key={bundle.id}
+                    product={bundle}
+                    requiredQuantity={config.requiredQuantity}
+                    discountPercentage={config.discountPercentage}
+                    locale={locale}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Results Count */}
         <div className="mb-6 flex items-center justify-between">

@@ -44,3 +44,24 @@ next-env.d.ts
 *_COMPLETE.md
 *_SUMMARY.md
 *_REPORT.md
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Temporary database scripts (one-time migrations)
+database/add-essential-oils.sql
+database/deactivate-bundles.sql
+database/fix-essential-oils.sql
+database/keep-only-bundles-and-lavender.sql
+database/keep-only-lavender.sql
+database/remove-extra-oils.sql
+database/update-bundle-descriptions.sql
+database/update-lavender-image.sql
+database/update-lavender-price.sql
+check-lavender-image.sql
+
+# Test scripts
+test-bundle-api.js
+
+# Temporary files
+nul

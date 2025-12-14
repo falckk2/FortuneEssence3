@@ -68,7 +68,7 @@ export const InstagramFeed = ({ locale = 'sv' }: InstagramFeedProps) => {
         {/* Header */}
         <div className="text-center mb-12">
           <h2 className="text-4xl font-serif font-bold text-forest-700 mb-4">
-            {locale === 'sv' ? 'Gå med i gemenskapen' : 'Join the Community'}
+            {locale === 'sv' ? 'Få de senaste nyheterna' : 'Get the Latest News'}
           </h2>
           <p className="text-lg text-forest-600 mb-6">
             {locale === 'sv'

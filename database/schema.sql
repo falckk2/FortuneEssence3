@@ -3,11 +3,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create ENUM types
 CREATE TYPE product_category AS ENUM (
-  'essential-oils', 
-  'carrier-oils', 
-  'diffusers', 
-  'accessories', 
-  'gift-sets'
+  'essential-oils',
+  'carrier-oils',
+  'diffusers',
+  'accessories',
+  'gift-sets',
+  'bundles'
 );
 
 CREATE TYPE order_status AS ENUM (
@@ -311,14 +312,14 @@ INSERT INTO products (
   name_sv, description_sv, name_en, description_en, stock
 ) VALUES
 (
-  'Lavendel Eterisk Olja', 
-  'Premium lavendel eterisk olja från Frankrike. Lugnande och avslappnande.', 
-  299.00, 
-  'essential-oils', 
-  'LAV-EO-001', 
-  0.05, 
-  10.0, 
-  3.0, 
+  'Lavendel Eterisk Olja',
+  'Premium lavendel eterisk olja från Frankrike. Lugnande och avslappnande.',
+  89.00,
+  'essential-oils',
+  'LAV-EO-001',
+  0.05,
+  10.0,
+  3.0,
   3.0,
   'Lavendel Eterisk Olja',
   'Premium lavendel eterisk olja från Frankrike. Lugnande och avslappnande.',

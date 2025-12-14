@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import type { ICartService, ICartRepository, IProductRepository, IAbandonedCartRepository } from '@/interfaces';
+import type { ICartService, ICartRepository, IProductRepository, IAbandonedCartRepository, IBundleService } from '@/interfaces';
 import type { Cart, CartItem, ApiResponse } from '@/types';
 import { TOKENS } from '@/config/di-container';
 import { PriceCalculator } from '@/utils/helpers';
@@ -11,7 +11,8 @@ export class CartService implements ICartService {
   constructor(
     @inject(TOKENS.ICartRepository) private readonly cartRepository: ICartRepository,
     @inject(TOKENS.IProductRepository) private readonly productRepository: IProductRepository,
-    @inject(TOKENS.IAbandonedCartRepository) private readonly abandonedCartRepository: IAbandonedCartRepository
+    @inject(TOKENS.IAbandonedCartRepository) private readonly abandonedCartRepository: IAbandonedCartRepository,
+    @inject(TOKENS.IBundleService) private readonly bundleService: IBundleService
   ) {}
 
   async getCart(userId?: string, sessionId?: string): Promise<ApiResponse<Cart>> {
@@ -288,8 +289,23 @@ export class CartService implements ICartService {
       const issues: string[] = [];
 
       for (const item of cart.items) {
+        // Validate bundle items if this is a bundle
+        if (item.bundleSelection) {
+          const bundleValidation = await this.bundleService.validateBundleSelection(
+            item.bundleSelection.bundleProductId,
+            item.bundleSelection.selectedProductIds,
+            { [item.productId]: item.quantity }
+          );
+
+          if (!bundleValidation.success || !bundleValidation.data?.isValid) {
+            const bundleErrors = bundleValidation.data?.errors || [bundleValidation.error || 'Unknown error'];
+            bundleErrors.forEach(error => issues.push(`Bundle: ${error}`));
+          }
+        }
+
+        // Validate the product itself
         const productResult = await this.productRepository.findById(item.productId);
-        
+
         if (!productResult.success || !productResult.data) {
           issues.push(`Product ${item.productId} not found`);
           continue;
@@ -616,6 +632,62 @@ export class CartService implements ICartService {
       return {
         success: false,
         error: `Failed to recover abandoned cart: ${error}`,
+      };
+    }
+  }
+
+  // Bundle-specific methods
+  async addBundleToCart(
+    cartId: string,
+    bundleProductId: string,
+    selectedProductIds: string[],
+    quantity: number = 1
+  ): Promise<ApiResponse<Cart>> {
+    try {
+      // Validate bundle selection
+      const validationResult = await this.bundleService.validateBundleSelection(
+        bundleProductId,
+        selectedProductIds,
+        // Calculate quantities needed (each bundle instance needs 1 of each product)
+        selectedProductIds.reduce((acc, id) => ({ ...acc, [id]: quantity }), {})
+      );
+
+      if (!validationResult.success || !validationResult.data?.isValid) {
+        const errors = validationResult.data?.errors || [validationResult.error || 'Invalid bundle selection'];
+        return {
+          success: false,
+          error: errors.join(', '),
+        };
+      }
+
+      // Get bundle product details
+      const bundleResult = await this.productRepository.findById(bundleProductId);
+      if (!bundleResult.success || !bundleResult.data) {
+        return {
+          success: false,
+          error: 'Bundle product not found',
+        };
+      }
+
+      const bundleProduct = bundleResult.data;
+
+      // Create cart item with bundle metadata
+      const bundleItem: CartItem = {
+        productId: bundleProductId,
+        quantity,
+        price: bundleProduct.price,
+        bundleSelection: {
+          bundleProductId,
+          selectedProductIds,
+        },
+      };
+
+      // Add to cart using existing addItem method
+      return this.addItem(cartId, bundleItem);
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to add bundle to cart: ${error}`,
       };
     }
   }

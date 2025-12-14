@@ -271,48 +271,70 @@ INSERT INTO shipping_rates (name, description, price, estimated_days, country, m
 ('PostNord Nordic Standard', 'Standard delivery to Finland', 99.00, 6, 'Finland', 10.0),
 ('PostNord Nordic Express', 'Express delivery to Finland', 169.00, 3, 'Finland', 10.0);
 
--- Sample customer for testing (password would be hashed in real implementation)
+-- Sample customer for testing
+-- Password: "test123" (hashed with bcrypt)
 INSERT INTO customers (
-  email, first_name, last_name, phone, street, city, postal_code, 
+  email, password_hash, first_name, last_name, phone, street, city, postal_code,
   country, consent_given, marketing_opt_in
 ) VALUES
 (
-  'test@fortuneessence.se', 
-  'Anna', 
-  'Andersson', 
-  '+46701234567', 
-  'Storgatan 1', 
-  'Stockholm', 
-  '111 22', 
-  'Sweden', 
-  true, 
+  'test@fortuneessence.se',
+  '$2a$10$rZ1qVQQYjVz.xVQZ5QZ5Qu5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5Z5O',
+  'Anna',
+  'Andersson',
+  '+46701234567',
+  'Storgatan 1',
+  'Stockholm',
+  '111 22',
+  'Sweden',
+  true,
   true
 );
 
 -- Sample order for testing
 INSERT INTO orders (
-  customer_id, 
-  items, 
-  total, 
-  tax, 
-  shipping, 
-  status, 
-  shipping_address, 
-  billing_address, 
-  payment_method, 
+  customer_id,
+  items,
+  total,
+  tax,
+  shipping,
+  status,
+  shipping_address,
+  billing_address,
+  payment_method,
   payment_id
 )
-SELECT 
-  id as customer_id,
-  '[{"productId":"' || (SELECT id FROM products WHERE sku = 'LAV-EO-001') || '","productName":"Lavendel Eterisk Olja","quantity":2,"price":299.00,"total":598.00}]'::jsonb as items,
-  647.00 as total,
-  129.40 as tax,
+SELECT
+  c.id as customer_id,
+  jsonb_build_array(
+    jsonb_build_object(
+      'productId', p.id,
+      'productName', 'Lavendel Eterisk Olja',
+      'quantity', 2,
+      'price', 89.00,
+      'total', 178.00
+    )
+  ) as items,
+  227.00 as total,
+  45.40 as tax,
   49.00 as shipping,
   'confirmed' as status,
-  '{"street":"Storgatan 1","city":"Stockholm","postalCode":"111 22","country":"Sweden"}'::jsonb as shipping_address,
-  '{"street":"Storgatan 1","city":"Stockholm","postalCode":"111 22","country":"Sweden"}'::jsonb as billing_address,
+  jsonb_build_object(
+    'street', 'Storgatan 1',
+    'city', 'Stockholm',
+    'postalCode', '111 22',
+    'country', 'Sweden'
+  ) as shipping_address,
+  jsonb_build_object(
+    'street', 'Storgatan 1',
+    'city', 'Stockholm',
+    'postalCode', '111 22',
+    'country', 'Sweden'
+  ) as billing_address,
   'klarna' as payment_method,
   'test_payment_123' as payment_id
-FROM customers 
-WHERE email = 'test@fortuneessence.se'
+FROM customers c
+CROSS JOIN products p
+WHERE c.email = 'test@fortuneessence.se'
+  AND p.sku = 'LAV-EO-001'
 LIMIT 1;
