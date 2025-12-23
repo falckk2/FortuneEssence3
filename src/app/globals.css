@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 :root {
   /* Nature-inspired color palette */
   --background: #F5F1E8; /* Warm cream */
@@ -69,11 +71,11 @@
   --color-forest-800: #1E3330;
 }
 
-/* Dark mode */
+/* Dark mode - Softer, warmer dark theme for wellness aesthetic */
 .dark {
-  --background: #1a1f1e; /* Dark forest background */
+  --background: #1a1f1e; /* Softer dark with slight warmth */
   --background-light: #242a28;
-  --foreground: #E8EDE8; /* Light sage text */
+  --foreground: #E8EDE8; /* Soft sage-tinted text */
   --foreground-light: #B8C5B8;
 
   --text-primary: #E8EDE8;
@@ -93,6 +95,13 @@
   --color-forest-700: #B8C5B8;
   --color-forest-800: #8FAB87;
   --color-forest-900: #E8EDE8;
+
+  /* Dark mode sage variations - warmer and softer */
+  --color-sage-100: #2a3330;
+  --color-sage-200: #343c39;
+  --color-sage-300: #4a5552;
+  --color-sage-800: #6B8463;
+  --color-sage-900: #3f4946;
 }
 
 body {

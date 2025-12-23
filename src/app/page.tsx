@@ -13,7 +13,7 @@ import {
   StarIcon,
   ArrowRightIcon
 } from '@heroicons/react/24/outline';
-import { InstagramFeed } from '@/components/social/InstagramFeed';
+// import { InstagramFeed } from '@/components/social/InstagramFeed';
 
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
@@ -44,15 +44,15 @@ export default function HomePage() {
       icon: SparklesIcon,
       title: locale === 'sv' ? 'Premium Kvalitet' : 'Premium Quality',
       description: locale === 'sv' 
-        ? 'Endast de finaste eteriska oljorna från pålitliga leverantörer världen över.'
-        : 'Only the finest essential oils from trusted suppliers worldwide.',
+        ? 'Ren eterisk olja av hög kvalitet.'
+        : 'Pure essential oils of high quality.',
     },
     {
       icon: ShieldCheckIcon,
       title: locale === 'sv' ? 'Naturligt & Rent' : 'Natural & Pure',
       description: locale === 'sv' 
-        ? 'Inga konstgjorda tillsatser eller kemikalier. 100% naturliga produkter.'
-        : 'No artificial additives or chemicals. 100% natural products.',
+        ? 'Inga konstgjorda tillsatser eller kemikalier. 100% ekologisk olja.'
+        : 'No artificial additives or chemicals. 100% organic oil.',
     },
     {
       icon: TruckIcon,
@@ -95,7 +95,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section - Lifestyle First */}
-      <section className="relative overflow-hidden bg-cream-200 py-24 sm:py-32">
+      <section className="relative overflow-hidden bg-cream-200 dark:bg-[#1a1f1e] py-24 sm:py-32">
         {/* Subtle organic background texture */}
         <div className="absolute inset-0 opacity-30">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--sage-light)_0%,_transparent_50%)]"></div>
@@ -106,45 +106,45 @@ export default function HomePage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Text Content - Left Aligned */}
             <div className="text-left space-y-6">
-              <div className="inline-block px-4 py-2 bg-sage-100 text-sage-700 rounded-full text-sm font-medium mb-4">
-                ✨ {locale === 'sv' ? 'Naturlig välmående' : 'Natural Wellness'}
+              <div className="inline-block px-4 py-2 bg-sage-100 dark:bg-sage-900 text-sage-700 dark:text-sage-300 rounded-full text-sm font-medium mb-4">
+                ✨ {locale === 'sv' ? 'Naturligt välbefinnande' : 'Natural Wellness'}
               </div>
 
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-serif font-bold text-forest-700 leading-tight">
-                {locale === 'sv' ? 'Din dagliga dos av lugn' : 'Your daily dose of calm'}
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-serif font-bold text-forest-700 dark:text-[#E8EDE8] leading-tight">
+                {locale === 'sv' ? 'Din dagliga dos av välbefinnande' : 'Your daily dose of wellness'}
               </h1>
 
-              <p className="text-xl text-forest-600 max-w-lg leading-relaxed">
+              <p className="text-xl text-forest-600 dark:text-[#C5D4C5] max-w-lg leading-relaxed">
                 {locale === 'sv'
-                  ? 'Naturliga eteriska oljor för det moderna livet. Hitta din perfekta doft och skapa ditt eget välmåenderitual.'
-                  : 'Natural essential oils for modern life. Find your perfect scent and create your own wellness ritual.'
+                  ? /*'Naturliga eteriska oljor för det moderna livet. Hitta din perfekta doft och skapa din egen välmåenderitual.'*/ 'Naturliga eteriska oljor för det moderna livet. Skapa din egen välmåenderitual.'
+                  : /*'Natural essential oils for modern life. Find your perfect scent and create your own wellness ritual.'*/ 'Natural essential oils for modern life. Create your own wellness ritual.'
                 }
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 pt-4">
                 <Link
                   href="/products"
-                  className="inline-flex items-center justify-center px-8 py-4 text-base font-medium rounded-full text-white bg-sage-600 hover:bg-sage-700 transition-all duration-200 shadow-soft hover:shadow-lg hover:-translate-y-0.5 transform"
+                  className="inline-flex items-center justify-center px-8 py-4 text-base font-medium rounded-full text-white bg-sage-600 hover:bg-sage-700 dark:bg-sage-700 dark:hover:bg-sage-600 transition-all duration-200 shadow-soft hover:shadow-lg hover:-translate-y-0.5 transform"
                 >
-                  {locale === 'sv' ? 'Hitta din doft' : 'Find Your Scent'}
+                  {locale === 'sv' ? 'Produkter' : 'Products'}
                   <ArrowRightIcon className="ml-2 h-5 w-5" />
                 </Link>
                 <Link
-                  href="/about"
-                  className="inline-flex items-center justify-center px-8 py-4 border-2 border-sage-600 text-base font-medium rounded-full text-sage-700 hover:bg-sage-50 transition-all duration-200"
+                  href="/how-to-use"
+                  className="inline-flex items-center justify-center px-8 py-4 border-2 border-sage-600 dark:border-sage-500 text-base font-medium rounded-full text-sage-700 dark:text-sage-300 hover:bg-sage-50 dark:hover:bg-[#222b28] transition-all duration-200"
                 >
-                  {locale === 'sv' ? 'Vår berättelse' : 'Our Story'}
+                  {locale === 'sv' ? 'Instruktioner' : 'Essential Oil Guide'}
                 </Link>
               </div>
 
               {/* Trust badges */}
-              <div className="flex flex-wrap gap-6 pt-6 text-sm text-forest-600">
+              <div className="flex flex-wrap gap-6 pt-6 text-sm text-forest-600 dark:text-[#C5D4C5]">
                 <div className="flex items-center gap-2">
-                  <ShieldCheckIcon className="h-5 w-5 text-sage-600" />
+                  <ShieldCheckIcon className="h-5 w-5 text-sage-600 dark:text-sage-400" />
                   <span>{locale === 'sv' ? '100% Naturligt' : '100% Natural'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <TruckIcon className="h-5 w-5 text-sage-600" />
+                  <TruckIcon className="h-5 w-5 text-sage-600 dark:text-sage-400" />
                   <span>{locale === 'sv' ? 'Fri frakt över 500kr' : 'Free shipping over 500 SEK'}</span>
                 </div>
               </div>
@@ -169,16 +169,16 @@ export default function HomePage() {
               </div>
 
               {/* Floating product highlight */}
-              <div className="absolute -bottom-6 -left-6 bg-white rounded-2xl p-4 shadow-xl max-w-[200px]">
+              <div className="absolute -bottom-6 -left-6 bg-white dark:bg-[#1a221f] rounded-2xl p-4 shadow-xl max-w-[200px]">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-sage-100 rounded-full flex items-center justify-center">
-                    <SparklesIcon className="h-6 w-6 text-sage-600" />
+                  <div className="w-12 h-12 bg-sage-100 dark:bg-sage-900 rounded-full flex items-center justify-center">
+                    <SparklesIcon className="h-6 w-6 text-sage-600 dark:text-sage-400" />
                   </div>
                   <div>
-                    <p className="text-xs text-forest-600 font-medium">
+                    <p className="text-xs text-forest-600 dark:text-[#8A9A8A] font-medium">
                       {locale === 'sv' ? 'Mest populär' : 'Best Seller'}
                     </p>
-                    <p className="text-sm font-semibold text-forest-800">
+                    <p className="text-sm font-semibold text-forest-800 dark:text-[#E8EDE8]">
                       {locale === 'sv' ? 'Lavendel Olja' : 'Lavender Oil'}
                     </p>
                   </div>
@@ -190,13 +190,13 @@ export default function HomePage() {
       </section>
 
       {/* Features Section - Benefits Focused */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white dark:bg-[#242a28]">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-serif font-bold text-forest-700 mb-4">
+            <h2 className="text-4xl font-serif font-bold text-forest-700 dark:text-[#F0F5F0] mb-4">
               {locale === 'sv' ? 'Varför vi är annorlunda' : 'What makes us different'}
             </h2>
-            <p className="text-lg text-forest-600 max-w-2xl mx-auto">
+            <p className="text-lg text-forest-600 dark:text-[#C5D4C5] max-w-2xl mx-auto">
               {locale === 'sv'
                 ? 'Bara det bästa för dig och planeten'
                 : 'Only the best for you and the planet'
@@ -208,15 +208,15 @@ export default function HomePage() {
             {features.map((feature, index) => (
               <div
                 key={index}
-                className="text-center p-8 rounded-2xl hover:shadow-xl transition-all duration-300 bg-cream-50 hover:bg-white group"
+                className="text-center p-8 rounded-2xl hover:shadow-xl transition-all duration-300 bg-cream-50 dark:bg-[#2a3330] hover:bg-white dark:hover:bg-[#343c39] group"
               >
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-sage-100 group-hover:bg-sage-200 transition-colors mb-4">
-                  <feature.icon className="h-8 w-8 text-sage-600" />
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-sage-100 dark:bg-[#3f4946] group-hover:bg-sage-200 dark:group-hover:bg-[#4a5552] transition-colors mb-4">
+                  <feature.icon className="h-8 w-8 text-sage-600 dark:text-sage-400" />
                 </div>
-                <h3 className="text-xl font-semibold text-forest-700 mb-3">
+                <h3 className="text-xl font-semibold text-forest-700 dark:text-[#E8EDE8] mb-3">
                   {feature.title}
                 </h3>
-                <p className="text-forest-600 leading-relaxed">
+                <p className="text-forest-600 dark:text-[#C5D4C5] leading-relaxed">
                   {feature.description}
                 </p>
               </div>
@@ -227,13 +227,13 @@ export default function HomePage() {
 
 
       {/* Featured Products Section */}
-      <section className="py-20 bg-cream-50">
+      <section className="py-20 bg-cream-50 dark:bg-[#1a1f1e]">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-serif font-bold text-forest-700 mb-4">
+            <h2 className="text-4xl font-serif font-bold text-forest-700 dark:text-[#F0F5F0] mb-4">
               {locale === 'sv' ? 'Våra favoriter' : 'Our Favorites'}
             </h2>
-            <p className="text-lg text-forest-600 max-w-2xl mx-auto">
+            <p className="text-lg text-forest-600 dark:text-[#C5D4C5] max-w-2xl mx-auto">
               {locale === 'sv'
                 ? 'De oljor våra kunder älskar mest'
                 : 'The oils our customers love most'
@@ -316,8 +316,8 @@ export default function HomePage() {
         </div>
       </section> */}
 
-      {/* Instagram Feed */}
-      <InstagramFeed locale={locale} />
+      {/* Instagram Feed - TODO: Uncomment when we have an Instagram account */}
+      {/* <InstagramFeed locale={locale} /> */}
 
       {/* Newsletter Section - Commented out for now */}
       {/* <section className="py-20 bg-sage-700 relative overflow-hidden">

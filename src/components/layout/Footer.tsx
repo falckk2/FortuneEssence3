@@ -73,7 +73,7 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
   };
 
   return (
-    <footer className="bg-forest-900 text-white mt-auto">
+    <footer className="bg-cream-100 dark:bg-[#1a1f1e] mt-auto border-t border-forest-200 dark:border-gray-800">
       {/* Newsletter Section - Commented out for now */}
       {/* <div className="border-b border-forest-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -117,11 +117,11 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
           {/* Brand Column */}
           <div>
             <Link href="/" className="inline-block mb-4">
-              <span className="text-2xl font-serif font-bold text-white">
+              <span className="text-2xl font-serif font-bold text-forest-900 dark:text-[#F0F5F0]">
                 Fortune Essence
               </span>
             </Link>
-            <p className="text-forest-300 text-sm leading-relaxed mb-6">
+            <p className="text-forest-700 dark:text-[#C5D4C5] text-sm leading-relaxed mb-6">
               {locale === 'sv'
                 ? 'Upptäck naturens väsentlighet genom våra eteriska oljor och aromaterapi-produkter av högsta kvalitet.'
                 : 'Discover the essence of nature through our premium essential oils and aromatherapy products.'
@@ -134,7 +134,7 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
                 href="https://facebook.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-white/10 border border-forest-600 flex items-center justify-center hover:bg-sage-600 hover:border-sage-600 transition-all"
+                className="w-10 h-10 rounded-full bg-forest-100 dark:bg-white/10 border border-forest-300 dark:border-forest-600 flex items-center justify-center hover:bg-sage-600 hover:border-sage-600 transition-all text-forest-700 dark:text-white"
                 aria-label="Facebook"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -145,7 +145,7 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
                 href="https://instagram.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-white/10 border border-forest-600 flex items-center justify-center hover:bg-sage-600 hover:border-sage-600 transition-all"
+                className="w-10 h-10 rounded-full bg-forest-100 dark:bg-white/10 border border-forest-300 dark:border-forest-600 flex items-center justify-center hover:bg-sage-600 hover:border-sage-600 transition-all text-forest-700 dark:text-white"
                 aria-label="Instagram"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -156,7 +156,7 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
                 href="https://twitter.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-10 h-10 rounded-full bg-white/10 border border-forest-600 flex items-center justify-center hover:bg-sage-600 hover:border-sage-600 transition-all"
+                className="w-10 h-10 rounded-full bg-forest-100 dark:bg-white/10 border border-forest-300 dark:border-forest-600 flex items-center justify-center hover:bg-sage-600 hover:border-sage-600 transition-all text-forest-700 dark:text-white"
                 aria-label="Twitter"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -169,13 +169,13 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
           {/* Link Columns */}
           {Object.values(footerLinks).map((section, index) => (
             <div key={index}>
-              <h4 className="text-white font-semibold text-lg mb-4">{section.title}</h4>
+              <h4 className="text-forest-900 dark:text-[#F0F5F0] font-semibold text-lg mb-4">{section.title}</h4>
               <ul className="space-y-3">
                 {section.links.map((link, linkIndex) => (
                   <li key={linkIndex}>
                     <Link
                       href={link.href}
-                      className="text-forest-300 hover:text-sage-400 transition-colors text-sm"
+                      className="text-forest-700 dark:text-[#C5D4C5] hover:text-sage-600 dark:hover:text-sage-300 transition-colors text-sm"
                     >
                       {link.label}
                     </Link>
@@ -187,15 +187,15 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
         </div>
 
         {/* Contact Information */}
-        <div className="mt-12 pt-8 border-t border-forest-700">
+        <div className="mt-12 pt-8 border-t border-forest-200 dark:border-gray-800">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-start gap-3">
-              <EnvelopeIcon className="h-6 w-6 text-sage-500 flex-shrink-0 mt-1" />
+              <EnvelopeIcon className="h-6 w-6 text-sage-600 dark:text-sage-400 flex-shrink-0 mt-1" />
               <div>
-                <p className="text-sm font-medium text-white mb-1">
+                <p className="text-sm font-medium text-forest-900 dark:text-[#F0F5F0] mb-1">
                   {locale === 'sv' ? 'E-post' : 'Email'}
                 </p>
-                <a href="mailto:info@fortuneessence.se" className="text-forest-300 hover:text-sage-400 transition-colors text-sm">
+                <a href="mailto:info@fortuneessence.se" className="text-forest-700 dark:text-[#C5D4C5] hover:text-sage-600 dark:hover:text-sage-300 transition-colors text-sm">
                   info@fortuneessence.se
                 </a>
               </div>
@@ -213,13 +213,13 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
               </div>
             </div> */}
             <div className="flex items-start gap-3">
-              <MapPinIcon className="h-6 w-6 text-sage-500 flex-shrink-0 mt-1" />
+              <MapPinIcon className="h-6 w-6 text-sage-600 dark:text-sage-400 flex-shrink-0 mt-1" />
               <div>
-                <p className="text-sm font-medium text-white mb-1">
+                <p className="text-sm font-medium text-forest-900 dark:text-[#F0F5F0] mb-1">
                   {locale === 'sv' ? 'Adress' : 'Address'}
                 </p>
-                <p className="text-forest-300 text-sm">
-                  Stockholm, Sverige
+                <p className="text-forest-700 dark:text-[#C5D4C5] text-sm">
+                  Göteborg, Sverige
                 </p>
               </div>
             </div>
@@ -227,13 +227,13 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
         </div>
 
         {/* Payment Methods & Bottom Bar */}
-        <div className="mt-8 pt-8 border-t border-forest-700">
+        <div className="mt-8 pt-8 border-t border-forest-200 dark:border-gray-800">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-forest-400 text-sm">
+            <p className="text-forest-600 dark:text-[#8A9A8A] text-sm">
               © {currentYear} Fortune Essence. {locale === 'sv' ? 'Alla rättigheter förbehållna.' : 'All rights reserved.'}
             </p>
             <div className="flex items-center gap-4">
-              <span className="text-forest-400 text-sm">
+              <span className="text-forest-600 dark:text-[#8A9A8A] text-sm">
                 {locale === 'sv' ? 'Vi accepterar:' : 'We accept:'}
               </span>
               <div className="flex gap-2">

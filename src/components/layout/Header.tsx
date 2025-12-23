@@ -42,9 +42,14 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
       href: '/products',
     },
     {
-      name: locale === 'sv' ? 'Om oss' : 'About',
-      href: '/about',
+      name: locale === 'sv' ? 'Instruktioner' : 'Essential Oil Guide',
+      href: '/how-to-use',
     },
+    // About page removed per user request
+    // {
+    //   name: locale === 'sv' ? 'Om oss' : 'About',
+    //   href: '/about',
+    // },
     {
       name: locale === 'sv' ? 'Kontakt' : 'Contact',
       href: '/contact',
@@ -69,11 +74,11 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
   return (
     <header className="bg-white dark:bg-[#242a28] shadow-sm border-b border-gray-200 dark:border-gray-700">
       {/* Top bar */}
-      <div className="bg-gradient-to-r from-sage-100 to-cream-100 dark:from-sage-900 dark:to-[#2a3330] border-b border-sage-200 dark:border-sage-800">
+      <div className="bg-gradient-to-r from-sage-100 to-cream-100 dark:from-[#2a3330] dark:to-[#1f2624] border-b border-sage-200 dark:border-gray-700">
         <div className="container mx-auto px-4 py-2">
           <div className="flex items-center justify-between text-sm">
-            <p className="text-forest-700 dark:text-sage-300">
-              {locale === 'sv' 
+            <p className="text-forest-700 dark:text-[#B8C5B8]">
+              {locale === 'sv'
                 ? 'Fri frakt över 500 kr | Snabb leverans i hela Sverige'
                 : 'Free shipping over 500 SEK | Fast delivery across Sweden'
               }
@@ -81,11 +86,11 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
             <div className="flex items-center space-x-4">
               <Link
                 href="/help"
-                className="text-forest-600 dark:text-sage-400 hover:text-sage-700 dark:hover:text-sage-300 transition-colors font-medium"
+                className="text-forest-600 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors font-medium"
               >
                 {locale === 'sv' ? 'Hjälp' : 'Help'}
               </Link>
-              <button className="text-forest-600 dark:text-sage-400 hover:text-sage-700 dark:hover:text-sage-300 transition-colors font-medium">
+              <button className="text-forest-600 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors font-medium">
                 {locale === 'sv' ? 'SV' : 'EN'}
               </button>
             </div>
@@ -110,10 +115,10 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                 <div className="absolute inset-0 bg-sage-400 rounded-full blur-md opacity-20 group-hover:opacity-30 transition-opacity"></div>
               </div>
               <div className="flex flex-col">
-                <span className="text-2xl font-serif font-bold text-forest-800 tracking-tight leading-none group-hover:text-sage-700 transition-colors">
+                <span className="text-2xl font-serif font-bold text-forest-800 dark:text-[#E8EDE8] tracking-tight leading-none group-hover:text-sage-700 dark:group-hover:text-sage-400 transition-colors">
                   Fortune Essence
                 </span>
-                <span className="text-xs text-sage-600 font-light tracking-widest uppercase">
+                <span className="text-xs text-sage-600 dark:text-[#8A9A8A] font-light tracking-widest uppercase">
                   Premium Essential Oils
                 </span>
               </div>
@@ -126,7 +131,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
               <div key={item.name} className="relative group">
                 <Link
                   href={item.href}
-                  className="text-forest-700 dark:text-sage-300 hover:text-sage-700 dark:hover:text-sage-200 px-3 py-2 text-sm font-medium transition-colors"
+                  className="text-forest-700 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] px-3 py-2 text-sm font-medium transition-colors"
                 >
                   {item.name}
                 </Link>
@@ -137,7 +142,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                         <Link
                           key={child.name}
                           href={child.href}
-                          className="block px-4 py-2 text-sm text-forest-700 dark:text-sage-300 hover:bg-sage-50 dark:hover:bg-sage-900 hover:text-sage-700 dark:hover:text-sage-200 transition-colors"
+                          className="block px-4 py-2 text-sm text-forest-700 dark:text-[#B8C5B8] hover:bg-sage-50 dark:hover:bg-[#343c39] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors"
                         >
                           {child.name}
                         </Link>
@@ -157,10 +162,10 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={locale === 'sv' ? 'Sök produkter...' : 'Search products...'}
-                className="w-full pl-10 pr-4 py-2 border border-sage-300 dark:border-sage-700 rounded-full focus:outline-none focus:ring-2 focus:ring-sage-500 dark:focus:ring-sage-600 focus:border-transparent bg-cream-50 dark:bg-[#2a3330] focus:bg-white dark:focus:bg-[#343c39] text-forest-700 dark:text-sage-200 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+                className="w-full pl-10 pr-4 py-2 border border-sage-300 dark:border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-sage-500 dark:focus:ring-sage-600 focus:border-transparent bg-cream-50 dark:bg-[#2a3330] focus:bg-white dark:focus:bg-[#343c39] text-forest-700 dark:text-[#E8EDE8] placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 dark:text-gray-600" />
               </div>
             </form>
           </div>
@@ -168,7 +173,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
           {/* Right side icons */}
           <div className="flex items-center space-x-4">
             {/* Search icon for mobile */}
-            <button className="md:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
+            <button className="md:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors">
               <MagnifyingGlassIcon className="h-6 w-6" />
             </button>
 
@@ -176,7 +181,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
             <ThemeToggle />
 
             {/* Wishlist */}
-            <Link href="/wishlist" className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
+            <Link href="/wishlist" className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors">
               <HeartIcon className="h-6 w-6" />
               {wishlistCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
@@ -190,7 +195,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
 
             {/* User menu */}
             <div className="relative group">
-              <button className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
+              <button className="p-2 text-gray-600 hover:text-gray-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors">
                 <UserIcon className="h-6 w-6" />
               </button>
 
@@ -198,24 +203,24 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                 <div className="py-1">
                   {isAuthenticated ? (
                     <>
-                      <div className="px-4 py-2 text-sm text-forest-700 dark:text-sage-300 border-b border-sage-200 dark:border-sage-800">
+                      <div className="px-4 py-2 text-sm text-forest-700 dark:text-[#B8C5B8] border-b border-sage-200 dark:border-gray-700">
                         {locale === 'sv' ? 'Hej' : 'Hello'} {user?.firstName}
                       </div>
                       <Link
                         href="/account"
-                        className="block px-4 py-2 text-sm text-forest-700 dark:text-sage-300 hover:bg-sage-50 dark:hover:bg-sage-900 hover:text-sage-700 dark:hover:text-sage-200 transition-colors"
+                        className="block px-4 py-2 text-sm text-forest-700 dark:text-[#B8C5B8] hover:bg-sage-50 dark:hover:bg-[#343c39] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors"
                       >
                         {locale === 'sv' ? 'Mitt konto' : 'My Account'}
                       </Link>
                       <Link
                         href="/orders"
-                        className="block px-4 py-2 text-sm text-forest-700 dark:text-sage-300 hover:bg-sage-50 dark:hover:bg-sage-900 hover:text-sage-700 dark:hover:text-sage-200 transition-colors"
+                        className="block px-4 py-2 text-sm text-forest-700 dark:text-[#B8C5B8] hover:bg-sage-50 dark:hover:bg-[#343c39] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors"
                       >
                         {locale === 'sv' ? 'Mina beställningar' : 'My Orders'}
                       </Link>
                       <button
                         onClick={handleSignOut}
-                        className="block w-full text-left px-4 py-2 text-sm text-forest-700 hover:bg-sage-50 hover:text-sage-700 transition-colors"
+                        className="block w-full text-left px-4 py-2 text-sm text-forest-700 dark:text-[#B8C5B8] hover:bg-sage-50 dark:hover:bg-[#343c39] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors"
                       >
                         {locale === 'sv' ? 'Logga ut' : 'Sign Out'}
                       </button>
@@ -224,13 +229,13 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                     <>
                       <Link
                         href="/auth/signin"
-                        className="block px-4 py-2 text-sm text-forest-700 hover:bg-sage-50 hover:text-sage-700 transition-colors"
+                        className="block px-4 py-2 text-sm text-forest-700 dark:text-[#B8C5B8] hover:bg-sage-50 dark:hover:bg-[#343c39] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors"
                       >
                         {locale === 'sv' ? 'Logga in' : 'Sign In'}
                       </Link>
                       <Link
                         href="/auth/signup"
-                        className="block px-4 py-2 text-sm text-forest-700 hover:bg-sage-50 hover:text-sage-700 transition-colors"
+                        className="block px-4 py-2 text-sm text-forest-700 dark:text-[#B8C5B8] hover:bg-sage-50 dark:hover:bg-[#343c39] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors"
                       >
                         {locale === 'sv' ? 'Skapa konto' : 'Sign Up'}
                       </Link>
@@ -243,7 +248,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="lg:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors"
             >
               {isMobileMenuOpen ? (
                 <XMarkIcon className="h-6 w-6" />
@@ -257,7 +262,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
 
       {/* Mobile menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden border-t border-gray-200">
+        <div className="lg:hidden border-t border-gray-200 dark:border-gray-700 dark:bg-[#242a28]">
           <div className="px-4 py-3 space-y-3">
             {/* Mobile search */}
             <form onSubmit={handleSearch} className="relative">
@@ -266,10 +271,10 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={locale === 'sv' ? 'Sök produkter...' : 'Search products...'}
-                className="w-full pl-10 pr-4 py-2 border border-sage-300 rounded-full focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent bg-cream-50 focus:bg-white transition-colors"
+                className="w-full pl-10 pr-4 py-2 border border-sage-300 dark:border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-sage-500 dark:focus:ring-sage-600 focus:border-transparent bg-cream-50 dark:bg-[#2a3330] focus:bg-white dark:focus:bg-[#343c39] text-forest-700 dark:text-[#E8EDE8] transition-colors"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 dark:text-gray-600" />
               </div>
             </form>
 
@@ -278,7 +283,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
               <div key={item.name}>
                 <Link
                   href={item.href}
-                  className="block py-2 text-forest-700 hover:text-sage-700 font-medium transition-colors"
+                  className="block py-2 text-forest-700 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] font-medium transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {item.name}
@@ -289,7 +294,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                       <Link
                         key={child.name}
                         href={child.href}
-                        className="block py-1 text-sm text-forest-600 hover:text-sage-700 transition-colors"
+                        className="block py-1 text-sm text-forest-600 dark:text-[#8A9A8A] hover:text-sage-700 dark:hover:text-[#B8C5B8] transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         {child.name}

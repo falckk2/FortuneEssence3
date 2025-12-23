@@ -63,14 +63,14 @@ export const InstagramFeed = ({ locale = 'sv' }: InstagramFeedProps) => {
   };
 
   return (
-    <section className="py-20 bg-cream-50">
+    <section className="py-20 bg-cream-50 dark:bg-[#111816]">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-serif font-bold text-forest-700 mb-4">
+          <h2 className="text-4xl font-serif font-bold text-forest-700 dark:text-[#F0F5F0] mb-4">
             {locale === 'sv' ? 'Få de senaste nyheterna' : 'Get the Latest News'}
           </h2>
-          <p className="text-lg text-forest-600 mb-6">
+          <p className="text-lg text-forest-600 dark:text-[#C5D4C5] mb-6">
             {locale === 'sv'
               ? 'Dela ditt välmåenderitual med #FortuneEssence'
               : 'Share your wellness ritual with #FortuneEssence'}
@@ -96,7 +96,7 @@ export const InstagramFeed = ({ locale = 'sv' }: InstagramFeedProps) => {
               href="https://instagram.com/fortuneessence"
               target="_blank"
               rel="noopener noreferrer"
-              className="group relative aspect-square overflow-hidden rounded-2xl bg-cream-200 hover:scale-105 transition-transform duration-300"
+              className="group relative aspect-square overflow-hidden rounded-2xl bg-cream-200 dark:bg-[#1a221f] hover:scale-105 transition-transform duration-300"
             >
               {!imageErrors[post.id] ? (
                 <Image
@@ -129,13 +129,13 @@ export const InstagramFeed = ({ locale = 'sv' }: InstagramFeedProps) => {
         </div>
 
         {/* Call to Action */}
-        <div className="text-center mt-12 p-8 bg-white rounded-3xl shadow-soft max-w-2xl mx-auto">
-          <p className="text-lg text-forest-700 mb-4">
+        <div className="text-center mt-12 p-8 bg-white dark:bg-[#1a221f] rounded-3xl shadow-soft max-w-2xl mx-auto">
+          <p className="text-lg text-forest-700 dark:text-[#F0F5F0] mb-4">
             {locale === 'sv'
               ? '🌿 Tagga oss i dina bilder för en chans att synas här!'
               : '🌿 Tag us in your photos for a chance to be featured!'}
           </p>
-          <p className="text-sm text-forest-600">
+          <p className="text-sm text-forest-600 dark:text-[#C5D4C5]">
             {locale === 'sv'
               ? 'Använd #FortuneEssence och @fortuneessence'
               : 'Use #FortuneEssence and @fortuneessence'}

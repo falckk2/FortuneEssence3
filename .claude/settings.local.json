@@ -30,7 +30,18 @@
       "Bash(cmd /c dir /b)",
       "Bash(git init:*)",
       "Bash(git commit:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(cmd /c dir /b databasemigrations*.sql)",
+      "Bash(node test-bundle-api.js:*)",
+      "Bash(curl:*)",
+      "Bash(ping:*)",
+      "Bash(node -e:*)",
+      "Bash(cmd /c \"dir /b | findstr /i tailwind\")",
+      "Bash(cmd /c dir /b diagrams)",
+      "Bash(cmd /c \"dir /b *.config.* 2>nul\")",
+      "Bash(cmd /c \"taskkill /F /IM node.exe\")",
+      "Bash(cmd /c \"dir /b LICENSE* 2>nul || echo No LICENSE files found\")",
+      "Bash(cmd /c \"dir /b *.md | findstr /i license\")"
     ],
     "deny": [],
     "ask": []
