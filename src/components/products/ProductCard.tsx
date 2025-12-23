@@ -3,7 +3,7 @@
 import { Product } from '@/types';
 import { PriceCalculator } from '@/utils/helpers';
 import { getProductBenefits } from '@/utils/productBenefits';
-import { ShoppingCartIcon, HeartIcon } from '@heroicons/react/24/outline';
+import { ShoppingCartIcon, HeartIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import { BundleImage } from '@/components/bundles';
 import Image from 'next/image';
@@ -53,7 +53,13 @@ export const ProductCard = ({
 
   const handleAddToCart = async () => {
     if (isOutOfStock || !onAddToCart) return;
-    
+
+    // For bundles, navigate to the product page where users can select oils
+    if (product.category === 'bundles') {
+      window.location.href = `/products/${product.id}`;
+      return;
+    }
+
     setIsLoading(true);
     try {
       await onAddToCart(product.id);
@@ -218,11 +224,17 @@ export const ProductCard = ({
             {isLoading ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
             ) : (
-              !isOutOfStock && <ShoppingCartIcon className="h-5 w-5 mr-2" />
+              !isOutOfStock && (
+                product.category === 'bundles'
+                  ? <ArrowRightIcon className="h-5 w-5 mr-2" />
+                  : <ShoppingCartIcon className="h-5 w-5 mr-2" />
+              )
             )}
             {isOutOfStock
               ? (locale === 'sv' ? 'Slutsåld' : 'Sold Out')
-              : (locale === 'sv' ? 'Lägg i varukorg' : 'Add to Cart')
+              : product.category === 'bundles'
+                ? (locale === 'sv' ? 'Välj oljor' : 'Choose Oils')
+                : (locale === 'sv' ? 'Lägg i varukorg' : 'Add to Cart')
             }
           </button>
         )}

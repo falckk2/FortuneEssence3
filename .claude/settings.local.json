@@ -41,7 +41,12 @@
       "Bash(cmd /c \"dir /b *.config.* 2>nul\")",
       "Bash(cmd /c \"taskkill /F /IM node.exe\")",
       "Bash(cmd /c \"dir /b LICENSE* 2>nul || echo No LICENSE files found\")",
-      "Bash(cmd /c \"dir /b *.md | findstr /i license\")"
+      "Bash(cmd /c \"dir /b *.md | findstr /i license\")",
+      "Bash(cmd /c \"dir /s /b src\\\\app | findstr /i bundle\")",
+      "Bash(taskkill:*)",
+      "Bash(cmd /c dir /b database)",
+      "Bash(cmd /c \"dir /b public\\\\images\\\\bundles 2>nul || echo Directory not found\")",
+      "Bash(node scripts/update-bundle-images.js:*)"
     ],
     "deny": [],
     "ask": []

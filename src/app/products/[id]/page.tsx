@@ -366,13 +366,6 @@ export default function ProductDetailPage() {
                   bundleProduct={product}
                   bundleConfig={bundleConfig}
                   locale={locale}
-                  onAddToCart={() => {
-                    toast.success(
-                      locale === 'sv'
-                        ? 'Paket tillagt i varukorgen!'
-                        : 'Bundle added to cart!'
-                    );
-                  }}
                 />
               </div>
             ) : (

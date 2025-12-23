@@ -30,7 +30,7 @@ export const addressSchema = z.object({
 export const cartItemSchema = z.object({
   productId: z.string().uuid('Invalid product ID'),
   quantity: z.number().int().positive('Quantity must be positive').max(99),
-  price: z.number().positive('Price must be positive'),
+  price: z.number().nonnegative().optional(),
 });
 
 export const orderSchema = z.object({

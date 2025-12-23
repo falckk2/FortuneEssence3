@@ -5,6 +5,7 @@ import { ProductCard } from './ProductCard';
 import { useCartStore } from '@/stores/cartStore';
 import { useWishlistStore } from '@/stores/wishlistStore';
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 
 interface ProductGridProps {
   products: Product[];
@@ -35,11 +36,35 @@ export const ProductGrid = ({
     const product = products.find(p => p.id === productId);
     if (!product) return;
 
-    await addItem({
-      productId: product.id,
-      quantity: 1,
-      price: product.price,
-    });
+    try {
+      await addItem({
+        productId: product.id,
+        quantity: 1,
+        price: product.price,
+      });
+
+      const productName = product.translations[locale].name;
+      toast.success(
+        locale === 'sv'
+          ? `${productName} tillagd i varukorgen!`
+          : `${productName} added to cart!`,
+        {
+          duration: 3000,
+          icon: '🛒',
+        }
+      );
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(
+        locale === 'sv'
+          ? `Kunde inte lägga till i varukorgen: ${errorMessage}`
+          : `Failed to add to cart: ${errorMessage}`,
+        {
+          duration: 5000,
+        }
+      );
+    }
   };
 
   const handleToggleWishlist = (productId: string) => {

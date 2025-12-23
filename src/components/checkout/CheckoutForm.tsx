@@ -7,14 +7,24 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
 import { useCartStore } from '@/stores/cartStore';
-import { Address, PaymentMethod, ShippingRate } from '@/types';
+import { Address, PaymentMethod, ShippingRate, Product, BundleSelection } from '@/types';
 import { PriceCalculator } from '@/utils/helpers';
-import { 
-  CreditCardIcon, 
-  BanknotesIcon, 
+import Image from 'next/image';
+import {
+  CreditCardIcon,
+  BanknotesIcon,
   DevicePhoneMobileIcon,
-  BuildingLibraryIcon 
+  BuildingLibraryIcon
 } from '@heroicons/react/24/outline';
+
+interface CartItemWithProduct {
+  productId: string;
+  quantity: number;
+  price: number;
+  product?: Product;
+  bundleSelection?: BundleSelection;
+  selectedProducts?: Product[];
+}
 
 const checkoutSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -50,12 +60,14 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const { items, total, clearCart } = useCartStore();
-  
+
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<ShippingRate | null>(null);
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentMethod[]>([]);
+  const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
   const {
     register,
@@ -88,6 +100,58 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
   });
 
   const watchedFields = watch(['shippingAddress', 'sameAddress']);
+
+  // Fetch product details for cart items
+  useEffect(() => {
+    const fetchProductDetails = async () => {
+      if (items.length === 0) {
+        setCartItems([]);
+        return;
+      }
+
+      setLoadingProducts(true);
+      try {
+        const itemsWithProducts: CartItemWithProduct[] = [];
+
+        for (const item of items) {
+          const response = await fetch(`/api/products/${item.productId}?locale=${locale}`);
+          const result = await response.json();
+
+          const cartItem: CartItemWithProduct = {
+            ...item,
+            product: result.success ? result.data : undefined,
+          };
+
+          // If this is a bundle with selected products, fetch those products too
+          if (item.bundleSelection && item.bundleSelection.selectedProductIds) {
+            const selectedProducts: Product[] = [];
+
+            for (const selectedProductId of item.bundleSelection.selectedProductIds) {
+              const prodResponse = await fetch(`/api/products/${selectedProductId}?locale=${locale}`);
+              const prodResult = await prodResponse.json();
+
+              if (prodResult.success) {
+                selectedProducts.push(prodResult.data);
+              }
+            }
+
+            cartItem.selectedProducts = selectedProducts;
+          }
+
+          itemsWithProducts.push(cartItem);
+        }
+
+        setCartItems(itemsWithProducts);
+      } catch (error) {
+        console.error('Failed to fetch product details:', error);
+        setCartItems(items.map(item => ({ ...item })));
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
+    fetchProductDetails();
+  }, [items, locale]);
 
   // Auto-fill billing address when "same address" is checked
   useEffect(() => {
@@ -222,6 +286,18 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
       'bank-transfer': locale === 'sv' ? 'Bankgiro' : 'Bank Transfer',
     };
     return names[method];
+  };
+
+  const getProductImage = (product?: Product) => {
+    if (!product || !product.images || product.images.length === 0) {
+      return '/images/placeholder-product.jpg';
+    }
+    return product.images[0];
+  };
+
+  const getProductName = (product?: Product) => {
+    if (!product) return locale === 'sv' ? 'Okänd produkt' : 'Unknown Product';
+    return locale === 'sv' ? product.translations.sv.name : product.translations.en.name;
   };
 
   const subtotal = total;
@@ -559,19 +635,68 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
             <h3 className="text-lg font-semibold mb-4">
               {locale === 'sv' ? 'Ordersammanfattning' : 'Order Summary'}
             </h3>
-            
+
             <div className="space-y-4 mb-6">
-              {items.map((item) => (
-                <div key={item.productId} className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-gray-900">Product {item.quantity}x</p>
-                    <p className="text-sm text-gray-600">{PriceCalculator.formatPrice(item.price, locale)} each</p>
-                  </div>
-                  <p className="font-medium text-gray-900">
-                    {PriceCalculator.formatPrice(item.price * item.quantity, locale)}
-                  </p>
+              {loadingProducts ? (
+                <div className="space-y-4">
+                  {items.map((item, i) => (
+                    <div key={i} className="animate-pulse flex space-x-3">
+                      <div className="rounded bg-gray-300 h-16 w-16"></div>
+                      <div className="flex-1 space-y-2 py-1">
+                        <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                        <div className="h-3 bg-gray-300 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                cartItems.map((item) => (
+                  <div key={item.productId} className="flex gap-3">
+                    <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
+                      <Image
+                        src={getProductImage(item.product)}
+                        alt={getProductName(item.product)}
+                        width={64}
+                        height={64}
+                        className="h-full w-full object-cover object-center"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900 text-sm">
+                        {getProductName(item.product)}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        {PriceCalculator.formatPrice(item.price, locale)} {locale === 'sv' ? 'st' : 'each'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {locale === 'sv' ? 'Antal' : 'Qty'}: {item.quantity}
+                      </p>
+
+                      {/* Bundle Contents */}
+                      {item.bundleSelection && item.selectedProducts && item.selectedProducts.length > 0 && (
+                        <div className="mt-1">
+                          <p className="text-xs font-medium text-sage-700 uppercase tracking-wide">
+                            {locale === 'sv' ? 'Innehåller:' : 'Contains:'}
+                          </p>
+                          <ul className="space-y-0.5">
+                            {item.selectedProducts.map((selectedProduct) => (
+                              <li key={selectedProduct.id} className="flex items-center text-xs text-gray-600">
+                                <span className="inline-block w-1 h-1 rounded-full bg-sage-500 mr-1.5"></span>
+                                {locale === 'sv' ? selectedProduct.translations.sv.name : selectedProduct.translations.en.name}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-gray-900 text-sm">
+                        {PriceCalculator.formatPrice(item.price * item.quantity, locale)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
             <div className="border-t pt-4 space-y-2">

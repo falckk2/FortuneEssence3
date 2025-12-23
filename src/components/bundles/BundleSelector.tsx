@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Product, BundleConfiguration } from '@/types';
+import { useCartStore } from '@/stores/cartStore';
+import toast from 'react-hot-toast';
 
 interface BundleSelectorProps {
   bundleProduct: Product;
@@ -17,6 +19,7 @@ export function BundleSelector({
   locale = 'sv',
   onAddToCart,
 }: BundleSelectorProps) {
+  const { addBundle } = useCartStore();
   const [eligibleProducts, setEligibleProducts] = useState<Product[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [productCounts, setProductCounts] = useState<Record<string, number>>({});
@@ -132,27 +135,32 @@ export function BundleSelector({
 
     setIsAddingToCart(true);
     try {
-      const response = await fetch('/api/cart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'add-bundle',
-          bundleProductId: bundleProduct.id,
-          selectedProductIds: selectedProducts,
-          quantity: 1,
-        }),
-      });
+      await addBundle(bundleProduct.id, selectedProducts, 1);
 
-      const data = await response.json();
-      if (data.success) {
-        // Success! Reset selection and call callback
-        setSelectedProducts([]);
-        onAddToCart?.(selectedProducts);
-      } else {
-        setError(data.error || 'Failed to add to cart');
-      }
+      // Success! Show toast notification
+      const bundleName = locale === 'sv' ? bundleProduct.nameSv : bundleProduct.nameEn;
+      toast.success(
+        locale === 'sv'
+          ? `${bundleName} tillagt i varukorgen!`
+          : `${bundleName} added to cart!`,
+        {
+          duration: 3000,
+          icon: '🛒',
+        }
+      );
+
+      // Reset selection and call callback
+      setSelectedProducts([]);
+      setProductCounts({});
+      onAddToCart?.(selectedProducts);
     } catch (err) {
-      setError('Failed to add to cart');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add to cart';
+      setError(errorMessage);
+      toast.error(
+        locale === 'sv'
+          ? 'Kunde inte lägga till paketet i varukorgen'
+          : 'Failed to add bundle to cart'
+      );
       console.error('Error adding bundle to cart:', err);
     } finally {
       setIsAddingToCart(false);

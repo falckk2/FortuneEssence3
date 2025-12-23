@@ -152,6 +152,8 @@ export class ImageHelper {
 }
 
 export class LocalStorageHelper {
+  private static readonly SESSION_ID_KEY = 'fortune-essence-session-id';
+
   static setItem<T>(key: string, value: T): void {
     try {
       localStorage.setItem(key, JSON.stringify(value));
@@ -183,6 +185,31 @@ export class LocalStorageHelper {
       localStorage.clear();
     } catch (error) {
       console.error('Failed to clear localStorage:', error);
+    }
+  }
+
+  static getSessionId(): string {
+    try {
+      let sessionId = localStorage.getItem(this.SESSION_ID_KEY);
+
+      if (!sessionId) {
+        sessionId = SessionHelper.generateSessionId();
+        localStorage.setItem(this.SESSION_ID_KEY, sessionId);
+      }
+
+      return sessionId;
+    } catch (error) {
+      console.error('Failed to get session ID:', error);
+      // Return a temporary session ID if localStorage fails
+      return SessionHelper.generateSessionId();
+    }
+  }
+
+  static clearSessionId(): void {
+    try {
+      localStorage.removeItem(this.SESSION_ID_KEY);
+    } catch (error) {
+      console.error('Failed to clear session ID:', error);
     }
   }
 }
