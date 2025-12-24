@@ -87,7 +87,6 @@ export interface Customer {
   firstName: string;
   lastName: string;
   phone?: string;
-  dateOfBirth?: Date;
   address: Address;
   createdAt: Date;
   updatedAt: Date;
@@ -118,6 +117,7 @@ export interface Order {
   paymentMethod: PaymentMethod;
   paymentId: string;
   trackingNumber?: string;
+  carrier?: string;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -42,31 +42,54 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
         const itemsWithProducts: CartItemWithProduct[] = [];
 
         for (const item of items) {
-          const response = await fetch(`/api/products/${item.productId}?locale=${locale}`);
-          const result = await response.json();
+          try {
+            const response = await fetch(`/api/products/${item.productId}?locale=${locale}`);
 
-          const cartItem: CartItemWithProduct = {
-            ...item,
-            product: result.success ? result.data : undefined,
-          };
-
-          // If this is a bundle with selected products, fetch those products too
-          if (item.bundleSelection && item.bundleSelection.selectedProductIds) {
-            const selectedProducts: Product[] = [];
-
-            for (const selectedProductId of item.bundleSelection.selectedProductIds) {
-              const prodResponse = await fetch(`/api/products/${selectedProductId}?locale=${locale}`);
-              const prodResult = await prodResponse.json();
-
-              if (prodResult.success) {
-                selectedProducts.push(prodResult.data);
-              }
+            // Check if response is OK before parsing JSON
+            if (!response.ok) {
+              console.warn(`Product ${item.productId} not found (${response.status})`);
+              itemsWithProducts.push({ ...item });
+              continue;
             }
 
-            cartItem.selectedProducts = selectedProducts;
-          }
+            const result = await response.json();
 
-          itemsWithProducts.push(cartItem);
+            const cartItem: CartItemWithProduct = {
+              ...item,
+              product: result.success ? result.data : undefined,
+            };
+
+            // If this is a bundle with selected products, fetch those products too
+            if (item.bundleSelection && item.bundleSelection.selectedProductIds) {
+              const selectedProducts: Product[] = [];
+
+              for (const selectedProductId of item.bundleSelection.selectedProductIds) {
+                try {
+                  const prodResponse = await fetch(`/api/products/${selectedProductId}?locale=${locale}`);
+
+                  if (!prodResponse.ok) {
+                    console.warn(`Selected product ${selectedProductId} not found (${prodResponse.status})`);
+                    continue;
+                  }
+
+                  const prodResult = await prodResponse.json();
+
+                  if (prodResult.success) {
+                    selectedProducts.push(prodResult.data);
+                  }
+                } catch (err) {
+                  console.error(`Error fetching selected product ${selectedProductId}:`, err);
+                }
+              }
+
+              cartItem.selectedProducts = selectedProducts;
+            }
+
+            itemsWithProducts.push(cartItem);
+          } catch (err) {
+            console.error(`Error fetching product ${item.productId}:`, err);
+            itemsWithProducts.push({ ...item });
+          }
         }
 
         setCartItems(itemsWithProducts);
@@ -232,8 +255,8 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
                                             {locale === 'sv' ? 'Innehåller:' : 'Contains:'}
                                           </p>
                                           <ul className="space-y-1">
-                                            {item.selectedProducts.map((selectedProduct) => (
-                                              <li key={selectedProduct.id} className="flex items-center text-xs text-gray-600">
+                                            {item.selectedProducts.map((selectedProduct, idx) => (
+                                              <li key={`${item.productId}-${selectedProduct.id}-${idx}`} className="flex items-center text-xs text-gray-600">
                                                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-sage-500 mr-2"></span>
                                                 {locale === 'sv' ? selectedProduct.translations.sv.name : selectedProduct.translations.en.name}
                                               </li>

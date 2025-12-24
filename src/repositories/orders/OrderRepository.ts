@@ -84,6 +84,7 @@ export class OrderRepository implements IOrderRepository {
         payment_method: order.paymentMethod,
         payment_id: order.paymentId,
         tracking_number: order.trackingNumber,
+        carrier: order.carrier,
       };
 
       const { data, error } = await supabase
@@ -117,6 +118,7 @@ export class OrderRepository implements IOrderRepository {
 
       if (order.status) updateData.status = order.status;
       if (order.trackingNumber !== undefined) updateData.tracking_number = order.trackingNumber;
+      if (order.carrier !== undefined) updateData.carrier = order.carrier;
       if (order.total !== undefined) updateData.total = order.total;
       if (order.tax !== undefined) updateData.tax = order.tax;
       if (order.shipping !== undefined) updateData.shipping = order.shipping;
@@ -199,6 +201,7 @@ export class OrderRepository implements IOrderRepository {
       paymentMethod: record.payment_method as PaymentMethod,
       paymentId: record.payment_id,
       trackingNumber: record.tracking_number,
+      carrier: record.carrier,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
     };

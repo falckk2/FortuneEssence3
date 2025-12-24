@@ -206,6 +206,7 @@ export class CartRepository implements ICartRepository {
     return {
       id: record.id,
       userId: record.user_id,
+      sessionId: record.session_id,
       items: record.items || [],
       total: record.total,
       createdAt: new Date(record.created_at),

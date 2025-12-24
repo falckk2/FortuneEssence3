@@ -32,7 +32,7 @@ export default function SignUpPage() {
   const [errors, setErrors] = useState<{[key: string]: string}>({});
 
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, signIn } = useAuth();
   const locale = 'sv'; // This would come from context in a real app
 
   const validateForm = () => {
@@ -72,7 +72,7 @@ export default function SignUpPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -80,20 +80,42 @@ export default function SignUpPage() {
     setIsLoading(true);
 
     try {
-      await signUp({
+      // Create the account
+      const signUpResult = await signUp({
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
+        consentGiven: formData.acceptTerms,
         marketingOptIn: formData.newsletter,
       });
+
+      if (!signUpResult.success) {
+        setErrors({
+          submit: signUpResult.error || (locale === 'sv'
+            ? 'Det gick inte att skapa kontot. Försök igen.'
+            : 'Failed to create account. Please try again.')
+        });
+        return;
+      }
+
+      // Automatically sign in the user after successful signup
+      const signInResult = await signIn(formData.email, formData.password);
+
+      if (!signInResult.success) {
+        // Account was created but auto-login failed - redirect to signin
+        router.push('/auth/signin?message=account-created');
+        return;
+      }
+
+      // Successfully created account and logged in
       router.push('/');
     } catch (err) {
       setErrors({
-        submit: locale === 'sv' 
-          ? 'Det gick inte att skapa kontot. Försök igen.'
-          : 'Failed to create account. Please try again.'
+        submit: locale === 'sv'
+          ? 'Ett oväntat fel uppstod. Försök igen.'
+          : 'An unexpected error occurred. Please try again.'
       });
     } finally {
       setIsLoading(false);

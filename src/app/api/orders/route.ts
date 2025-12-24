@@ -9,6 +9,25 @@ const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
 
 export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+
+    // Track-by-order doesn't require authentication
+    if (action === 'track-by-order') {
+      const orderNumber = searchParams.get('orderNumber');
+      if (!orderNumber) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Order number is required',
+          },
+          { status: 400 }
+        );
+      }
+      return handleTrackByOrderNumber(orderNumber);
+    }
+
+    // All other actions require authentication
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json(
@@ -20,22 +39,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const action = searchParams.get('action');
     const userId = session.user.id;
 
     switch (action) {
       case 'user-orders':
         return handleGetUserOrders(userId);
-      
+
       case 'statistics':
         return handleGetOrderStatistics(userId);
-      
+
       case 'recent':
         const days = parseInt(searchParams.get('days') || '30');
         const limit = parseInt(searchParams.get('limit') || '50');
         return handleGetRecentOrders(days, limit);
-      
+
       default:
         return NextResponse.json(
           {
@@ -448,6 +465,47 @@ async function handleUpdateOrderStatus(orderId: string, status: string, userId: 
       {
         success: false,
         error: `Failed to update order status: ${error}`,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleTrackByOrderNumber(orderNumber: string) {
+  try {
+    // Get order by ID (order number)
+    const result = await orderService.getOrder(orderNumber);
+
+    if (!result.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Order not found',
+        },
+        { status: 404 }
+      );
+    }
+
+    const order = result.data!;
+
+    // Return order details with tracking information
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: order.id,
+        status: order.status,
+        total: order.total,
+        createdAt: order.createdAt,
+        trackingNumber: order.trackingNumber,
+        carrier: order.carrier || 'PostNord',
+      },
+    });
+
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Failed to track order: ${error}`,
       },
       { status: 500 }
     );

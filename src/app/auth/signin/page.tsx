@@ -31,12 +31,21 @@ export default function SignInPage() {
     setError('');
 
     try {
-      await signIn(formData.email, formData.password);
+      const result = await signIn(formData.email, formData.password);
+
+      if (!result.success) {
+        setError(locale === 'sv'
+          ? 'Fel e-postadress eller lösenord. Försök igen.'
+          : 'Invalid email or password. Please try again.'
+        );
+        return;
+      }
+
       router.push('/');
     } catch (err) {
-      setError(locale === 'sv' 
-        ? 'Fel e-postadress eller lösenord. Försök igen.'
-        : 'Invalid email or password. Please try again.'
+      setError(locale === 'sv'
+        ? 'Ett oväntat fel uppstod. Försök igen.'
+        : 'An unexpected error occurred. Please try again.'
       );
     } finally {
       setIsLoading(false);
@@ -181,35 +190,6 @@ export default function SignInPage() {
               </>
             )}
           </button>
-
-          {/* Social Login */}
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
-                  {locale === 'sv' ? 'Eller logga in med' : 'Or sign in with'}
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-              >
-                <span>Google</span>
-              </button>
-              <button
-                type="button"
-                className="w-full inline-flex justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-              >
-                <span>Facebook</span>
-              </button>
-            </div>
-          </div>
 
           {/* Sign Up Link */}
           <div className="text-center">

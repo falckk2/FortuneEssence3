@@ -65,7 +65,7 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
   const [isProcessing, setIsProcessing] = useState(false);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<ShippingRate | null>(null);
-  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<PaymentMethod[]>([]);
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState<Array<{ id: PaymentMethod; name: string; enabled: boolean }>>([]);
   const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
 
@@ -114,31 +114,54 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
         const itemsWithProducts: CartItemWithProduct[] = [];
 
         for (const item of items) {
-          const response = await fetch(`/api/products/${item.productId}?locale=${locale}`);
-          const result = await response.json();
+          try {
+            const response = await fetch(`/api/products/${item.productId}?locale=${locale}`);
 
-          const cartItem: CartItemWithProduct = {
-            ...item,
-            product: result.success ? result.data : undefined,
-          };
-
-          // If this is a bundle with selected products, fetch those products too
-          if (item.bundleSelection && item.bundleSelection.selectedProductIds) {
-            const selectedProducts: Product[] = [];
-
-            for (const selectedProductId of item.bundleSelection.selectedProductIds) {
-              const prodResponse = await fetch(`/api/products/${selectedProductId}?locale=${locale}`);
-              const prodResult = await prodResponse.json();
-
-              if (prodResult.success) {
-                selectedProducts.push(prodResult.data);
-              }
+            // Check if response is OK before parsing JSON
+            if (!response.ok) {
+              console.warn(`Product ${item.productId} not found (${response.status})`);
+              itemsWithProducts.push({ ...item });
+              continue;
             }
 
-            cartItem.selectedProducts = selectedProducts;
-          }
+            const result = await response.json();
 
-          itemsWithProducts.push(cartItem);
+            const cartItem: CartItemWithProduct = {
+              ...item,
+              product: result.success ? result.data : undefined,
+            };
+
+            // If this is a bundle with selected products, fetch those products too
+            if (item.bundleSelection && item.bundleSelection.selectedProductIds) {
+              const selectedProducts: Product[] = [];
+
+              for (const selectedProductId of item.bundleSelection.selectedProductIds) {
+                try {
+                  const prodResponse = await fetch(`/api/products/${selectedProductId}?locale=${locale}`);
+
+                  if (!prodResponse.ok) {
+                    console.warn(`Selected product ${selectedProductId} not found (${prodResponse.status})`);
+                    continue;
+                  }
+
+                  const prodResult = await prodResponse.json();
+
+                  if (prodResult.success) {
+                    selectedProducts.push(prodResult.data);
+                  }
+                } catch (err) {
+                  console.error(`Error fetching selected product ${selectedProductId}:`, err);
+                }
+              }
+
+              cartItem.selectedProducts = selectedProducts;
+            }
+
+            itemsWithProducts.push(cartItem);
+          } catch (err) {
+            console.error(`Error fetching product ${item.productId}:`, err);
+            itemsWithProducts.push({ ...item });
+          }
         }
 
         setCartItems(itemsWithProducts);
@@ -572,19 +595,19 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
             </h3>
             
             <div className="grid grid-cols-2 gap-3">
-              {availablePaymentMethods.map((method) => {
-                const IconComponent = getPaymentIcon(method);
+              {availablePaymentMethods.filter(m => m.enabled).map((method) => {
+                const IconComponent = getPaymentIcon(method.id);
                 return (
-                  <label key={method} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                  <label key={method.id} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
                     <input
                       {...register('paymentMethod')}
                       type="radio"
-                      value={method}
+                      value={method.id}
                       className="text-purple-600 focus:ring-purple-500"
                     />
                     <IconComponent className="h-5 w-5 ml-3 text-gray-600" />
                     <span className="ml-2 text-sm font-medium text-gray-900">
-                      {getPaymentMethodName(method)}
+                      {getPaymentMethodName(method.id)}
                     </span>
                   </label>
                 );
@@ -679,8 +702,8 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
                             {locale === 'sv' ? 'Innehåller:' : 'Contains:'}
                           </p>
                           <ul className="space-y-0.5">
-                            {item.selectedProducts.map((selectedProduct) => (
-                              <li key={selectedProduct.id} className="flex items-center text-xs text-gray-600">
+                            {item.selectedProducts.map((selectedProduct, idx) => (
+                              <li key={`${item.productId}-${selectedProduct.id}-${idx}`} className="flex items-center text-xs text-gray-600">
                                 <span className="inline-block w-1 h-1 rounded-full bg-sage-500 mr-1.5"></span>
                                 {locale === 'sv' ? selectedProduct.translations.sv.name : selectedProduct.translations.en.name}
                               </li>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -28,9 +28,14 @@ interface NavigationItem {
 export const Header = ({ locale = 'sv' }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isClient, setIsClient] = useState(false);
   const router = useRouter();
   const { user, isAuthenticated, signOut } = useAuth();
   const { getItemCount } = useWishlistStore();
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const navigationItems: NavigationItem[] = [
     {
@@ -69,7 +74,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
     router.push('/');
   };
 
-  const wishlistCount = getItemCount();
+  const wishlistCount = isClient ? getItemCount() : 0;
 
   return (
     <header className="bg-white dark:bg-[#242a28] shadow-sm border-b border-gray-200 dark:border-gray-700">
@@ -213,7 +218,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
                         {locale === 'sv' ? 'Mitt konto' : 'My Account'}
                       </Link>
                       <Link
-                        href="/orders"
+                        href="/account/orders"
                         className="block px-4 py-2 text-sm text-forest-700 dark:text-[#B8C5B8] hover:bg-sage-50 dark:hover:bg-[#343c39] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors"
                       >
                         {locale === 'sv' ? 'Mina beställningar' : 'My Orders'}

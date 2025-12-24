@@ -13,10 +13,17 @@ interface CartIconProps {
 export const CartIcon = ({ locale = 'sv', className = '' }: CartIconProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const { getItemCount } = useCartStore();
+  const { getItemCount, refreshCart } = useCartStore();
 
   useEffect(() => {
     setIsClient(true);
+    // Load cart from backend after hydration
+    const timer = setTimeout(() => {
+      refreshCart();
+    }, 0);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const itemCount = isClient ? getItemCount() : 0;
