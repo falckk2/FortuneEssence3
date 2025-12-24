@@ -48,6 +48,9 @@ next-env.d.ts
 # Claude Code local settings
 .claude/settings.local.json
 
+# MCP server configuration (local)
+.mcp.json
+
 # Temporary database scripts (one-time migrations)
 database/add-essential-oils.sql
 database/deactivate-bundles.sql
@@ -58,6 +61,11 @@ database/remove-extra-oils.sql
 database/update-bundle-descriptions.sql
 database/update-lavender-image.sql
 database/update-lavender-price.sql
+database/disable-customer-rls-temporarily.sql
+database/fix-all-permissions.sql
+database/fix-customer-permissions-v2.sql
+database/fix-customer-signup-permissions.sql
+database/update-bundle-images.sql
 check-lavender-image.sql
 
 # Test scripts
