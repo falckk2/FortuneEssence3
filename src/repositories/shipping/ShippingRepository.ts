@@ -1,5 +1,5 @@
 import { IShippingRepository } from '@/interfaces';
-import { ShippingRate, ApiResponse } from '@/types';
+import { ShippingRate, ApiResponse, ShippingLabel, CarrierPricingRule } from '@/types';
 import { supabase } from '@/lib/supabase';
 
 export class ShippingRepository implements IShippingRepository {
@@ -77,6 +77,44 @@ export class ShippingRepository implements IShippingRepository {
       estimatedDays: record.estimated_days,
       country: record.country,
       maxWeight: record.max_weight,
+      minWeight: record.min_weight,
+      carrierCode: record.carrier_code,
+      serviceType: record.service_type,
+      features: record.features,
+      logoUrl: record.logo_url,
+      colorScheme: record.color_scheme,
+      isEcoFriendly: record.is_eco_friendly,
+      zoneBased: record.zone_based,
+    };
+  }
+
+  private transformLabelRecord(record: any): ShippingLabel {
+    return {
+      id: record.id,
+      orderId: record.order_id,
+      trackingNumber: record.tracking_number,
+      carrierCode: record.carrier_code,
+      labelPdfUrl: record.label_pdf_url,
+      barcodeData: record.barcode_data,
+      qrCodeData: record.qr_code_data,
+      generatedAt: new Date(record.generated_at),
+    };
+  }
+
+  private transformPricingRuleRecord(record: any): CarrierPricingRule {
+    return {
+      id: record.id,
+      carrierCode: record.carrier_code,
+      serviceType: record.service_type,
+      country: record.country,
+      weightFrom: record.weight_from,
+      weightTo: record.weight_to,
+      postalCodeFrom: record.postal_code_from,
+      postalCodeTo: record.postal_code_to,
+      basePrice: record.base_price,
+      pricePerKg: record.price_per_kg,
+      createdAt: new Date(record.created_at),
+      updatedAt: new Date(record.updated_at),
     };
   }
 
@@ -341,6 +379,193 @@ export class ShippingRepository implements IShippingRepository {
       return {
         success: false,
         error: `Failed to validate shipping: ${error}`,
+      };
+    }
+  }
+
+  // Multi-carrier shipping methods
+  async findRatesByCarrier(carrierCode: string): Promise<ApiResponse<ShippingRate[]>> {
+    try {
+      const { data, error } = await supabase
+        .from(this.tableName)
+        .select('*')
+        .eq('carrier_code', carrierCode)
+        .order('price', { ascending: true });
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      return {
+        success: true,
+        data: data.map(record => this.transformDbRecord(record)),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to fetch carrier rates: ${error}`,
+      };
+    }
+  }
+
+  async saveShippingLabel(label: Omit<ShippingLabel, 'id' | 'generatedAt'>): Promise<ApiResponse<ShippingLabel>> {
+    try {
+      const labelData = {
+        order_id: label.orderId,
+        tracking_number: label.trackingNumber,
+        carrier_code: label.carrierCode,
+        label_pdf_url: label.labelPdfUrl,
+        barcode_data: label.barcodeData,
+        qr_code_data: label.qrCodeData,
+      };
+
+      const { data, error } = await supabase
+        .from('shipping_labels')
+        .insert(labelData)
+        .select()
+        .single();
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      return {
+        success: true,
+        data: this.transformLabelRecord(data),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to save shipping label: ${error}`,
+      };
+    }
+  }
+
+  async findLabelByOrderId(orderId: string): Promise<ApiResponse<ShippingLabel>> {
+    try {
+      const { data, error } = await supabase
+        .from('shipping_labels')
+        .select('*')
+        .eq('order_id', orderId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return {
+            success: false,
+            error: 'Shipping label not found for this order',
+          };
+        }
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      return {
+        success: true,
+        data: this.transformLabelRecord(data),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to find shipping label: ${error}`,
+      };
+    }
+  }
+
+  async findLabelByTrackingNumber(trackingNumber: string): Promise<ApiResponse<ShippingLabel>> {
+    try {
+      const { data, error } = await supabase
+        .from('shipping_labels')
+        .select('*')
+        .eq('tracking_number', trackingNumber)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return {
+            success: false,
+            error: 'Shipping label not found',
+          };
+        }
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      return {
+        success: true,
+        data: this.transformLabelRecord(data),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to find shipping label: ${error}`,
+      };
+    }
+  }
+
+  async findPricingRule(
+    carrierCode: string,
+    serviceType: string,
+    country: string,
+    weight: number,
+    postalCode?: string
+  ): Promise<ApiResponse<CarrierPricingRule>> {
+    try {
+      let query = supabase
+        .from('carrier_pricing_rules')
+        .select('*')
+        .eq('carrier_code', carrierCode)
+        .eq('service_type', serviceType)
+        .eq('country', country)
+        .lte('weight_from', weight)
+        .gte('weight_to', weight);
+
+      // Add postal code filtering if provided
+      // Note: Postal code comparison in database should use numeric ranges
+      // For proper postal code validation, filter results in application code
+      if (postalCode) {
+        // Filter by postal code ranges (null means applies to all postal codes)
+        query = query.or(
+          `postal_code_from.is.null,and(postal_code_from.lte.${postalCode},postal_code_to.gte.${postalCode})`
+        );
+      }
+
+      const { data, error } = await query
+        .order('weight_from', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return {
+            success: false,
+            error: 'No pricing rule found for these criteria',
+          };
+        }
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      return {
+        success: true,
+        data: this.transformPricingRuleRecord(data),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to find pricing rule: ${error}`,
       };
     }
   }

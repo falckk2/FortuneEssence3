@@ -1,14 +1,26 @@
 import { injectable, inject } from 'tsyringe';
 import type { IShippingService, IShippingRepository, IProductRepository, Shipment, TrackingInfo } from '@/interfaces';
-import type { ShippingRate, CartItem, ApiResponse } from '@/types';
+import type { ShippingRate, CartItem, ApiResponse, CarrierInfo, ShippingLabel, ShippingLabelGenerationRequest, Order } from '@/types';
 import { PriceCalculator } from '@/utils/helpers';
 import { TOKENS } from '@/config/di-container';
+import { CarrierRulesEngine, FilterCriteria } from './CarrierRulesEngine';
+import { LabelGenerationService } from './LabelGenerationService';
+import { getAllCarriers, getTrackingPrefix, FREE_SHIPPING_THRESHOLD } from '@/config/carriers';
 
+/**
+ * Shipping Service
+ *
+ * Now follows Dependency Inversion Principle:
+ * - All dependencies are injected through constructor
+ * - Depends on abstractions (interfaces), not concrete implementations
+ */
 @injectable()
 export class ShippingService implements IShippingService {
   constructor(
     @inject(TOKENS.IShippingRepository) private readonly shippingRepository: IShippingRepository,
-    @inject(TOKENS.IProductRepository) private readonly productRepository: IProductRepository
+    @inject(TOKENS.IProductRepository) private readonly productRepository: IProductRepository,
+    @inject(TOKENS.CarrierRulesEngine) private readonly carrierRulesEngine: CarrierRulesEngine,
+    @inject(TOKENS.LabelGenerationService) private readonly labelGenerationService: LabelGenerationService
   ) {}
 
   async getShippingRates(country: string, weight: number): Promise<ApiResponse<ShippingRate[]>> {
@@ -245,11 +257,13 @@ export class ShippingService implements IShippingService {
    */
   private async trackWithPostNord(trackingNumber: string): Promise<ApiResponse<TrackingInfo>> {
     try {
-      const apiKey = (await import('@/config')).config.shipping.postnord.apiKey;
-      const baseUrl = (await import('@/config')).config.shipping.postnord.baseUrl;
+      const config = (await import('@/config')).config;
+      const apiKey = config?.shipping?.postnord?.apiKey;
+      const baseUrl = config?.shipping?.postnord?.baseUrl || 'https://api2.postnord.com/rest';
 
-      // If API key is not configured, return failure to fall back to mock
-      if (!apiKey) {
+      // Validate API key is configured and not empty
+      if (!apiKey || apiKey.trim() === '') {
+        console.warn('PostNord API key not configured, falling back to mock tracking');
         return {
           success: false,
           error: 'PostNord API key not configured',
@@ -330,11 +344,13 @@ export class ShippingService implements IShippingService {
    */
   private async trackWithDHL(trackingNumber: string): Promise<ApiResponse<TrackingInfo>> {
     try {
-      const apiKey = (await import('@/config')).config.shipping.dhl.apiKey;
-      const baseUrl = (await import('@/config')).config.shipping.dhl.baseUrl;
+      const config = (await import('@/config')).config;
+      const apiKey = config?.shipping?.dhl?.apiKey;
+      const baseUrl = config?.shipping?.dhl?.baseUrl || 'https://api-eu.dhl.com';
 
-      // If API key is not configured, return failure to fall back to mock
-      if (!apiKey) {
+      // Validate API key is configured and not empty
+      if (!apiKey || apiKey.trim() === '') {
+        console.warn('DHL API key not configured, falling back to mock tracking');
         return {
           success: false,
           error: 'DHL API key not configured',
@@ -912,6 +928,259 @@ export class ShippingService implements IShippingService {
       return {
         success: false,
         error: `Failed to calculate eco shipping: ${error}`,
+      };
+    }
+  }
+
+  // ========================================
+  // NEW MULTI-CARRIER METHODS
+  // ========================================
+
+  /**
+   * Get all available shipping options for checkout
+   */
+  async getAllShippingOptions(
+    items: CartItem[],
+    country: string,
+    postalCode?: string,
+    orderValue?: number
+  ): Promise<ApiResponse<{
+    options: ShippingRate[];
+    recommended: ShippingRate;
+    freeShippingThreshold: number;
+  }>> {
+    try {
+      // Calculate total weight and order value
+      const totalWeight = await this.calculateTotalWeight(items);
+      const cartTotal = orderValue || items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+      // Get all rates from database
+      const ratesResult = await this.shippingRepository.findRatesByCountry(country);
+      if (!ratesResult.success) {
+        return {
+          success: false,
+          error: ratesResult.error,
+        };
+      }
+
+      // Filter by weight
+      let availableRates = this.carrierRulesEngine.filterByWeightLimit(ratesResult.data!, totalWeight);
+
+      // Apply smart filtering
+      const criteria: FilterCriteria = {
+        weight: totalWeight,
+        orderValue: cartTotal,
+        destination: country,
+        postalCode,
+      };
+
+      // Apply zone-based pricing if postal code provided
+      if (postalCode) {
+        const zoneMultiplier = this.carrierRulesEngine.getZoneMultiplier(postalCode);
+        availableRates = availableRates.map(rate => ({
+          ...rate,
+          price: Math.round(rate.price * zoneMultiplier * 100) / 100,
+        }));
+      }
+
+      // Check for free shipping
+      const isFreeShipping = cartTotal >= FREE_SHIPPING_THRESHOLD;
+      if (isFreeShipping) {
+        availableRates = availableRates.map(rate => ({
+          ...rate,
+          price: 0,
+          name: rate.name + ' (Fri frakt)',
+        }));
+      }
+
+      // Sort by price (cheapest first)
+      const sortedRates = this.carrierRulesEngine.sortByPrice([...availableRates]);
+
+      // Get recommended option
+      const recommended = this.carrierRulesEngine.getRecommendedRate(sortedRates, criteria) || sortedRates[0];
+
+      return {
+        success: true,
+        data: {
+          options: sortedRates,
+          recommended,
+          freeShippingThreshold: FREE_SHIPPING_THRESHOLD,
+        },
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get shipping options: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Get available carriers based on smart filtering
+   */
+  async getAvailableCarriers(
+    weight: number,
+    orderValue: number,
+    country: string,
+    postalCode?: string,
+    preferences?: FilterCriteria['preferences']
+  ): Promise<ApiResponse<CarrierInfo[]>> {
+    try {
+      const allCarriers = getAllCarriers();
+
+      const criteria: FilterCriteria = {
+        weight,
+        orderValue,
+        destination: country,
+        postalCode,
+        preferences,
+      };
+
+      const filtered = this.carrierRulesEngine.applySmartFilters(allCarriers, criteria);
+
+      return {
+        success: true,
+        data: filtered,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get available carriers: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Generate shipping label for an order
+   */
+  async generateShippingLabel(
+    order: Order
+  ): Promise<ApiResponse<ShippingLabel>> {
+    try {
+      // Generate tracking number
+      const carrierCode = order.carrier || 'POSTNORD';
+      const trackingNumber = this.generateCarrierTrackingNumber(carrierCode);
+
+      // Generate label using LabelGenerationService
+      const labelResult = await this.labelGenerationService.generateLabel(order, trackingNumber);
+
+      if (!labelResult.success) {
+        return labelResult;
+      }
+
+      // Save label to repository
+      const saveResult = await this.shippingRepository.saveShippingLabel(labelResult.data!);
+
+      return saveResult;
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to generate shipping label: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Get shipping label for an order
+   */
+  async getShippingLabel(orderId: string): Promise<ApiResponse<ShippingLabel>> {
+    try {
+      return await this.shippingRepository.findLabelByOrderId(orderId);
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get shipping label: ${error}`,
+      };
+    }
+  }
+
+  /**
+   * Generate carrier-specific tracking number
+   */
+  private generateCarrierTrackingNumber(carrierCode: string): string {
+    const prefix = getTrackingPrefix(carrierCode);
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const checksum = this.calculateChecksum(`${prefix}${timestamp}${random}`);
+
+    return `${prefix}${timestamp}${random}${checksum}`;
+  }
+
+  /**
+   * Calculate checksum for tracking number validation
+   */
+  private calculateChecksum(input: string): string {
+    let sum = 0;
+    for (let i = 0; i < input.length; i++) {
+      sum += input.charCodeAt(i);
+    }
+    return (sum % 97).toString().padStart(2, '0');
+  }
+
+  /**
+   * Calculate dynamic pricing based on weight and carrier rules
+   */
+  async calculateDynamicPrice(
+    carrierCode: string,
+    serviceType: string,
+    weight: number,
+    country: string,
+    postalCode?: string
+  ): Promise<ApiResponse<number>> {
+    try {
+      // Try to find pricing rule
+      const ruleResult = await this.shippingRepository.findPricingRule(
+        carrierCode,
+        serviceType,
+        country,
+        weight,
+        postalCode
+      );
+
+      if (ruleResult.success && ruleResult.data) {
+        const rule = ruleResult.data;
+        let price = rule.basePrice;
+
+        // Add weight-based pricing
+        if (rule.pricePerKg > 0) {
+          price += (weight * rule.pricePerKg);
+        }
+
+        // Apply zone-based multiplier if postal code provided
+        if (postalCode) {
+          const zoneMultiplier = this.carrierRulesEngine.getZoneMultiplier(postalCode);
+          price *= zoneMultiplier;
+        }
+
+        return {
+          success: true,
+          data: Math.round(price * 100) / 100,
+        };
+      }
+
+      // Fallback to database rate
+      const rates = await this.shippingRepository.findRatesByCarrier(carrierCode);
+      if (rates.success && rates.data && rates.data.length > 0) {
+        // Filter by country and service type
+        const matchingRate = rates.data.find(r =>
+          r.serviceType === serviceType && r.country === country
+        );
+        if (matchingRate) {
+          return {
+            success: true,
+            data: matchingRate.price,
+          };
+        }
+      }
+
+      return {
+        success: false,
+        error: 'No pricing found for carrier and service type',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to calculate dynamic price: ${error}`,
       };
     }
   }

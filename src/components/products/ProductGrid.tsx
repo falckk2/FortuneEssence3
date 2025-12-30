@@ -5,6 +5,8 @@ import { ProductCard } from './ProductCard';
 import { useCartStore } from '@/stores/cartStore';
 import { useWishlistStore } from '@/stores/wishlistStore';
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 interface ProductGridProps {
@@ -16,21 +18,34 @@ interface ProductGridProps {
   emptyMessage?: string;
 }
 
-export const ProductGrid = ({ 
-  products, 
-  locale = 'sv', 
+export const ProductGrid = ({
+  products,
+  locale = 'sv',
   className = '',
   showAddToCart = true,
   showWishlist = true,
   emptyMessage
 }: ProductGridProps) => {
   const [isClient, setIsClient] = useState(false);
+  const { data: session } = useSession();
+  const router = useRouter();
   const { addItem } = useCartStore();
-  const { items: wishlistItems, addItem: addToWishlist, removeItem: removeFromWishlist } = useWishlistStore();
+  const { items: wishlistItems, addItem: addToWishlist, removeItem: removeFromWishlist, setAuthenticated, refreshWishlist } = useWishlistStore();
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Sync authentication state with wishlist store
+  useEffect(() => {
+    const isAuth = !!session?.user;
+    setAuthenticated(isAuth);
+
+    // Load wishlist when user logs in
+    if (isAuth) {
+      refreshWishlist();
+    }
+  }, [session, setAuthenticated, refreshWishlist]);
 
   const handleAddToCart = async (productId: string) => {
     const product = products.find(p => p.id === productId);
@@ -67,19 +82,60 @@ export const ProductGrid = ({
     }
   };
 
-  const handleToggleWishlist = (productId: string) => {
+  const handleToggleWishlist = async (productId: string) => {
+    // Check if user is authenticated
+    if (!session?.user) {
+      toast.error(
+        locale === 'sv'
+          ? 'Du måste vara inloggad för att använda önskelistan'
+          : 'You must be logged in to use the wishlist',
+        {
+          duration: 3000,
+        }
+      );
+      router.push('/auth/signin');
+      return;
+    }
+
     const isInWishlist = wishlistItems.some(item => item.productId === productId);
-    
-    if (isInWishlist) {
-      removeFromWishlist(productId);
-    } else {
-      const product = products.find(p => p.id === productId);
-      if (product) {
-        addToWishlist({
-          productId: product.id,
-          addedAt: new Date(),
-        });
+
+    try {
+      if (isInWishlist) {
+        await removeFromWishlist(productId);
+        toast.success(
+          locale === 'sv'
+            ? 'Borttagen från önskelistan'
+            : 'Removed from wishlist',
+          {
+            duration: 2000,
+            icon: '💔',
+          }
+        );
+      } else {
+        await addToWishlist(productId);
+        const product = products.find(p => p.id === productId);
+        const productName = product?.translations[locale].name || '';
+        toast.success(
+          locale === 'sv'
+            ? `${productName} tillagd i önskelistan!`
+            : `${productName} added to wishlist!`,
+          {
+            duration: 2000,
+            icon: '❤️',
+          }
+        );
       }
+    } catch (error) {
+      console.error('Failed to toggle wishlist:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(
+        locale === 'sv'
+          ? `Kunde inte uppdatera önskelistan: ${errorMessage}`
+          : `Failed to update wishlist: ${errorMessage}`,
+        {
+          duration: 5000,
+        }
+      );
     }
   };
 

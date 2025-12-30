@@ -80,6 +80,7 @@ describe('OrderService', () => {
     jest.clearAllMocks();
 
     mockOrderRepository = {
+      findAll: jest.fn(),
       create: jest.fn(),
       findById: jest.fn(),
       findByCustomerId: jest.fn(),
@@ -161,9 +162,11 @@ describe('OrderService', () => {
       const shippingRate: ShippingRate = {
         id: 'rate-1',
         name: 'Standard Shipping',
+        description: 'Standard delivery',
         price: 50,
         estimatedDays: 3,
-        carrier: 'PostNord',
+        country: 'SE',
+        carrierCode: 'postnord',
         maxWeight: 10,
       };
 
@@ -219,7 +222,7 @@ describe('OrderService', () => {
         success: true,
         data: {
           id: 'cart-1',
-          customerId: 'cust-1',
+          userId: 'cust-1',
           items: mockCartItems,
           total: 749.97,
           createdAt: new Date(),
@@ -485,7 +488,7 @@ describe('OrderService', () => {
       });
       mockShippingService.getShippingRates.mockResolvedValue({
         success: true,
-        data: [{ id: 'rate-1', name: 'Standard', price: 50, estimatedDays: 3, carrier: 'PostNord', maxWeight: 10 }],
+        data: [{ id: 'rate-1', name: 'Standard', description: 'Standard delivery', price: 50, estimatedDays: 3, country: 'SE', carrierCode: 'postnord', maxWeight: 10 }],
       });
       mockShippingService.createShipment.mockResolvedValue({
         success: true,

@@ -138,7 +138,7 @@ export function BundleSelector({
       await addBundle(bundleProduct.id, selectedProducts, 1);
 
       // Success! Show toast notification
-      const bundleName = locale === 'sv' ? bundleProduct.nameSv : bundleProduct.nameEn;
+      const bundleName = bundleProduct.translations[locale].name;
       toast.success(
         locale === 'sv'
           ? `${bundleName} tillagt i varukorgen!`
@@ -271,7 +271,7 @@ export function BundleSelector({
             >
               {/* Count Badge */}
               {count > 0 && (
-                <div className="absolute top-2 right-2 bg-sage-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow-md">
+                <div className="absolute top-2 right-2 bg-sage-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold shadow-md z-10">
                   {count}x
                 </div>
               )}
@@ -306,7 +306,7 @@ export function BundleSelector({
 
               {/* Product Name */}
               <h4 className="text-sm font-medium text-gray-900 mb-1 text-center line-clamp-2">
-                {locale === 'sv' ? product.nameSv : product.nameEn}
+                {locale === 'sv' ? product.translations.sv.name : product.translations.en.name}
               </h4>
 
               {/* Product Price */}

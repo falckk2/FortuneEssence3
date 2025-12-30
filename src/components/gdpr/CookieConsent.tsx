@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { XMarkIcon, CogIcon } from '@heroicons/react/24/outline';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface ConsentData {
   marketing: boolean;
@@ -11,11 +12,8 @@ interface ConsentData {
   updatedAt: Date;
 }
 
-interface CookieConsentProps {
-  locale?: string;
-}
-
-export function CookieConsent({ locale = 'sv' }: CookieConsentProps) {
+export function CookieConsent() {
+  const { locale } = useLocale();
   const { data: session } = useSession();
   const [showBanner, setShowBanner] = useState(false);
   const [showDetails, setShowDetails] = useState(false);

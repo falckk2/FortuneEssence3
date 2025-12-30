@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import {
   EnvelopeIcon,
@@ -8,12 +9,10 @@ import {
   MapPinIcon,
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/contexts/LocaleContext';
 
-interface FooterProps {
-  locale?: 'sv' | 'en';
-}
-
-export const Footer = ({ locale = 'sv' }: FooterProps) => {
+export const Footer = () => {
+  const { locale } = useLocale();
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -116,8 +115,17 @@ export const Footer = ({ locale = 'sv' }: FooterProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand Column */}
           <div>
-            <Link href="/" className="inline-block mb-4">
-              <span className="text-2xl font-serif font-bold text-forest-900 dark:text-[#F0F5F0]">
+            <Link href="/" className="inline-flex items-center space-x-2 mb-4 group">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-gradient-to-br from-amber-100 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-800/30 shadow-sm group-hover:shadow-md transition-all">
+                <Image
+                  src="/images/logo.jpg"
+                  alt="Fortune Essence Logo"
+                  width={40}
+                  height={40}
+                  className="object-cover"
+                />
+              </div>
+              <span className="text-2xl font-serif font-bold text-forest-900 dark:text-[#F0F5F0] group-hover:text-sage-700 dark:group-hover:text-sage-400 transition-colors">
                 Fortune Essence
               </span>
             </Link>

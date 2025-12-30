@@ -16,6 +16,7 @@ import {
   DevicePhoneMobileIcon,
   BuildingLibraryIcon
 } from '@heroicons/react/24/outline';
+import CarrierOption from './CarrierOption';
 
 interface CartItemWithProduct {
   productId: string;
@@ -43,7 +44,7 @@ const checkoutSchema = z.object({
     postalCode: z.string().regex(/^\d{3}\s?\d{2}$/, 'Invalid Swedish postal code'),
     country: z.string().min(1, 'Country is required'),
   }),
-  paymentMethod: z.enum(['card', 'swish', 'klarna', 'bank-transfer']),
+  paymentMethod: z.enum(['card', 'swish', 'klarna']),
   sameAddress: z.boolean(),
   marketingOptIn: z.boolean(),
   termsAccepted: z.literal(true, { message: 'You must accept the terms and conditions' }),
@@ -64,10 +65,13 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
+  const [allShippingRates, setAllShippingRates] = useState<ShippingRate[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<ShippingRate | null>(null);
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState<Array<{ id: PaymentMethod; name: string; enabled: boolean }>>([]);
   const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(500);
+  const [filterType, setFilterType] = useState<'all' | 'fastest' | 'cheapest' | 'eco'>('all');
 
   const {
     register,
@@ -189,21 +193,23 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
     const fetchShippingRates = async () => {
       if (watchedFields[0]?.country && items.length > 0) {
         try {
-          const response = await fetch('/api/checkout', {
+          const response = await fetch('/api/shipping/calculate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              action: 'calculate-shipping',
               items,
               country: watchedFields[0].country,
-              address: watchedFields[0],
+              postalCode: watchedFields[0].postalCode,
+              orderValue: total,
             }),
           });
 
           const result = await response.json();
-          if (result.success) {
+          if (result.success && result.data) {
+            setAllShippingRates(result.data.options);
             setShippingRates(result.data.options);
             setSelectedShipping(result.data.recommended);
+            setFreeShippingThreshold(result.data.freeShippingThreshold || 500);
           }
         } catch (error) {
           console.error('Failed to fetch shipping rates:', error);
@@ -212,7 +218,7 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
     };
 
     fetchShippingRates();
-  }, [watchedFields[0]?.country, items]);
+  }, [watchedFields[0]?.country, watchedFields[0]?.postalCode, items, total]);
 
   // Fetch available payment methods
   useEffect(() => {
@@ -241,9 +247,15 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
     setIsProcessing(true);
 
     try {
+      // Generate a UUID for guest users (required by validation schema)
+      const customerId = user?.id || crypto.randomUUID();
+
       const orderData = {
-        customerId: user?.id || 'guest',
+        customerId,
         items,
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
         shippingAddress: data.shippingAddress,
         billingAddress: data.billingAddress,
         paymentMethod: data.paymentMethod,
@@ -293,8 +305,6 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
         return DevicePhoneMobileIcon;
       case 'klarna':
         return BanknotesIcon;
-      case 'bank-transfer':
-        return BuildingLibraryIcon;
       default:
         return CreditCardIcon;
     }
@@ -306,7 +316,7 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
       card: locale === 'sv' ? 'Kort' : 'Card',
       swish: 'Swish',
       klarna: 'Klarna',
-      'bank-transfer': locale === 'sv' ? 'Bankgiro' : 'Bank Transfer',
+      'bank-transfer': locale === 'sv' ? 'Banköverföring' : 'Bank Transfer',
     };
     return names[method];
   };
@@ -322,6 +332,30 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
     if (!product) return locale === 'sv' ? 'Okänd produkt' : 'Unknown Product';
     return locale === 'sv' ? product.translations.sv.name : product.translations.en.name;
   };
+
+  // Apply filters to shipping rates
+  useEffect(() => {
+    let filtered = [...allShippingRates];
+
+    switch (filterType) {
+      case 'fastest':
+        filtered.sort((a, b) => a.estimatedDays - b.estimatedDays);
+        break;
+      case 'cheapest':
+        filtered.sort((a, b) => a.price - b.price);
+        break;
+      case 'eco':
+        filtered = filtered.filter(rate => rate.isEcoFriendly);
+        break;
+      default:
+        // 'all' - no filtering
+        break;
+    }
+
+    setShippingRates(filtered);
+  }, [filterType, allShippingRates]);
+
+  const isFreeShipping = total >= freeShippingThreshold;
 
   const subtotal = total;
   const tax = PriceCalculator.calculateVAT(subtotal);
@@ -550,39 +584,74 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
           {/* Shipping Options */}
           {shippingRates.length > 0 && (
             <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-              <h3 className="text-lg font-semibold mb-4">
-                {locale === 'sv' ? 'Leveransalternativ' : 'Shipping Options'}
-              </h3>
-              
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">
+                  {locale === 'sv' ? 'Leveransalternativ' : 'Shipping Options'}
+                </h3>
+                {isFreeShipping && (
+                  <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+                    {locale === 'sv' ? '✓ Fri frakt!' : '✓ Free shipping!'}
+                  </span>
+                )}
+              </div>
+
+              {/* Filter buttons */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setFilterType('all')}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    filterType === 'all'
+                      ? 'bg-sage-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {locale === 'sv' ? 'Alla' : 'All'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterType('fastest')}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    filterType === 'fastest'
+                      ? 'bg-sage-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  ⚡ {locale === 'sv' ? 'Snabbast' : 'Fastest'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterType('cheapest')}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    filterType === 'cheapest'
+                      ? 'bg-sage-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  💰 {locale === 'sv' ? 'Billigast' : 'Cheapest'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterType('eco')}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    filterType === 'eco'
+                      ? 'bg-sage-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  🌿 {locale === 'sv' ? 'Miljövänligt' : 'Eco-friendly'}
+                </button>
+              </div>
+
               <div className="space-y-3">
                 {shippingRates.map((rate) => (
-                  <label key={rate.id} className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                    <div className="flex items-center">
-                      <input
-                        type="radio"
-                        name="shipping"
-                        value={rate.id}
-                        checked={selectedShipping?.id === rate.id}
-                        onChange={() => setSelectedShipping(rate)}
-                        className="text-purple-600 focus:ring-purple-500"
-                      />
-                      <div className="ml-3">
-                        <p className="font-medium text-gray-900">{rate.name}</p>
-                        <p className="text-sm text-gray-600">{rate.description}</p>
-                        <p className="text-sm text-gray-500">
-                          {locale === 'sv' ? `${rate.estimatedDays} arbetsdagar` : `${rate.estimatedDays} business days`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">
-                        {rate.price === 0 
-                          ? (locale === 'sv' ? 'Gratis' : 'Free')
-                          : PriceCalculator.formatPrice(rate.price, locale)
-                        }
-                      </p>
-                    </div>
-                  </label>
+                  <CarrierOption
+                    key={rate.id}
+                    rate={rate}
+                    selected={selectedShipping?.id === rate.id}
+                    onClick={() => setSelectedShipping(rate)}
+                    locale={locale}
+                  />
                 ))}
               </div>
             </div>

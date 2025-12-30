@@ -2,9 +2,25 @@ import { IPaymentService, PaymentData, PaymentResult, SwishPayment, KlarnaSessio
 import { ApiResponse } from '@/types';
 import Stripe from 'stripe';
 import { config } from '@/config';
+import { PaymentProcessorRegistry } from './PaymentProcessorRegistry';
+import { StripePaymentProcessor } from './processors/StripePaymentProcessor';
+import { SwishPaymentProcessor } from './processors/SwishPaymentProcessor';
+import { KlarnaPaymentProcessor } from './processors/KlarnaPaymentProcessor';
+import { BankTransferPaymentProcessor } from './processors/BankTransferPaymentProcessor';
 
+/**
+ * Payment Service
+ *
+ * Now follows SOLID principles:
+ * - Single Responsibility: Orchestrates payment processing and delegates to processors
+ * - Open/Closed: Can add new payment methods via processors without modifying this class
+ * - Liskov Substitution: All processors are interchangeable via IPaymentProcessor
+ * - Interface Segregation: Uses focused processor interfaces
+ * - Dependency Inversion: Depends on IPaymentProcessor abstraction
+ */
 export class PaymentService implements IPaymentService {
   private stripe: Stripe;
+  private processorRegistry: PaymentProcessorRegistry;
 
   constructor() {
     const stripeKey = config.payments.stripe.secretKey || 'sk_test_placeholder';
@@ -17,25 +33,39 @@ export class PaymentService implements IPaymentService {
     this.stripe = new Stripe(stripeKey, {
       apiVersion: '2025-08-27.basil',
     });
+
+    // Initialize payment processor registry (Strategy Pattern)
+    this.processorRegistry = new PaymentProcessorRegistry();
+    this.registerPaymentProcessors();
   }
 
+  /**
+   * Register all payment processors
+   * Following Open/Closed Principle: Add new processors here without modifying process logic
+   */
+  private registerPaymentProcessors(): void {
+    this.processorRegistry.register(new StripePaymentProcessor());
+    this.processorRegistry.register(new SwishPaymentProcessor());
+    this.processorRegistry.register(new KlarnaPaymentProcessor());
+    this.processorRegistry.register(new BankTransferPaymentProcessor());
+  }
+
+  /**
+   * Process payment using the Strategy Pattern
+   * Now follows Open/Closed Principle - no switch statement needed!
+   */
   async processPayment(paymentData: PaymentData): Promise<ApiResponse<PaymentResult>> {
     try {
-      switch (paymentData.method) {
-        case 'card':
-          return this.processCardPayment(paymentData);
-        case 'swish':
-          return this.processSwishPayment(paymentData);
-        case 'klarna':
-          return this.processKlarnaPayment(paymentData);
-        case 'bank-transfer':
-          return this.processBankTransfer(paymentData);
-        default:
-          return {
-            success: false,
-            error: 'Unsupported payment method',
-          };
+      const processor = this.processorRegistry.getProcessor(paymentData.method);
+
+      if (!processor) {
+        return {
+          success: false,
+          error: `Unsupported payment method: ${paymentData.method}`,
+        };
       }
+
+      return await processor.process(paymentData);
     } catch (error) {
       return {
         success: false,
@@ -258,23 +288,22 @@ export class PaymentService implements IPaymentService {
     }
   }
 
+  /**
+   * Verify payment using the Strategy Pattern
+   * Now follows Open/Closed Principle - no switch statement needed!
+   */
   async verifyPayment(paymentId: string, method: string): Promise<ApiResponse<boolean>> {
     try {
-      switch (method) {
-        case 'card':
-          return this.verifyStripePayment(paymentId);
-        case 'swish':
-          return this.verifySwishPayment(paymentId);
-        case 'klarna':
-          return this.verifyKlarnaPayment(paymentId);
-        case 'bank-transfer':
-          return this.verifyBankTransfer(paymentId);
-        default:
-          return {
-            success: false,
-            error: 'Unsupported payment method',
-          };
+      const processor = this.processorRegistry.getProcessor(method);
+
+      if (!processor) {
+        return {
+          success: false,
+          error: `Unsupported payment method: ${method}`,
+        };
       }
+
+      return await processor.verify(paymentId);
     } catch (error) {
       return {
         success: false,
@@ -420,7 +449,8 @@ export class PaymentService implements IPaymentService {
         methods.push({ id: 'klarna', name: 'Klarna', enabled: true });
       }
 
-      methods.push({ id: 'bank-transfer', name: 'Bank Transfer', enabled: true });
+      // Bank transfer removed - not fully implemented
+      // methods.push({ id: 'bank-transfer', name: 'Bank Transfer', enabled: true });
 
       return {
         success: true,

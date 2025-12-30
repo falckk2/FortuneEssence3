@@ -2,13 +2,16 @@ import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { ICartService, IShippingService, IPaymentService } from '@/interfaces';
+import { ICartService, IShippingService, IPaymentService, IOrderService } from '@/interfaces';
+import { IEmailService } from '@/interfaces/email';
 import { container, TOKENS } from '@/config/di-container';
 import { orderSchema } from '@/utils/validation';
 
 const cartService = container.resolve<ICartService>(TOKENS.ICartService);
 const shippingService = container.resolve<IShippingService>(TOKENS.IShippingService);
 const paymentService = container.resolve<IPaymentService>(TOKENS.IPaymentService);
+const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
+const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
 
 export async function POST(request: NextRequest) {
   try {
@@ -207,7 +210,7 @@ async function handleProcessPayment(body: any, userId?: string) {
     }
 
     const orderData = validation.data;
-    
+
     // Ensure customer ID matches session
     if (userId && orderData.customerId !== userId) {
       return NextResponse.json({
@@ -216,63 +219,82 @@ async function handleProcessPayment(body: any, userId?: string) {
       }, { status: 403 });
     }
 
-    // Calculate total amount
-    const subtotal = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const tax = subtotal * 0.25; // 25% VAT
-    
-    // Get shipping cost
-    const shippingResult = await shippingService.calculateShipping(orderData.items, orderData.shippingAddress.country);
-    
-    if (!shippingResult.success) {
-      return NextResponse.json({
-        success: false,
-        error: `Shipping calculation failed: ${shippingResult.error}`,
-      }, { status: 400 });
-    }
+    // Ensure all items have prices
+    const itemsWithPrices = orderData.items.map(item => ({
+      ...item,
+      price: item.price || 0
+    }));
 
-    const shippingCost = shippingResult.data!.price;
-    const totalAmount = subtotal + tax + shippingCost;
-
-    // Process payment
-    const paymentResult = await paymentService.processPayment({
-      amount: totalAmount,
-      currency: 'SEK',
-      method: orderData.paymentMethod,
-      orderId: `temp_${Date.now()}`, // Temporary ID, will be replaced with actual order ID
-      customerId: orderData.customerId,
-      metadata: {
-        shippingAddress: JSON.stringify(orderData.shippingAddress),
-        billingAddress: JSON.stringify(orderData.billingAddress),
-      },
+    // Create order using OrderService (this handles payment, stock reservation, and DB persistence)
+    const orderResult = await orderService.createOrder({
+      ...orderData,
+      items: itemsWithPrices
     });
 
-    if (!paymentResult.success) {
+    if (!orderResult.success) {
       return NextResponse.json({
         success: false,
-        error: paymentResult.error,
+        error: orderResult.error,
       }, { status: 400 });
     }
 
-    // Create order (this would typically be done in OrderService)
-    const orderSummary = {
-      customerId: orderData.customerId,
-      items: orderData.items,
-      subtotal,
-      tax,
-      shipping: shippingCost,
-      total: totalAmount,
-      paymentId: paymentResult.data!.paymentId,
-      paymentStatus: paymentResult.data!.status,
-      shippingAddress: orderData.shippingAddress,
-      billingAddress: orderData.billingAddress,
-      paymentMethod: orderData.paymentMethod,
-    };
+    const order = orderResult.data!;
+
+    // TODO: Send order confirmation email
+    // Currently skipped because we need to fetch customer email from database using customerId
+    // This should be enhanced to query the customer email and name from the database
+    console.log(`Order ${order.id} created successfully. Email notification skipped (customer email not available in order data)`);
+
+    // Generate shipping label for confirmed orders
+    let shippingLabel = null;
+    if (order.status === 'confirmed') {
+      try {
+        const labelResult = await shippingService.generateShippingLabel(order);
+        if (labelResult.success && labelResult.data) {
+          shippingLabel = labelResult.data;
+          console.log(`Shipping label generated for order ${order.id}: ${labelResult.data.trackingNumber}`);
+        } else {
+          console.error(`Failed to generate shipping label for order ${order.id}:`, labelResult.error);
+        }
+      } catch (labelError) {
+        // Log error but don't fail the order
+        console.error(`Error generating shipping label for order ${order.id}:`, labelError);
+      }
+    }
+
+    // Determine if we need to redirect for payment
+    const paymentRedirectUrl = order.paymentMethod === 'swish' || order.paymentMethod === 'klarna'
+      ? `/checkout/${order.paymentMethod}?orderId=${order.id}`
+      : null;
 
     return NextResponse.json({
       success: true,
       data: {
-        order: orderSummary,
-        payment: paymentResult.data,
+        order: {
+          id: order.id,
+          customerId: order.customerId,
+          items: order.items,
+          subtotal: order.total - order.tax - order.shipping,
+          tax: order.tax,
+          shipping: order.shipping,
+          total: order.total,
+          paymentId: order.paymentId,
+          paymentStatus: order.status,
+          shippingAddress: order.shippingAddress,
+          billingAddress: order.billingAddress,
+          paymentMethod: order.paymentMethod,
+          carrier: order.carrier,
+        },
+        payment: {
+          paymentId: order.paymentId,
+          status: order.status === 'confirmed' ? 'success' : 'pending',
+          redirectUrl: paymentRedirectUrl,
+        },
+        shippingLabel: shippingLabel ? {
+          trackingNumber: shippingLabel.trackingNumber,
+          carrierCode: shippingLabel.carrierCode,
+          labelUrl: shippingLabel.labelPdfUrl,
+        } : null,
       },
     });
   } catch (error) {
@@ -336,7 +358,7 @@ async function handleGetPaymentMethods() {
 async function handleGetShippingCountries() {
   try {
     const result = await shippingService.getSupportedCountries();
-    
+
     if (!result.success) {
       return NextResponse.json({
         success: false,
@@ -354,4 +376,14 @@ async function handleGetShippingCountries() {
       error: `Failed to get shipping countries: ${error}`,
     }, { status: 500 });
   }
+}
+
+// Helper function to format address for emails
+function formatAddress(address: any): string {
+  const parts = [
+    address.street,
+    `${address.postalCode} ${address.city}`,
+    address.country
+  ].filter(Boolean);
+  return parts.join('\n');
 }

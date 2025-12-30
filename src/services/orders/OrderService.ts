@@ -141,6 +141,10 @@ export class OrderService implements IOrderService {
     }
   }
 
+  async getOrderById(id: string): Promise<ApiResponse<Order>> {
+    return this.getOrder(id);
+  }
+
   async getUserOrders(userId: string): Promise<ApiResponse<Order[]>> {
     try {
       return await this.orderRepository.findByCustomerId(userId);

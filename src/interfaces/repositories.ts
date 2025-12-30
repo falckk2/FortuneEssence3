@@ -5,6 +5,8 @@ import {
   Cart,
   InventoryItem,
   ShippingRate,
+  ShippingLabel,
+  CarrierPricingRule,
   AbandonedCart,
   AbandonedCartCreateData,
   BundleConfiguration,
@@ -83,11 +85,34 @@ export interface IInventoryRepository {
 }
 
 export interface IShippingRepository {
+  // Shipping rates methods
   findRatesByCountry(country: string): Promise<ApiResponse<ShippingRate[]>>;
   findById(id: string): Promise<ApiResponse<ShippingRate>>;
+  findRatesByCarrier(carrierCode: string): Promise<ApiResponse<ShippingRate[]>>;
   calculateShipping(weight: number, country: string): Promise<ApiResponse<ShippingRate>>;
+  create(shippingRate: Omit<ShippingRate, 'id'>): Promise<ApiResponse<ShippingRate>>;
+  update(id: string, shippingRate: Partial<ShippingRate>): Promise<ApiResponse<ShippingRate>>;
+  delete(id: string): Promise<ApiResponse<void>>;
+
+  // Utility methods
   getFreeShippingThreshold(country: string): Promise<ApiResponse<number | null>>;
   getEstimatedDeliveryDate(shippingRateId: string): Promise<ApiResponse<Date>>;
+  getAllCountries(): Promise<ApiResponse<string[]>>;
+  validateShippingToAddress(country: string, weight: number): Promise<ApiResponse<boolean>>;
+
+  // Shipping labels methods
+  saveShippingLabel(label: Omit<ShippingLabel, 'id' | 'generatedAt'>): Promise<ApiResponse<ShippingLabel>>;
+  findLabelByOrderId(orderId: string): Promise<ApiResponse<ShippingLabel>>;
+  findLabelByTrackingNumber(trackingNumber: string): Promise<ApiResponse<ShippingLabel>>;
+
+  // Pricing rules methods
+  findPricingRule(
+    carrierCode: string,
+    serviceType: string,
+    country: string,
+    weight: number,
+    postalCode?: string
+  ): Promise<ApiResponse<CarrierPricingRule>>;
 }
 
 export interface IAbandonedCartRepository {

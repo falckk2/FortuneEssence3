@@ -21,7 +21,7 @@ describe('ProductService', () => {
     name: 'Test Product',
     description: 'Test Description',
     price: 299.99,
-    category: 'wellness',
+    category: 'essential-oils',
     images: ['image1.jpg'],
     stock: 50,
     sku: 'TEST-001',

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Product } from '@/types';
 import { useWishlistStore } from '@/stores/wishlistStore';
 import { useCartStore } from '@/stores/cartStore';
@@ -17,9 +19,35 @@ export default function WishlistPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const locale = 'sv'; // Would come from context in real app
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  const { items: wishlistItems, removeItem } = useWishlistStore();
+  const { items: wishlistItems, removeItem, setAuthenticated, refreshWishlist } = useWishlistStore();
   const { addItem: addToCart } = useCartStore();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === 'loading') return;
+
+    if (!session?.user) {
+      toast.error(
+        locale === 'sv'
+          ? 'Du måste vara inloggad för att se din önskelista'
+          : 'You must be logged in to view your wishlist'
+      );
+      router.push('/auth/signin');
+    }
+  }, [session, status, router, locale]);
+
+  // Sync authentication state and load wishlist
+  useEffect(() => {
+    const isAuth = !!session?.user;
+    setAuthenticated(isAuth);
+
+    if (isAuth) {
+      refreshWishlist();
+    }
+  }, [session, setAuthenticated, refreshWishlist]);
 
   useEffect(() => {
     const fetchWishlistProducts = async () => {
@@ -52,9 +80,14 @@ export default function WishlistPage() {
     fetchWishlistProducts();
   }, [wishlistItems, locale]);
 
-  const handleRemoveFromWishlist = (productId: string) => {
-    removeItem(productId);
-    toast.success(locale === 'sv' ? 'Borttagen från önskelista' : 'Removed from wishlist');
+  const handleRemoveFromWishlist = async (productId: string) => {
+    try {
+      await removeItem(productId);
+      toast.success(locale === 'sv' ? 'Borttagen från önskelista' : 'Removed from wishlist');
+    } catch (error) {
+      console.error('Failed to remove from wishlist:', error);
+      toast.error(locale === 'sv' ? 'Kunde inte ta bort från önskelista' : 'Failed to remove from wishlist');
+    }
   };
 
   const handleAddToCart = async (productId: string) => {

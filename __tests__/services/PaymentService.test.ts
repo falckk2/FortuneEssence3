@@ -206,10 +206,10 @@ describe('PaymentService', () => {
         }),
       };
 
-      const result = await paymentService.refundPayment('pi_123', 500, 'SEK');
+      const result = await paymentService.refundPayment('pi_123', 500);
 
       expect(result.success).toBe(true);
-      expect(result.data?.refundId).toBe('ref_123');
+      expect(result.data).toBe('ref_123');
     });
 
     it('should handle refund errors', async () => {
@@ -217,7 +217,7 @@ describe('PaymentService', () => {
         create: jest.fn().mockRejectedValue(new Error('Refund failed')),
       };
 
-      const result = await paymentService.refundPayment('pi_123', 500, 'SEK');
+      const result = await paymentService.refundPayment('pi_123', 500);
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Refund failed');
@@ -231,11 +231,10 @@ describe('PaymentService', () => {
         status: 'succeeded',
       });
 
-      const result = await paymentService.verifyPayment('pi_123');
+      const result = await paymentService.verifyPayment('pi_123', 'stripe');
 
       expect(result.success).toBe(true);
-      expect(result.data?.verified).toBe(true);
-      expect(result.data?.status).toBe('succeeded');
+      expect(result.data).toBe(true);
     });
 
     it('should return false for pending payment', async () => {
@@ -244,11 +243,10 @@ describe('PaymentService', () => {
         status: 'processing',
       });
 
-      const result = await paymentService.verifyPayment('pi_123');
+      const result = await paymentService.verifyPayment('pi_123', 'stripe');
 
       expect(result.success).toBe(true);
-      expect(result.data?.verified).toBe(false);
-      expect(result.data?.status).toBe('processing');
+      expect(result.data).toBe(false);
     });
 
     it('should handle verification errors', async () => {
@@ -256,7 +254,7 @@ describe('PaymentService', () => {
         new Error('Payment not found')
       );
 
-      const result = await paymentService.verifyPayment('invalid_pi');
+      const result = await paymentService.verifyPayment('invalid_pi', 'stripe');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Payment verification failed');

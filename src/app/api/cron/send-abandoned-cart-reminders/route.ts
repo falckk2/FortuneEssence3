@@ -1,4 +1,4 @@
-import 'reflect-metadata';
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { container } from 'tsyringe';
 import type { ICartService, IEmailService, IProductService } from '@/interfaces';

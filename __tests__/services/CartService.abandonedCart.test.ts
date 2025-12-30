@@ -1,5 +1,5 @@
 import { CartService } from '@/services/cart/CartService';
-import type { ICartRepository, IProductRepository, IAbandonedCartRepository } from '@/interfaces';
+import type { ICartRepository, IProductRepository, IAbandonedCartRepository, IBundleService } from '@/interfaces';
 import { mockCart, mockAbandonedCart, mockCartItems } from '../helpers/testData';
 import type { AbandonedCart } from '@/types';
 
@@ -8,6 +8,7 @@ describe('CartService - Abandoned Cart Methods', () => {
   let mockCartRepository: jest.Mocked<ICartRepository>;
   let mockProductRepository: jest.Mocked<IProductRepository>;
   let mockAbandonedCartRepository: jest.Mocked<IAbandonedCartRepository>;
+  let mockBundleService: jest.Mocked<IBundleService>;
 
   beforeEach(() => {
     // Create mocks
@@ -44,11 +45,20 @@ describe('CartService - Abandoned Cart Methods', () => {
       markExpired: jest.fn(),
     } as any;
 
+    mockBundleService = {
+      getBundleConfiguration: jest.fn(),
+      getAllBundleConfigurations: jest.fn(),
+      getEligibleProducts: jest.fn(),
+      validateBundleSelection: jest.fn(),
+      calculateBundlePrice: jest.fn(),
+    } as any;
+
     // Create service instance
     cartService = new CartService(
       mockCartRepository,
       mockProductRepository,
-      mockAbandonedCartRepository
+      mockAbandonedCartRepository,
+      mockBundleService
     );
   });
 

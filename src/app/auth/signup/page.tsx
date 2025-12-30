@@ -87,7 +87,6 @@ export default function SignUpPage() {
         email: formData.email,
         phone: formData.phone,
         password: formData.password,
-        consentGiven: formData.acceptTerms,
         marketingOptIn: formData.newsletter,
       });
 

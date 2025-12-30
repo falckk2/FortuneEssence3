@@ -1,8 +1,8 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { container } from 'tsyringe';
 import { TOKENS } from '@/config/di-container';
 import type { IBundleService } from '@/interfaces';
-import '@/config/di-init';
 
 // GET /api/bundles - Get all bundle configurations
 export async function GET(request: NextRequest) {

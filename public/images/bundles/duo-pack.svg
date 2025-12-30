@@ -1,0 +1,38 @@
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bg-gradient-duo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8f5e9;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c8e6c9;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="bottle-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#81c784;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#66bb6a;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="400" height="400" fill="url(#bg-gradient-duo)" rx="20"/>
+
+  <!-- Oil Bottle 1 -->
+  <g transform="translate(120, 150)">
+    <rect x="15" y="0" width="30" height="15" fill="#8d6e63" rx="2"/>
+    <rect x="10" y="15" width="40" height="120" fill="url(#bottle-gradient)" rx="5"/>
+    <ellipse cx="30" cy="135" rx="20" ry="5" fill="#4caf50" opacity="0.3"/>
+  </g>
+
+  <!-- Oil Bottle 2 -->
+  <g transform="translate(230, 150)">
+    <rect x="15" y="0" width="30" height="15" fill="#8d6e63" rx="2"/>
+    <rect x="10" y="15" width="40" height="120" fill="url(#bottle-gradient)" rx="5"/>
+    <ellipse cx="30" cy="135" rx="20" ry="5" fill="#4caf50" opacity="0.3"/>
+  </g>
+
+  <!-- Text -->
+  <text x="200" y="320" font-family="Arial, sans-serif" font-size="32" font-weight="bold" text-anchor="middle" fill="#2e7d32">
+    Duo Pack
+  </text>
+  <text x="200" y="355" font-family="Arial, sans-serif" font-size="18" text-anchor="middle" fill="#558b2f">
+    Choose 2 Oils
+  </text>
+</svg>

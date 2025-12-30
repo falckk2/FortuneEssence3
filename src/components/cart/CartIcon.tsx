@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import { ShoppingBagIcon } from '@heroicons/react/24/outline';
 import { useCartStore } from '@/stores/cartStore';
 import { CartSidebar } from './CartSidebar';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface CartIconProps {
-  locale?: 'sv' | 'en';
   className?: string;
 }
 
-export const CartIcon = ({ locale = 'sv', className = '' }: CartIconProps) => {
+export const CartIcon = ({ className = '' }: CartIconProps) => {
+  const { locale } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const { getItemCount, refreshCart } = useCartStore();

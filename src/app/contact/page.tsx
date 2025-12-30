@@ -69,27 +69,6 @@ export default function ContactPage() {
     },
   ];
 
-  const faqs = [
-    {
-      question: locale === 'sv' ? 'Hur lång är leveranstiden?' : 'What is the delivery time?',
-      answer: locale === 'sv' 
-        ? 'Vi levererar normalt inom 2-3 arbetsdagar i Sverige med PostNord. Expressfrakt är tillgänglig för leverans nästa dag.'
-        : 'We normally deliver within 2-3 business days in Sweden with PostNord. Express shipping is available for next-day delivery.',
-    },
-    {
-      question: locale === 'sv' ? 'Är era produkter ekologiska?' : 'Are your products organic?',
-      answer: locale === 'sv' 
-        ? 'Alla våra eteriska oljor är 100% naturliga och de flesta är certifierat ekologiska. Vi arbetar endast med pålitliga leverantörer.'
-        : 'All our essential oils are 100% natural and most are certified organic. We only work with trusted suppliers.',
-    },
-    {
-      question: locale === 'sv' ? 'Kan jag returnera produkter?' : 'Can I return products?',
-      answer: locale === 'sv' 
-        ? 'Ja, vi har 30 dagars returrätt på oöppnade produkter. Kontakta vår kundservice för returinstruktioner.'
-        : 'Yes, we have a 30-day return policy on unopened products. Contact our customer service for return instructions.',
-    },
-  ];
-
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -331,35 +310,31 @@ export default function ContactPage() {
         </div>
       </section>
 
-      {/* FAQ Section */}
+      {/* FAQ Link Section */}
       <section className="py-20 bg-gray-50 dark:bg-[#242a28]">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <div className="flex items-center justify-center mb-4">
-              <QuestionMarkCircleIcon className="h-8 w-8 text-purple-600 dark:text-sage-400 mr-3" />
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-[#E8EDE8]">
-                {locale === 'sv' ? 'Vanliga Frågor' : 'Frequently Asked Questions'}
-              </h2>
-            </div>
-            <p className="text-lg text-gray-600 dark:text-[#8A9A8A] max-w-2xl mx-auto">
-              {locale === 'sv' 
-                ? 'Här hittar du svar på de vanligaste frågorna. Hittar du inte svaret? Kontakta oss!'
-                : 'Here you\'ll find answers to the most common questions. Can\'t find the answer? Contact us!'
-              }
-            </p>
-          </div>
-
-          <div className="max-w-3xl mx-auto space-y-6">
-            {faqs.map((faq, index) => (
-              <div key={index} className="bg-white dark:bg-[#2a3330] rounded-xl p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-[#E8EDE8] mb-3">
-                  {faq.question}
-                </h3>
-                <p className="text-gray-600 dark:text-[#B8C5B8] leading-relaxed">
-                  {faq.answer}
-                </p>
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-gradient-to-br from-purple-50 to-yellow-50 dark:from-[#2a3330] dark:to-[#343c39] rounded-2xl p-12 text-center">
+              <div className="flex items-center justify-center mb-6">
+                <QuestionMarkCircleIcon className="h-12 w-12 text-purple-600 dark:text-sage-400" />
               </div>
-            ))}
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-[#E8EDE8] mb-4">
+                {locale === 'sv' ? 'Har du frågor?' : 'Have Questions?'}
+              </h2>
+              <p className="text-lg text-gray-600 dark:text-[#B8C5B8] mb-8 max-w-2xl mx-auto">
+                {locale === 'sv'
+                  ? 'Besök vår FAQ-sida för svar på vanliga frågor om våra produkter, leverans, returer och mycket mer.'
+                  : 'Visit our FAQ page for answers to common questions about our products, delivery, returns and more.'
+                }
+              </p>
+              <a
+                href="/faq"
+                className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-purple-600 to-purple-700 dark:from-sage-700 dark:to-sage-800 text-white dark:text-[#E8EDE8] font-semibold rounded-lg hover:from-purple-700 hover:to-purple-800 dark:hover:from-sage-800 dark:hover:to-sage-900 transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                <QuestionMarkCircleIcon className="h-5 w-5 mr-2" />
+                {locale === 'sv' ? 'Besök FAQ-sidan' : 'Visit FAQ Page'}
+              </a>
+            </div>
           </div>
         </div>
       </section>

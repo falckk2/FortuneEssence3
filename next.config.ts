@@ -121,7 +121,20 @@ const nextConfig: NextConfig = {
   // PoweredBy header removal for security
   poweredByHeader: false,
 
-  // Webpack optimization is handled automatically by Next.js 15
+  // Webpack configuration for Node.js built-ins
+  webpack: (config, { isServer }) => {
+    // For server-side, Node.js built-ins are available
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        crypto: false,
+        fs: false,
+        path: false,
+        stream: false,
+      };
+    }
+    return config;
+  },
 
   // Environment-specific configurations
   env: {

@@ -2,22 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   MagnifyingGlassIcon,
   UserIcon,
   Bars3Icon,
   XMarkIcon,
-  HeartIcon
+  HeartIcon,
+  LanguageIcon
 } from '@heroicons/react/24/outline';
 import { CartIcon } from '@/components/cart/CartIcon';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useAuth } from '@/hooks/useAuth';
 import { useWishlistStore } from '@/stores/wishlistStore';
-
-interface HeaderProps {
-  locale?: 'sv' | 'en';
-}
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface NavigationItem {
   name: string;
@@ -25,17 +24,28 @@ interface NavigationItem {
   children?: NavigationItem[];
 }
 
-export const Header = ({ locale = 'sv' }: HeaderProps) => {
+export const Header = () => {
+  const { locale, toggleLocale } = useLocale();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isClient, setIsClient] = useState(false);
   const router = useRouter();
   const { user, isAuthenticated, signOut } = useAuth();
-  const { getItemCount } = useWishlistStore();
+  const { getItemCount, setAuthenticated, refreshWishlist } = useWishlistStore();
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Sync authentication state with wishlist store
+  useEffect(() => {
+    setAuthenticated(isAuthenticated);
+
+    // Load wishlist when user is authenticated
+    if (isAuthenticated) {
+      refreshWishlist();
+    }
+  }, [isAuthenticated, setAuthenticated, refreshWishlist]);
 
   const navigationItems: NavigationItem[] = [
     {
@@ -90,13 +100,18 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
             </p>
             <div className="flex items-center space-x-4">
               <Link
-                href="/help"
+                href="/faq"
                 className="text-forest-600 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors font-medium"
               >
                 {locale === 'sv' ? 'Hjälp' : 'Help'}
               </Link>
-              <button className="text-forest-600 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors font-medium">
-                {locale === 'sv' ? 'SV' : 'EN'}
+              <button
+                onClick={toggleLocale}
+                className="flex items-center space-x-1 text-forest-600 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors font-medium group"
+                title={locale === 'sv' ? 'Switch to English' : 'Byt till Svenska'}
+              >
+                <LanguageIcon className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                <span className="uppercase font-bold">{locale === 'sv' ? 'SV' : 'EN'}</span>
               </button>
             </div>
           </div>
@@ -110,14 +125,19 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
           <div className="flex-shrink-0">
             <Link href="/" className="flex items-center space-x-3 group">
               <div className="relative">
-                {/* Botanical leaf icon */}
-                <div className="w-10 h-10 bg-gradient-to-br from-sage-500 to-forest-600 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
-                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c-1.5 4.5-4.5 7.5-9 9 4.5 1.5 7.5 4.5 9 9 1.5-4.5 4.5-7.5 9-9-4.5-1.5-7.5-4.5-9-9z" />
-                  </svg>
+                {/* Company Symbol */}
+                <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105 overflow-hidden bg-gradient-to-br from-amber-100 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-800/30">
+                  <Image
+                    src="/images/logo.jpg"
+                    alt="Fortune Essence Logo"
+                    width={48}
+                    height={48}
+                    className="object-cover"
+                    priority
+                  />
                 </div>
                 {/* Subtle glow effect */}
-                <div className="absolute inset-0 bg-sage-400 rounded-full blur-md opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-400 to-yellow-600 rounded-full blur-md opacity-20 group-hover:opacity-30 transition-opacity"></div>
               </div>
               <div className="flex flex-col">
                 <span className="text-2xl font-serif font-bold text-forest-800 dark:text-[#E8EDE8] tracking-tight leading-none group-hover:text-sage-700 dark:group-hover:text-sage-400 transition-colors">
@@ -196,7 +216,7 @@ export const Header = ({ locale = 'sv' }: HeaderProps) => {
             </Link>
 
             {/* Cart */}
-            <CartIcon locale={locale} />
+            <CartIcon />
 
             {/* User menu */}
             <div className="relative group">

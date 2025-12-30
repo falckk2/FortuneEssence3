@@ -1,9 +1,8 @@
-import 'reflect-metadata';
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { container } from 'tsyringe';
 import { TOKENS } from '@/config/di-container';
 import type { IBundleService } from '@/interfaces';
-import '@/config/di-init';
 
 // POST /api/bundles/[id]/validate - Validate bundle selection before adding to cart
 export async function POST(

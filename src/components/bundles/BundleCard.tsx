@@ -43,12 +43,12 @@ export function BundleCard({
       <div className="p-5">
         {/* Title */}
         <h3 className="text-xl font-serif font-bold text-forest-800 mb-2 group-hover:text-sage-700 transition-colors">
-          {locale === 'sv' ? product.nameSv : product.nameEn}
+          {locale === 'sv' ? product.translations.sv.name : product.translations.en.name}
         </h3>
 
         {/* Description */}
         <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-          {locale === 'sv' ? product.descriptionSv : product.descriptionEn}
+          {locale === 'sv' ? product.translations.sv.description : product.translations.en.description}
         </p>
 
         {/* Pricing */}

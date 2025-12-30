@@ -2,6 +2,7 @@
 export type {
   IProductRepository,
   ProductSearchParams,
+  IBundleRepository,
   ICustomerRepository,
   IOrderRepository,
   ICartRepository,
@@ -15,7 +16,9 @@ export type {
   IAuthService,
   SignUpData,
   IProductService,
+  IBundleService,
   ICartService,
+  IAbandonedCartService,
   IOrderService,
   CreateOrderData,
   IPaymentService,
@@ -26,6 +29,11 @@ export type {
   KlarnaOrderData,
   KlarnaOrderLine,
   IShippingService,
+  IShippingRateService,
+  IShippingLabelService,
+  IShipmentTrackingService,
+  IAddressValidationService,
+  ISwedishShippingService,
   Shipment,
   TrackingInfo,
   TrackingEvent,
@@ -38,3 +46,9 @@ export type {
 
 // Explicitly re-export all interfaces from email
 export * from './email';
+
+// Explicitly re-export all interfaces from payment
+export type {
+  IPaymentProcessor,
+  IPaymentProcessorRegistry
+} from './payment';

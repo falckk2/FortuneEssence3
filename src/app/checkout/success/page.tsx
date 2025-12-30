@@ -1,18 +1,74 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { CheckCircleIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import { useSearchParams } from 'next/navigation';
+import { CheckCircleIcon, ArrowRightIcon, DocumentArrowDownIcon, TruckIcon } from '@heroicons/react/24/outline';
 
-export default function CheckoutSuccessPage() {
+interface ShippingLabel {
+  trackingNumber: string;
+  carrierCode: string;
+  labelUrl: string;
+}
+
+function CheckoutSuccessContent() {
+  const searchParams = useSearchParams();
   const [orderNumber, setOrderNumber] = useState<string>('');
+  const [shippingLabel, setShippingLabel] = useState<ShippingLabel | null>(null);
+  const [carrierName, setCarrierName] = useState<string>('');
+  const [isLoadingLabel, setIsLoadingLabel] = useState(false);
   const locale = 'sv'; // This would come from context in a real app
 
   useEffect(() => {
-    // Generate a mock order number for display
-    const mockOrderNumber = `FE-${Date.now().toString().slice(-6)}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    setOrderNumber(mockOrderNumber);
-  }, []);
+    const orderId = searchParams.get('orderId');
+
+    if (orderId) {
+      setOrderNumber(orderId.slice(0, 13).toUpperCase());
+
+      // Fetch shipping label
+      const fetchLabel = async () => {
+        setIsLoadingLabel(true);
+        try {
+          const response = await fetch(`/api/shipping/labels?orderId=${orderId}`);
+          const result = await response.json();
+
+          if (result.success && result.data) {
+            setShippingLabel(result.data);
+
+            // Map carrier code to name
+            const carrierNames: Record<string, string> = {
+              'POSTNORD': 'PostNord',
+              'DHL': 'DHL',
+              'BRING': 'Bring',
+              'DB_SCHENKER': 'DB Schenker',
+              'INSTABEE': 'Instabee',
+              'BUDBEE': 'Budbee',
+              'INSTABOX': 'Instabox',
+              'EARLY_BIRD': 'Early Bird',
+            };
+            setCarrierName(carrierNames[result.data.carrierCode] || result.data.carrierCode);
+          }
+        } catch (error) {
+          console.error('Failed to fetch shipping label:', error);
+        } finally {
+          setIsLoadingLabel(false);
+        }
+      };
+
+      fetchLabel();
+    } else {
+      // Generate a mock order number for display
+      const mockOrderNumber = `FE-${Date.now().toString().slice(-6)}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      setOrderNumber(mockOrderNumber);
+    }
+  }, [searchParams]);
+
+  const handleDownloadLabel = () => {
+    if (shippingLabel) {
+      const orderId = searchParams.get('orderId');
+      window.open(`/api/shipping/labels/download?orderId=${orderId}`, '_blank');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white py-12">
@@ -41,6 +97,69 @@ export default function CheckoutSuccessPage() {
               </p>
             )}
           </div>
+
+          {/* Shipping Label Card */}
+          {shippingLabel && (
+            <div className="bg-gradient-to-r from-sage-50 to-green-50 rounded-xl shadow-lg p-6 mb-8 text-left border-2 border-sage-200">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-sage-600 rounded-full p-3">
+                    <TruckIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-forest-800">
+                      {locale === 'sv' ? 'Spårningsinformation' : 'Tracking Information'}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {carrierName}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleDownloadLabel}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-sage-600 text-white font-medium rounded-lg hover:bg-sage-700 transition-colors"
+                >
+                  <DocumentArrowDownIcon className="w-5 h-5" />
+                  {locale === 'sv' ? 'Ladda ner etikett' : 'Download Label'}
+                </button>
+              </div>
+
+              <div className="bg-white rounded-lg p-4 border border-sage-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 mb-1">
+                      {locale === 'sv' ? 'Spårningsnummer' : 'Tracking Number'}
+                    </p>
+                    <p className="text-xl font-mono font-bold text-forest-800">
+                      {shippingLabel.trackingNumber}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(shippingLabel.trackingNumber)}
+                    className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                  >
+                    {locale === 'sv' ? 'Kopiera' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-600 mt-4">
+                {locale === 'sv'
+                  ? 'Du kan spåra din leverans med detta nummer när paketet har skickats.'
+                  : 'You can track your delivery with this number once the package has been shipped.'
+                }
+              </p>
+            </div>
+          )}
+
+          {isLoadingLabel && !shippingLabel && (
+            <div className="bg-white rounded-xl shadow-lg p-8 mb-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sage-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">
+                {locale === 'sv' ? 'Genererar fraktetikett...' : 'Generating shipping label...'}
+              </p>
+            </div>
+          )}
 
           {/* Order Details Card */}
           <div className="bg-white rounded-xl shadow-lg p-8 mb-8 text-left">
@@ -169,5 +288,17 @@ export default function CheckoutSuccessPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      </div>
+    }>
+      <CheckoutSuccessContent />
+    </Suspense>
   );
 }

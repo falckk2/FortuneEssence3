@@ -8,7 +8,9 @@ import {
   ShippingRate,
   Address,
   BundleConfiguration,
-  ApiResponse
+  ApiResponse,
+  ShippingLabel,
+  CarrierInfo
 } from '@/types';
 import { BundleValidationResult } from '@/types/bundles';
 
@@ -65,23 +67,11 @@ export interface IBundleService {
   ): Promise<ApiResponse<{ bundlePrice: number; individualTotal: number; savings: number }>>;
 }
 
-export interface ICartService {
-  getCart(userId?: string, sessionId?: string): Promise<ApiResponse<Cart>>;
-  addItem(cartId: string, item: CartItem): Promise<ApiResponse<Cart>>;
-  removeItem(cartId: string, productId: string): Promise<ApiResponse<Cart>>;
-  updateQuantity(cartId: string, productId: string, quantity: number): Promise<ApiResponse<Cart>>;
-  clearCart(cartId: string): Promise<ApiResponse<void>>;
-  calculateTotal(items: CartItem[]): Promise<number>;
-  validateCartItems(cartId: string): Promise<ApiResponse<{ valid: boolean; issues?: string[] }>>;
-  syncCartPrices(cartId: string): Promise<ApiResponse<Cart>>;
-  mergeGuestCart(sessionId: string, userId: string): Promise<ApiResponse<Cart>>;
-  getCartSummary(cartId: string): Promise<ApiResponse<{
-    itemCount: number;
-    subtotal: number;
-    estimatedTax: number;
-    totalWeight: number;
-  }>>;
-  // Abandoned cart recovery methods
+/**
+ * Abandoned Cart Service - Handles abandoned cart tracking and recovery
+ * Single Responsibility: Manage abandoned cart recovery lifecycle
+ */
+export interface IAbandonedCartService {
   trackAbandonedCart(
     cartId: string,
     email: string,
@@ -101,9 +91,41 @@ export interface ICartService {
   }>>;
 }
 
+/**
+ * Cart Service - Handles shopping cart operations
+ * Single Responsibility: Manage shopping cart CRUD operations
+ *
+ * Note: Extends IAbandonedCartService for backward compatibility
+ * In new code, use IAbandonedCartService separately for abandoned cart operations
+ */
+export interface ICartService extends IAbandonedCartService {
+  getCart(userId?: string, sessionId?: string): Promise<ApiResponse<Cart>>;
+  addItem(cartId: string, item: CartItem): Promise<ApiResponse<Cart>>;
+  addBundleToCart(
+    cartId: string,
+    bundleProductId: string,
+    selectedProductIds: string[],
+    quantity?: number
+  ): Promise<ApiResponse<Cart>>;
+  removeItem(cartId: string, productId: string): Promise<ApiResponse<Cart>>;
+  updateQuantity(cartId: string, productId: string, quantity: number): Promise<ApiResponse<Cart>>;
+  clearCart(cartId: string): Promise<ApiResponse<void>>;
+  calculateTotal(items: CartItem[]): Promise<number>;
+  validateCartItems(cartId: string): Promise<ApiResponse<{ valid: boolean; issues?: string[] }>>;
+  syncCartPrices(cartId: string): Promise<ApiResponse<Cart>>;
+  mergeGuestCart(sessionId: string, userId: string): Promise<ApiResponse<Cart>>;
+  getCartSummary(cartId: string): Promise<ApiResponse<{
+    itemCount: number;
+    subtotal: number;
+    estimatedTax: number;
+    totalWeight: number;
+  }>>;
+}
+
 export interface IOrderService {
   createOrder(orderData: CreateOrderData): Promise<ApiResponse<Order>>;
   getOrder(id: string): Promise<ApiResponse<Order>>;
+  getOrderById(id: string): Promise<ApiResponse<Order>>;
   getUserOrders(userId: string): Promise<ApiResponse<Order[]>>;
   updateOrderStatus(orderId: string, status: string): Promise<ApiResponse<Order>>;
   cancelOrder(orderId: string): Promise<ApiResponse<Order>>;
@@ -149,9 +171,12 @@ export interface PaymentData {
 
 export interface PaymentResult {
   paymentId: string;
-  status: 'success' | 'failed' | 'pending';
+  status: 'success' | 'succeeded' | 'failed' | 'pending';
   transactionId?: string;
   redirectUrl?: string;
+  amount?: number;
+  currency?: string;
+  referenceNumber?: string;
 }
 
 export interface SwishPayment {
@@ -183,64 +208,48 @@ export interface KlarnaOrderLine {
   totalAmount: number;
 }
 
-export interface IShippingService {
-  getShippingRates(country: string, weight: number): Promise<ApiResponse<ShippingRate[]>>;
-  calculateShipping(items: CartItem[], country: string): Promise<ApiResponse<ShippingRate>>;
-  createShipment(orderId: string, shippingRateId: string): Promise<ApiResponse<Shipment>>;
-  trackShipment(trackingNumber: string): Promise<ApiResponse<TrackingInfo>>;
-  validateDeliveryAddress(address: Address): Promise<ApiResponse<{ valid: boolean; suggestions?: Address[] }>>;
-  getSupportedCountries(): Promise<ApiResponse<Array<{ code: string; name: string }>>>;
-  getSwedishCarrierServices(): Promise<ApiResponse<Array<{
-    carrier: string;
-    services: Array<{
-      name: string;
-      description: string;
-      estimatedDays: number;
-      maxWeight: number;
-      features: string[];
-    }>;
-  }>>>;
-  validateSwedishPostalCode(postalCode: string): Promise<ApiResponse<{ valid: boolean; city?: string }>>;
-  calculateSwedishShippingWithZones(items: CartItem[], postalCode: string): Promise<ApiResponse<{
-    baseRate: ShippingRate;
-    adjustedRate: ShippingRate;
-    zoneInfo: { zone: string; additionalDays: number };
-  }>>;
-  getShippingCosts(items: CartItem[], country: string): Promise<ApiResponse<{
-    options: ShippingRate[];
-    recommended: ShippingRate;
-    freeShippingThreshold?: number;
-  }>>;
-  calculateEcoShipping(items: CartItem[], country: string): Promise<ApiResponse<{
-    standardRate: ShippingRate;
-    ecoRate: ShippingRate;
-    carbonOffset: { kg: number; cost: number };
-  }>>;
-  getSwedishHolidayImpact(date: string): Promise<ApiResponse<{ isHoliday: boolean; estimatedDelay?: number }>>;
-}
+// Import segregated shipping interfaces
+import type {
+  IShippingRateService,
+  IShippingLabelService,
+  IShipmentTrackingService,
+  IAddressValidationService,
+  ISwedishShippingService,
+  Shipment,
+  TrackingInfo,
+  TrackingEvent
+} from './shipping';
 
-export interface Shipment {
-  id: string;
-  orderId: string;
-  trackingNumber: string;
-  carrier: string;
-  status: 'pending' | 'shipped' | 'delivered';
-  estimatedDelivery: Date;
-}
+// Re-export the segregated shipping interfaces
+export type {
+  IShippingRateService,
+  IShippingLabelService,
+  IShipmentTrackingService,
+  IAddressValidationService,
+  ISwedishShippingService,
+  Shipment,
+  TrackingInfo,
+  TrackingEvent
+};
 
-export interface TrackingInfo {
-  trackingNumber: string;
-  status: string;
-  location: string;
-  estimatedDelivery: Date;
-  history: TrackingEvent[];
-}
-
-export interface TrackingEvent {
-  date: Date;
-  status: string;
-  location: string;
-  description: string;
+/**
+ * Legacy IShippingService - Composite interface for backward compatibility
+ *
+ * @deprecated Use the segregated interfaces instead:
+ * - IShippingRateService for rate calculations
+ * - IShippingLabelService for label generation
+ * - IShipmentTrackingService for tracking
+ * - IAddressValidationService for address validation
+ * - ISwedishShippingService for Swedish-specific features
+ */
+export interface IShippingService
+  extends
+    IShippingRateService,
+    IShippingLabelService,
+    IShipmentTrackingService,
+    IAddressValidationService,
+    ISwedishShippingService {
+  // Composite interface - all methods inherited from segregated interfaces
 }
 
 export interface IInventoryService {

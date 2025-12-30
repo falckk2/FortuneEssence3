@@ -62,7 +62,6 @@ export class GDPRService implements IGDPRService {
         firstName: customer.first_name,
         lastName: customer.last_name,
         phone: customer.phone,
-        dateOfBirth: customer.date_of_birth ? new Date(customer.date_of_birth) : undefined,
         address: customer.address || { street: '', city: '', postalCode: '', country: '' },
         consentGiven: customer.consent_given || false,
         marketingOptIn: customer.marketing_opt_in,

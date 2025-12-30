@@ -5,7 +5,6 @@ import { Customer, ApiResponse } from '@/types';
 import { CustomerRepository } from '@/repositories/customers/CustomerRepository';
 import { signUpSchema } from '@/utils/validation';
 import { signIn, signOut, getSession } from 'next-auth/react';
-import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { supabase } from '@/lib/supabase';
 import { TOKENS } from '@/config/di-container';
@@ -180,6 +179,7 @@ export class AuthService implements IAuthService {
         const customer = customerResult.data;
 
         // Generate secure random token (32 bytes = 64 hex characters)
+        const crypto = await import('crypto');
         const token = crypto.randomBytes(32).toString('hex');
 
         // Set expiration to 1 hour from now

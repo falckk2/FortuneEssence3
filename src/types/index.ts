@@ -128,6 +128,7 @@ export interface OrderItem {
   quantity: number;
   price: number;
   total: number;
+  weight?: number;
   bundleSelection?: BundleSelection;
 }
 
@@ -154,6 +155,74 @@ export interface ShippingRate {
   estimatedDays: number;
   country: string;
   maxWeight: number;
+  minWeight?: number;
+  carrierCode?: string;
+  serviceType?: string;
+  features?: string[];
+  logoUrl?: string;
+  colorScheme?: string;
+  isEcoFriendly?: boolean;
+  zoneBased?: boolean;
+}
+
+export interface CarrierInfo {
+  code: string;
+  name: string;
+  logoUrl: string;
+  colorScheme: string;
+  trackingPrefix: string;
+  services: CarrierService[];
+}
+
+export interface CarrierService {
+  type: string;
+  name: string;
+  description: string;
+  estimatedDays: number;
+  maxWeight: number;
+  minWeight: number;
+  features: string[];
+  isEcoFriendly: boolean;
+}
+
+export interface ShippingLabel {
+  id: string;
+  orderId: string;
+  trackingNumber: string;
+  carrierCode: string;
+  labelPdfUrl: string;
+  barcodeData: string;
+  qrCodeData?: string;
+  generatedAt: Date;
+}
+
+export interface ShippingLabelGenerationRequest {
+  orderId: string;
+  carrierCode: string;
+  serviceType: string;
+  senderAddress: Address;
+  recipientAddress: Address;
+  packageWeight: number;
+  packageDimensions?: {
+    length: number;
+    width: number;
+    height: number;
+  };
+}
+
+export interface CarrierPricingRule {
+  id: string;
+  carrierCode: string;
+  serviceType: string;
+  country: string;
+  weightFrom: number;
+  weightTo: number;
+  postalCodeFrom?: string;
+  postalCodeTo?: string;
+  basePrice: number;
+  pricePerKg: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface InventoryItem {

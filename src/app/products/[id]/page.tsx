@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Product, BundleConfiguration } from '@/types';
@@ -26,6 +27,7 @@ import toast from 'react-hot-toast';
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
   const productId = params.id as string;
 
   const [product, setProduct] = useState<Product | null>(null);
@@ -38,9 +40,19 @@ export default function ProductDetailPage() {
   const locale = 'sv'; // Would come from context in real app
 
   const { addItem, isLoading: cartLoading } = useCartStore();
-  const { items: wishlistItems, addItem: addToWishlist, removeItem: removeFromWishlist } = useWishlistStore();
+  const { items: wishlistItems, addItem: addToWishlist, removeItem: removeFromWishlist, setAuthenticated, refreshWishlist } = useWishlistStore();
 
   const isInWishlist = wishlistItems.some(item => item.productId === productId);
+
+  // Sync authentication state with wishlist store
+  useEffect(() => {
+    const isAuth = !!session?.user;
+    setAuthenticated(isAuth);
+
+    if (isAuth) {
+      refreshWishlist();
+    }
+  }, [session, setAuthenticated, refreshWishlist]);
 
   useEffect(() => {
     const fetchProductData = async () => {
@@ -135,13 +147,33 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleToggleWishlist = () => {
-    if (isInWishlist) {
-      removeFromWishlist(productId);
-      toast.success(locale === 'sv' ? 'Borttagen från önskelista' : 'Removed from wishlist');
-    } else {
-      addToWishlist({ productId: product.id, addedAt: new Date() });
-      toast.success(locale === 'sv' ? 'Tillagd i önskelista' : 'Added to wishlist');
+  const handleToggleWishlist = async () => {
+    // Check if user is authenticated
+    if (!session?.user) {
+      toast.error(
+        locale === 'sv'
+          ? 'Du måste vara inloggad för att använda önskelistan'
+          : 'You must be logged in to use the wishlist'
+      );
+      router.push('/auth/signin');
+      return;
+    }
+
+    try {
+      if (isInWishlist) {
+        await removeFromWishlist(productId);
+        toast.success(locale === 'sv' ? 'Borttagen från önskelista' : 'Removed from wishlist');
+      } else {
+        await addToWishlist(product.id);
+        toast.success(locale === 'sv' ? 'Tillagd i önskelista' : 'Added to wishlist');
+      }
+    } catch (error) {
+      console.error('Failed to toggle wishlist:', error);
+      toast.error(
+        locale === 'sv'
+          ? 'Kunde inte uppdatera önskelistan'
+          : 'Failed to update wishlist'
+      );
     }
   };
 
@@ -201,17 +233,37 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleToggleWishlistFromRelated = (relatedProductId: string) => {
+  const handleToggleWishlistFromRelated = async (relatedProductId: string) => {
+    // Check if user is authenticated
+    if (!session?.user) {
+      toast.error(
+        locale === 'sv'
+          ? 'Du måste vara inloggad för att använda önskelistan'
+          : 'You must be logged in to use the wishlist'
+      );
+      router.push('/auth/signin');
+      return;
+    }
+
     const relatedProduct = relatedProducts.find(p => p.id === relatedProductId);
     if (!relatedProduct) return;
 
-    const inWishlist = wishlistItems.some(item => item.productId === relatedProductId);
-    if (inWishlist) {
-      removeFromWishlist(relatedProductId);
-      toast.success(locale === 'sv' ? 'Borttagen från önskelista' : 'Removed from wishlist');
-    } else {
-      addToWishlist({ productId: relatedProduct.id, addedAt: new Date() });
-      toast.success(locale === 'sv' ? 'Tillagd i önskelista' : 'Added to wishlist');
+    try {
+      const inWishlist = wishlistItems.some(item => item.productId === relatedProductId);
+      if (inWishlist) {
+        await removeFromWishlist(relatedProductId);
+        toast.success(locale === 'sv' ? 'Borttagen från önskelista' : 'Removed from wishlist');
+      } else {
+        await addToWishlist(relatedProduct.id);
+        toast.success(locale === 'sv' ? 'Tillagd i önskelista' : 'Added to wishlist');
+      }
+    } catch (error) {
+      console.error('Failed to toggle wishlist:', error);
+      toast.error(
+        locale === 'sv'
+          ? 'Kunde inte uppdatera önskelistan'
+          : 'Failed to update wishlist'
+      );
     }
   };
 

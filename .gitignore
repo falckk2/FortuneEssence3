@@ -47,9 +47,19 @@ next-env.d.ts
 
 # Claude Code local settings
 .claude/settings.local.json
+.claude/agents/
 
 # MCP server configuration (local)
 .mcp.json
+
+# Implementation plans and temporary guides
+*_PLAN.md
+*_GUIDE.md
+*_BUTTON.md
+ARCHITECTURE_UML.md
+
+# UML diagrams (working files)
+diagrams/
 
 # Temporary database scripts (one-time migrations)
 database/add-essential-oils.sql

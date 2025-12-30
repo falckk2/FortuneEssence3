@@ -1,0 +1,52 @@
+<svg width="400" height="400" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bg-gradient-kit" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f3e5f5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e1bee7;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="bottle-gradient-kit" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ba68c8;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ab47bc;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="400" height="400" fill="url(#bg-gradient-kit)" rx="20"/>
+
+  <!-- Oil Bottle 1 -->
+  <g transform="translate(50, 150)">
+    <rect x="15" y="0" width="25" height="12" fill="#8d6e63" rx="2"/>
+    <rect x="10" y="12" width="35" height="110" fill="url(#bottle-gradient-kit)" rx="5"/>
+    <ellipse cx="27.5" cy="122" rx="17.5" ry="4" fill="#9c27b0" opacity="0.3"/>
+  </g>
+
+  <!-- Oil Bottle 2 -->
+  <g transform="translate(135, 150)">
+    <rect x="15" y="0" width="25" height="12" fill="#8d6e63" rx="2"/>
+    <rect x="10" y="12" width="35" height="110" fill="url(#bottle-gradient-kit)" rx="5"/>
+    <ellipse cx="27.5" cy="122" rx="17.5" ry="4" fill="#9c27b0" opacity="0.3"/>
+  </g>
+
+  <!-- Oil Bottle 3 -->
+  <g transform="translate(220, 150)">
+    <rect x="15" y="0" width="25" height="12" fill="#8d6e63" rx="2"/>
+    <rect x="10" y="12" width="35" height="110" fill="url(#bottle-gradient-kit)" rx="5"/>
+    <ellipse cx="27.5" cy="122" rx="17.5" ry="4" fill="#9c27b0" opacity="0.3"/>
+  </g>
+
+  <!-- Oil Bottle 4 -->
+  <g transform="translate(305, 150)">
+    <rect x="15" y="0" width="25" height="12" fill="#8d6e63" rx="2"/>
+    <rect x="10" y="12" width="35" height="110" fill="url(#bottle-gradient-kit)" rx="5"/>
+    <ellipse cx="27.5" cy="122" rx="17.5" ry="4" fill="#9c27b0" opacity="0.3"/>
+  </g>
+
+  <!-- Text -->
+  <text x="200" y="320" font-family="Arial, sans-serif" font-size="32" font-weight="bold" text-anchor="middle" fill="#6a1b9a">
+    Mini Kit
+  </text>
+  <text x="200" y="355" font-family="Arial, sans-serif" font-size="18" text-anchor="middle" fill="#7b1fa2">
+    Choose 4 Oils
+  </text>
+</svg>

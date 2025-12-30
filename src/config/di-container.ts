@@ -20,6 +20,7 @@ export const TOKENS = {
   IShippingRepository: Symbol.for('IShippingRepository'),
   IAbandonedCartRepository: Symbol.for('IAbandonedCartRepository'),
   IBundleRepository: Symbol.for('IBundleRepository'),
+  IWishlistRepository: Symbol.for('IWishlistRepository'),
 
   // Services
   IProductService: Symbol.for('IProductService'),
@@ -33,9 +34,17 @@ export const TOKENS = {
   IEmailService: Symbol.for('IEmailService'),
   IBundleService: Symbol.for('IBundleService'),
 
+  // Test Services
+  ITestCheckoutService: Symbol.for('ITestCheckoutService'),
+  IShipmentSimulationService: Symbol.for('IShipmentSimulationService'),
+  IStatusProgressionStrategy: Symbol.for('IStatusProgressionStrategy'),
+  ITestOrderValidationPipeline: Symbol.for('ITestOrderValidationPipeline'),
+
   // Utilities
   CategoryService: Symbol.for('CategoryService'),
   TaxCalculator: Symbol.for('TaxCalculator'),
+  CarrierRulesEngine: Symbol.for('CarrierRulesEngine'),
+  LabelGenerationService: Symbol.for('LabelGenerationService'),
 };
 
 // Configuration function to register all dependencies
@@ -54,6 +63,7 @@ export function configureDependencyInjection() {
   const { ShippingRepository } = require('@/repositories/shipping/ShippingRepository');
   const { AbandonedCartRepository } = require('@/repositories/cart/AbandonedCartRepository');
   const { BundleRepository } = require('@/repositories/bundles/BundleRepository');
+  const { WishlistRepository } = require('@/repositories/wishlist/WishlistRepository');
 
   container.register(TOKENS.IProductRepository, { useClass: ProductRepository });
   container.register(TOKENS.ICartRepository, { useClass: CartRepository });
@@ -63,6 +73,7 @@ export function configureDependencyInjection() {
   container.register(TOKENS.IShippingRepository, { useClass: ShippingRepository });
   container.register(TOKENS.IAbandonedCartRepository, { useClass: AbandonedCartRepository });
   container.register(TOKENS.IBundleRepository, { useClass: BundleRepository });
+  container.register(TOKENS.IWishlistRepository, { useClass: WishlistRepository });
 
   // Register Services
   const { ProductService } = require('@/services/products/ProductService');
@@ -90,9 +101,53 @@ export function configureDependencyInjection() {
   // Register Utilities
   const { CategoryService } = require('@/config/categories');
   const { TaxCalculator } = require('@/config/payment.config');
+  const { CarrierRulesEngine } = require('@/services/shipping/CarrierRulesEngine');
+  const { LabelGenerationService } = require('@/services/shipping/LabelGenerationService');
 
   container.register(TOKENS.CategoryService, { useClass: CategoryService });
   container.register(TOKENS.TaxCalculator, { useClass: TaxCalculator });
+  container.register(TOKENS.CarrierRulesEngine, { useClass: CarrierRulesEngine });
+  container.register(TOKENS.LabelGenerationService, { useClass: LabelGenerationService });
+
+  // Register Test Services (Following SOLID principles)
+  const { TestCheckoutService } = require('@/services/test/TestCheckoutService');
+  const { ShipmentSimulationService } = require('@/services/test/ShipmentSimulationService');
+  const { createDefaultStatusProgressionStrategy } = require('@/services/test/StatusProgressionStrategy');
+  const { createTestOrderValidationPipeline } = require('@/services/test/ValidationPipeline');
+
+  // Register strategy and validation pipeline as singletons
+  container.register(TOKENS.IStatusProgressionStrategy, {
+    useValue: createDefaultStatusProgressionStrategy(),
+  });
+
+  container.register(TOKENS.ITestOrderValidationPipeline, {
+    useValue: createTestOrderValidationPipeline(),
+  });
+
+  // Register test services with dependency injection
+  container.register(TOKENS.ITestCheckoutService, {
+    useFactory: (c) => {
+      return new TestCheckoutService(
+        c.resolve(TOKENS.ICartService),
+        c.resolve(TOKENS.IShippingService),
+        c.resolve(TOKENS.IInventoryService),
+        c.resolve(TOKENS.IProductService),
+        c.resolve(TOKENS.IOrderRepository),
+        c.resolve(TOKENS.IEmailService),
+        c.resolve(TOKENS.ITestOrderValidationPipeline)
+      );
+    },
+  });
+
+  container.register(TOKENS.IShipmentSimulationService, {
+    useFactory: (c) => {
+      return new ShipmentSimulationService(
+        c.resolve(TOKENS.IOrderRepository),
+        c.resolve(TOKENS.IShippingService),
+        c.resolve(TOKENS.IStatusProgressionStrategy)
+      );
+    },
+  });
 }
 
 export { container };
