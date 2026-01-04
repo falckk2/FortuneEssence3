@@ -5,11 +5,13 @@ import 'reflect-metadata';
 import { container } from 'tsyringe';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 // Tokens for dependency injection
 export const TOKENS = {
   // Database
   SupabaseClient: Symbol.for('SupabaseClient'),
+  SupabaseServerClient: Symbol.for('SupabaseServerClient'),
 
   // Repositories
   IProductRepository: Symbol.for('IProductRepository'),
@@ -49,9 +51,21 @@ export const TOKENS = {
 
 // Configuration function to register all dependencies
 export function configureDependencyInjection() {
-  // Register database client
+  // Register database clients
+  // Client-side client (uses publishable key, respects RLS)
   container.register(TOKENS.SupabaseClient, {
     useValue: supabase,
+  });
+
+  // Server-side client (uses secret key, bypasses RLS for admin operations)
+  // Only create when needed and only on server side
+  container.register(TOKENS.SupabaseServerClient, {
+    useFactory: () => {
+      if (typeof window !== 'undefined') {
+        throw new Error('Server Supabase client cannot be used on the client side');
+      }
+      return getSupabaseServer();
+    },
   });
 
   // Register Repositories

@@ -23,7 +23,7 @@ export class WishlistRepository implements IWishlistRepository {
   private readonly tableName = 'wishlist';
 
   constructor(
-    @inject(TOKENS.SupabaseClient) private readonly supabase: SupabaseClient
+    @inject(TOKENS.SupabaseServerClient) private readonly supabase: SupabaseClient
   ) {}
 
   async findByCustomerId(customerId: string): Promise<ApiResponse<WishlistItem[]>> {
