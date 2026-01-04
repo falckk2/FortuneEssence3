@@ -9,7 +9,8 @@ export const config = {
   database: {
     url: process.env.DATABASE_URL || '',
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xxxxxxxxxxxxxxxxxxx.supabase.co',
-    supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MjAwMDAwMDAsImV4cCI6MTkzNTU3NjAwMH0.placeholder',
+    supabasePublishableKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '',
+    supabaseSecretKey: process.env.SUPABASE_SECRET_KEY || '',
   },
   
   auth: {

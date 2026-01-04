@@ -9,7 +9,7 @@ const customerRepository = new CustomerRepository();
 export const authOptions: NextAuthOptions = {
   adapter: SupabaseAdapter({
     url: config.database.supabaseUrl,
-    secret: config.database.supabaseAnonKey,
+    secret: config.database.supabaseSecretKey,
   }),
   providers: [
     CredentialsProvider({

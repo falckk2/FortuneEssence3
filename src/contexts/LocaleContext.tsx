@@ -61,22 +61,24 @@ export const LocaleProvider: React.FC<LocaleProviderProps> = ({
   children,
   defaultLocale
 }) => {
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    // Use provided default or detect user's preference
-    return defaultLocale || detectUserLocale();
-  });
-
+  // Always start with 'sv' to match server rendering
+  const [locale, setLocaleState] = useState<Locale>('sv');
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
 
-    // Re-detect locale on client mount to ensure consistency
+    // Only detect locale on client mount if no default is provided
     if (!defaultLocale) {
       const detectedLocale = detectUserLocale();
-      setLocaleState(detectedLocale);
+      // Only update if different from default to avoid unnecessary re-renders
+      if (detectedLocale !== 'sv') {
+        setLocaleState(detectedLocale);
+      }
+    } else if (defaultLocale !== locale) {
+      setLocaleState(defaultLocale);
     }
-  }, [defaultLocale]);
+  }, [defaultLocale, locale]);
 
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale);
