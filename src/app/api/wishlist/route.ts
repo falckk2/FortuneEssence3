@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { container } from '@/config/di-container';
 import { TOKENS } from '@/config/di-container';
 import { IWishlistRepository } from '@/repositories/wishlist/WishlistRepository';
+import '@/config/di-init';
 
 // GET /api/wishlist - Get user's wishlist
 export async function GET(request: NextRequest) {

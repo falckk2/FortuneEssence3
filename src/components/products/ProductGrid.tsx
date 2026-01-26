@@ -102,28 +102,8 @@ export const ProductGrid = ({
     try {
       if (isInWishlist) {
         await removeFromWishlist(productId);
-        toast.success(
-          locale === 'sv'
-            ? 'Borttagen från önskelistan'
-            : 'Removed from wishlist',
-          {
-            duration: 2000,
-            icon: '💔',
-          }
-        );
       } else {
         await addToWishlist(productId);
-        const product = products.find(p => p.id === productId);
-        const productName = product?.translations[locale].name || '';
-        toast.success(
-          locale === 'sv'
-            ? `${productName} tillagd i önskelistan!`
-            : `${productName} added to wishlist!`,
-          {
-            duration: 2000,
-            icon: '❤️',
-          }
-        );
       }
     } catch (error) {
       console.error('Failed to toggle wishlist:', error);

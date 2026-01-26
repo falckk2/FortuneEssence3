@@ -162,10 +162,8 @@ export default function ProductDetailPage() {
     try {
       if (isInWishlist) {
         await removeFromWishlist(productId);
-        toast.success(locale === 'sv' ? 'Borttagen från önskelista' : 'Removed from wishlist');
       } else {
         await addToWishlist(product.id);
-        toast.success(locale === 'sv' ? 'Tillagd i önskelista' : 'Added to wishlist');
       }
     } catch (error) {
       console.error('Failed to toggle wishlist:', error);

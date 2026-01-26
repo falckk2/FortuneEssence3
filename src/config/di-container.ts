@@ -58,14 +58,9 @@ export function configureDependencyInjection() {
   });
 
   // Server-side client (uses secret key, bypasses RLS for admin operations)
-  // Only create when needed and only on server side
+  // Only available server-side - DI configuration only runs on server
   container.register(TOKENS.SupabaseServerClient, {
-    useFactory: () => {
-      if (typeof window !== 'undefined') {
-        throw new Error('Server Supabase client cannot be used on the client side');
-      }
-      return getSupabaseServer();
-    },
+    useValue: getSupabaseServer(),
   });
 
   // Register Repositories

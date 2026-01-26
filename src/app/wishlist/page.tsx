@@ -82,11 +82,17 @@ export default function WishlistPage() {
 
   const handleRemoveFromWishlist = async (productId: string) => {
     try {
+      // Optimistically remove from UI immediately
+      setProducts(prevProducts => prevProducts.filter(p => p.id !== productId));
+
+      // Then update backend
       await removeItem(productId);
-      toast.success(locale === 'sv' ? 'Borttagen från önskelista' : 'Removed from wishlist');
     } catch (error) {
       console.error('Failed to remove from wishlist:', error);
       toast.error(locale === 'sv' ? 'Kunde inte ta bort från önskelista' : 'Failed to remove from wishlist');
+
+      // On error, refresh to get correct state
+      refreshWishlist();
     }
   };
 
