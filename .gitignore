@@ -46,6 +46,7 @@ next-env.d.ts
 *_REPORT.md
 
 # Claude Code local settings
+.claude/settings.json
 .claude/settings.local.json
 .claude/agents/
 
