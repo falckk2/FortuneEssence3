@@ -82,5 +82,8 @@ check-lavender-image.sql
 # Test scripts
 test-bundle-api.js
 
+# Generated shipping labels
+public/shipping-labels/
+
 # Temporary files
 nul
