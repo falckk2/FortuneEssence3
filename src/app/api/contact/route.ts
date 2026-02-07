@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase-server';
 import { container } from '@/config/di-container';
 import { TOKENS } from '@/config/di-container';
 import type { IEmailService } from '@/interfaces/email';
@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
     // Save to database
+    const supabase = getSupabaseServer();
     const { data: contactSubmission, error: dbError } = await supabase
       .from('contact_form_submissions')
       .insert({
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
     if (dbError) {
       console.error('Database error saving contact submission:', dbError);
       return NextResponse.json(
-        { success: false, error: 'Failed to save contact submission' },
+        { success: false, error: `Failed to save contact submission: ${dbError.message || dbError.code || JSON.stringify(dbError)}` },
         { status: 500 }
       );
     }
@@ -283,8 +284,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Contact form error:', error);
+    const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: 'Failed to process contact form' },
+      { success: false, error: `Failed to process contact form: ${message}` },
       { status: 500 }
     );
   }
