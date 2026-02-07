@@ -109,7 +109,12 @@ export class TestCheckoutService implements ITestCheckoutService {
       await this.clearCustomerCart(orderData.customerId);
 
       // Step 11: Send confirmation email
-      await this.sendOrderConfirmation(orderData, order);
+      await this.sendOrderConfirmation(orderData, order, {
+        subtotal,
+        tax,
+        shippingCost,
+        trackingNumber: shippingLabel?.trackingNumber,
+      });
 
       // Step 12: Return result
       return {
@@ -156,11 +161,13 @@ export class TestCheckoutService implements ITestCheckoutService {
   }
 
   private async calculateTotals(orderData: TestOrderDTO) {
+    // Prices are inclusive of 25% Swedish VAT
     const subtotal = orderData.items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
-    const tax = subtotal * 0.25; // 25% Swedish VAT
+    // Extract VAT from the price (varav moms): price / 1.25 * 0.25
+    const tax = Math.round((subtotal / 1.25) * 0.25 * 100) / 100;
 
     const shippingResult = await this.shippingService.calculateShipping(
       orderData.items,
@@ -172,7 +179,7 @@ export class TestCheckoutService implements ITestCheckoutService {
     }
 
     const shippingCost = shippingResult.data!.price;
-    const totalAmount = subtotal + tax + shippingCost;
+    const totalAmount = subtotal + shippingCost;
 
     return { subtotal, tax, shippingCost, totalAmount };
   }
@@ -257,7 +264,7 @@ export class TestCheckoutService implements ITestCheckoutService {
       status: 'confirmed' as const,
       shippingAddress: orderData.shippingAddress,
       billingAddress: orderData.billingAddress,
-      paymentMethod: `${orderData.paymentMethod}_test`,
+      paymentMethod: orderData.paymentMethod,
       paymentId: mockPaymentId,
       trackingNumber: undefined,
     };
@@ -273,7 +280,17 @@ export class TestCheckoutService implements ITestCheckoutService {
           '🧪 TEST MODE: Shipping label generated:',
           labelResult.data.trackingNumber
         );
+
+        // Save tracking number back to the order
+        await this.orderRepository.update(order.id, {
+          trackingNumber: labelResult.data.trackingNumber,
+          carrier: labelResult.data.carrierCode,
+        });
+        console.log('🧪 TEST MODE: Tracking number saved to order');
+
         return labelResult.data;
+      } else {
+        console.warn('🧪 TEST MODE: Label generation failed:', labelResult.error);
       }
     } catch (labelError) {
       console.error('🧪 TEST MODE: Error generating shipping label:', labelError);
@@ -293,7 +310,11 @@ export class TestCheckoutService implements ITestCheckoutService {
     }
   }
 
-  private async sendOrderConfirmation(orderData: TestOrderDTO, order: any) {
+  private async sendOrderConfirmation(
+    orderData: TestOrderDTO,
+    order: any,
+    costs: { subtotal: number; tax: number; shippingCost: number; trackingNumber?: string }
+  ) {
     try {
       const customerEmail = orderData.email;
       const customerName = `${orderData.shippingAddress.firstName || ''} ${
@@ -311,8 +332,12 @@ export class TestCheckoutService implements ITestCheckoutService {
               quantity: item.quantity,
               price: item.price,
             })),
+            subtotal: costs.subtotal,
+            tax: costs.tax,
+            shippingCost: costs.shippingCost,
             total: order.total,
             shippingAddress: this.formatAddress(orderData.shippingAddress),
+            trackingNumber: costs.trackingNumber,
           },
           'sv'
         );

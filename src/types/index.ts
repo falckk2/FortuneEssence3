@@ -132,11 +132,13 @@ export interface OrderItem {
   bundleSelection?: BundleSelection;
 }
 
-export type OrderStatus = 
+export type OrderStatus =
   | 'pending'
-  | 'confirmed' 
+  | 'confirmed'
   | 'processing'
   | 'shipped'
+  | 'in_transit'
+  | 'out_for_delivery'
   | 'delivered'
   | 'cancelled';
 

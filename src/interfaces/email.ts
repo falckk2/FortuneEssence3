@@ -37,8 +37,12 @@ export interface IEmailService {
       orderId: string;
       customerName: string;
       items: Array<{ name: string; quantity: number; price: number }>;
+      subtotal?: number;
+      tax?: number;
+      shippingCost?: number;
       total: number;
       shippingAddress: string;
+      trackingNumber?: string;
     },
     locale?: 'sv' | 'en'
   ): Promise<ApiResponse<{ messageId: string }>>;

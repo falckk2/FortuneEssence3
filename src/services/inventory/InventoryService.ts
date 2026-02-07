@@ -8,7 +8,7 @@ export class InventoryService implements IInventoryService {
     try {
       const { data: product, error } = await supabase
         .from('products')
-        .select('stock_quantity, status')
+        .select('stock, is_active')
         .eq('id', productId)
         .single();
 
@@ -19,14 +19,14 @@ export class InventoryService implements IInventoryService {
         };
       }
 
-      if (product.status !== 'active') {
+      if (!product.is_active) {
         return {
           success: false,
           error: 'Product is not available',
         };
       }
 
-      const isAvailable = product.stock_quantity >= quantity;
+      const isAvailable = product.stock >= quantity;
 
       return {
         success: true,
@@ -141,7 +141,7 @@ export class InventoryService implements IInventoryService {
       // Get current stock
       const { data: product, error: fetchError } = await supabase
         .from('products')
-        .select('stock_quantity')
+        .select('stock')
         .eq('id', productId)
         .single();
 
@@ -152,7 +152,7 @@ export class InventoryService implements IInventoryService {
         };
       }
 
-      const newStock = product.stock_quantity + quantity;
+      const newStock = product.stock + quantity;
 
       if (newStock < 0) {
         return {
@@ -165,7 +165,7 @@ export class InventoryService implements IInventoryService {
       const { error: updateError } = await supabase
         .from('products')
         .update({ 
-          stock_quantity: newStock,
+          stock: newStock,
           updated_at: new Date().toISOString(),
         })
         .eq('id', productId);
@@ -198,9 +198,9 @@ export class InventoryService implements IInventoryService {
       const { data: products, error } = await supabase
         .from('products')
         .select('*')
-        .lt('stock_quantity', 10) // Products with less than 10 items
-        .eq('status', 'active')
-        .order('stock_quantity', { ascending: true });
+        .lt('stock', 10) // Products with less than 10 items
+        .eq('is_active', true)
+        .order('stock', { ascending: true });
 
       if (error) {
         return {
@@ -216,11 +216,11 @@ export class InventoryService implements IInventoryService {
         price: product.price,
         category: product.category,
         images: product.images || [],
-        stock: product.stock_quantity,
+        stock: product.stock,
         sku: product.sku,
         weight: product.weight || 0,
         dimensions: product.dimensions || { length: 0, width: 0, height: 0 },
-        isActive: product.status === 'active',
+        isActive: product.is_active,
         translations: {
           sv: {
             name: product.name_sv || product.name,
@@ -259,8 +259,8 @@ export class InventoryService implements IInventoryService {
     try {
       const { data: products, error } = await supabase
         .from('products')
-        .select('stock_quantity, price, cost_price, status')
-        .eq('status', 'active');
+        .select('stock, price, cost_price, is_active')
+        .eq('is_active', true);
 
       if (error) {
         return {
@@ -270,12 +270,12 @@ export class InventoryService implements IInventoryService {
       }
 
       const totalProducts = products.length;
-      const inStockProducts = products.filter(p => p.stock_quantity > 0).length;
-      const outOfStockProducts = products.filter(p => p.stock_quantity === 0).length;
-      const lowStockProducts = products.filter(p => p.stock_quantity > 0 && p.stock_quantity < 10).length;
+      const inStockProducts = products.filter(p => p.stock > 0).length;
+      const outOfStockProducts = products.filter(p => p.stock === 0).length;
+      const lowStockProducts = products.filter(p => p.stock > 0 && p.stock < 10).length;
       
       const totalValue = products.reduce((sum, product) => {
-        return sum + (product.stock_quantity * (product.cost_price || product.price));
+        return sum + (product.stock * (product.cost_price || product.price));
       }, 0);
 
       return {
@@ -412,7 +412,7 @@ export class InventoryService implements IInventoryService {
       // Get current stock
       const { data: product, error: fetchError } = await supabase
         .from('products')
-        .select('stock_quantity')
+        .select('stock')
         .eq('id', productId)
         .single();
 
@@ -430,13 +430,13 @@ export class InventoryService implements IInventoryService {
         };
       }
 
-      const adjustment = newQuantity - product.stock_quantity;
+      const adjustment = newQuantity - product.stock;
 
       // Update stock to new quantity
       const { error: updateError } = await supabase
         .from('products')
         .update({ 
-          stock_quantity: newQuantity,
+          stock: newQuantity,
           updated_at: new Date().toISOString(),
         })
         .eq('id', productId);

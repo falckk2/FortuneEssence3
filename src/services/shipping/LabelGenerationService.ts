@@ -249,7 +249,7 @@ export class LabelGenerationService {
       color: rgb(0.5, 0.5, 0.5),
     });
 
-    page.drawText('Scan för spårning →', {
+    page.drawText('Scan for tracking >>', {
       x: 130,
       y: 30,
       size: 8,

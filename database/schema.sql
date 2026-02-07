@@ -12,11 +12,13 @@ CREATE TYPE product_category AS ENUM (
 );
 
 CREATE TYPE order_status AS ENUM (
-  'pending', 
-  'confirmed', 
-  'processing', 
-  'shipped', 
-  'delivered', 
+  'pending',
+  'confirmed',
+  'processing',
+  'shipped',
+  'in_transit',
+  'out_for_delivery',
+  'delivered',
   'cancelled'
 );
 

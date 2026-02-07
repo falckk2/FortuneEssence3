@@ -14,10 +14,10 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
 // CONFIGURATION - Update these values
 const CONFIG = {
-  customerId: 'your-user-id-here', // Change this to a valid user ID
-  productId: 'your-product-id-here', // Change this to a valid product ID
-  email: 'test@example.com',
-  price: 299,
+  customerId: '30af9020-f974-49d3-90eb-bead11fcaa3c', // Change this to a valid user ID
+  productId: '854d58e3-ea8f-4c83-be07-ac7ab655b9b3', // Change this to a valid product ID (Lavendel Eterisk Olja)
+  email: 'rehan.chiu.falck@gmail.com',
+  price: 89,
   quantity: 1,
 };
 
@@ -80,7 +80,10 @@ async function createTestOrder() {
   try {
     const response = await fetch(`${BASE_URL}/api/test/checkout`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-session-id': CONFIG.customerId,
+      },
       body: JSON.stringify(orderData),
     });
 

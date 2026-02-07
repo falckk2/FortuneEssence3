@@ -101,12 +101,20 @@ export class EmailService implements IEmailService {
       orderId: string;
       customerName: string;
       items: Array<{ name: string; quantity: number; price: number }>;
+      subtotal?: number;
+      tax?: number;
+      shippingCost?: number;
       total: number;
       shippingAddress: string;
+      trackingNumber?: string;
     },
     locale: 'sv' | 'en' = 'sv'
   ): Promise<ApiResponse<{ messageId: string }>> {
     const isSwedish = locale === 'sv';
+
+    const subtotal = orderData.subtotal ?? orderData.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const tax = orderData.tax ?? subtotal * 0.25;
+    const shippingCost = orderData.shippingCost ?? 0;
 
     const itemsHtml = orderData.items
       .map(
@@ -114,14 +122,14 @@ export class EmailService implements IEmailService {
         <tr>
           <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name}</td>
           <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
-          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${item.price.toFixed(2)} SEK</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${(item.price * item.quantity).toFixed(2)} SEK</td>
         </tr>
       `
       )
       .join('');
 
     const subject = isSwedish
-      ? `Orderbekräftelse - ${orderData.orderId}`
+      ? `Orderbekraftelse - ${orderData.orderId}`
       : `Order Confirmation - ${orderData.orderId}`;
 
     const html = `
@@ -135,7 +143,10 @@ export class EmailService implements IEmailService {
           .header { background: #8B4513; color: white; padding: 20px; text-align: center; }
           .content { padding: 20px; background: #f9f9f9; }
           table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-          .total { font-size: 18px; font-weight: bold; text-align: right; padding: 20px 0; }
+          .summary-row td { padding: 8px 10px; }
+          .summary-label { text-align: right; color: #666; }
+          .summary-value { text-align: right; font-weight: 500; }
+          .total-row td { padding: 12px 10px; border-top: 2px solid #8B4513; font-size: 18px; font-weight: bold; }
           .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
         </style>
       </head>
@@ -145,23 +156,24 @@ export class EmailService implements IEmailService {
             <h1>Fortune Essence</h1>
           </div>
           <div class="content">
-            <h2>${isSwedish ? 'Tack för din beställning!' : 'Thank you for your order!'}</h2>
+            <h2>${isSwedish ? 'Tack for din bestallning!' : 'Thank you for your order!'}</h2>
             <p>${isSwedish ? 'Hej' : 'Hi'} ${orderData.customerName},</p>
             <p>
               ${isSwedish
-                ? 'Vi har mottagit din beställning och börjar förbereda den för leverans.'
+                ? 'Vi har mottagit din bestallning och borjar forbereda den for leverans.'
                 : 'We have received your order and are preparing it for delivery.'}
             </p>
 
             <h3>${isSwedish ? 'Orderdetaljer' : 'Order Details'}</h3>
             <p><strong>${isSwedish ? 'Ordernummer' : 'Order Number'}:</strong> ${orderData.orderId}</p>
+            ${orderData.trackingNumber ? `<p><strong>${isSwedish ? 'Sparningsnummer' : 'Tracking Number'}:</strong> ${orderData.trackingNumber}</p>` : ''}
 
             <table>
               <thead>
                 <tr style="background: #f0f0f0;">
                   <th style="padding: 10px; text-align: left;">${isSwedish ? 'Produkt' : 'Product'}</th>
-                  <th style="padding: 10px; text-align: center;">${isSwedish ? 'Antal' : 'Quantity'}</th>
-                  <th style="padding: 10px; text-align: right;">${isSwedish ? 'Pris' : 'Price'}</th>
+                  <th style="padding: 10px; text-align: center;">${isSwedish ? 'Antal' : 'Qty'}</th>
+                  <th style="padding: 10px; text-align: right;">${isSwedish ? 'Summa' : 'Amount'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,33 +181,59 @@ export class EmailService implements IEmailService {
               </tbody>
             </table>
 
-            <div class="total">
-              ${isSwedish ? 'Totalt' : 'Total'}: ${orderData.total.toFixed(2)} SEK
-            </div>
+            <table style="margin-top: 0;">
+              <tr class="summary-row">
+                <td class="summary-label">${isSwedish ? 'Delsumma' : 'Subtotal'}:</td>
+                <td class="summary-value">${subtotal.toFixed(2)} SEK</td>
+              </tr>
+              <tr class="summary-row">
+                <td class="summary-label">${isSwedish ? 'Frakt' : 'Shipping'}:</td>
+                <td class="summary-value">${shippingCost > 0 ? shippingCost.toFixed(2) + ' SEK' : (isSwedish ? 'Fri frakt' : 'Free')}</td>
+              </tr>
+              <tr class="total-row">
+                <td style="text-align: right;">${isSwedish ? 'Totalt' : 'Total'}:</td>
+                <td style="text-align: right;">${orderData.total.toFixed(2)} SEK</td>
+              </tr>
+              <tr class="summary-row">
+                <td class="summary-label" style="font-size: 13px; color: #888;">${isSwedish ? 'varav moms (25%)' : 'of which VAT (25%)'}:</td>
+                <td class="summary-value" style="font-size: 13px; color: #888;">${tax.toFixed(2)} SEK</td>
+              </tr>
+            </table>
 
             <h3>${isSwedish ? 'Leveransadress' : 'Shipping Address'}</h3>
             <p>${orderData.shippingAddress.replace(/\n/g, '<br>')}</p>
 
             <p>
-              ${isSwedish
-                ? 'Du kommer att få ett spårningsnummer via e-post när din order har skickats.'
-                : 'You will receive a tracking number via email when your order has been shipped.'}
+              ${orderData.trackingNumber
+                ? (isSwedish
+                    ? 'Du kan folja din leverans med sparningsnumret ovan.'
+                    : 'You can track your delivery using the tracking number above.')
+                : (isSwedish
+                    ? 'Du kommer att fa ett sparningsnummer via e-post nar din order har skickats.'
+                    : 'You will receive a tracking number via email when your order has been shipped.')}
             </p>
           </div>
           <div class="footer">
             <p>Fortune Essence | www.fortuneessence.se</p>
-            <p>${isSwedish ? 'Frågor? Kontakta oss på' : 'Questions? Contact us at'} support@fortuneessence.se</p>
+            <p>${isSwedish ? 'Fragor? Kontakta oss pa' : 'Questions? Contact us at'} support@fortuneessence.se</p>
           </div>
         </div>
       </body>
       </html>
     `;
 
+    const textBreakdown = [
+      `${isSwedish ? 'Delsumma' : 'Subtotal'}: ${subtotal.toFixed(2)} SEK`,
+      `${isSwedish ? 'Frakt' : 'Shipping'}: ${shippingCost > 0 ? shippingCost.toFixed(2) + ' SEK' : (isSwedish ? 'Fri frakt' : 'Free')}`,
+      `${isSwedish ? 'Totalt' : 'Total'}: ${orderData.total.toFixed(2)} SEK`,
+      `${isSwedish ? 'varav moms (25%)' : 'of which VAT (25%)'}: ${tax.toFixed(2)} SEK`,
+    ].join('\n');
+
     return this.sendEmail({
       to: email,
       subject,
       html,
-      text: `${subject}\n\n${isSwedish ? 'Tack för din beställning!' : 'Thank you for your order!'}\n\nOrder: ${orderData.orderId}\nTotal: ${orderData.total} SEK`,
+      text: `${subject}\n\n${isSwedish ? 'Tack for din bestallning!' : 'Thank you for your order!'}\n\nOrder: ${orderData.orderId}\n${orderData.trackingNumber ? `${isSwedish ? 'Sparningsnummer' : 'Tracking'}: ${orderData.trackingNumber}\n` : ''}\n${textBreakdown}`,
     });
   }
 

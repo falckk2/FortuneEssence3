@@ -293,7 +293,8 @@ export const CARRIERS: Record<string, CarrierInfo> = {
  * Get carrier by code
  */
 export function getCarrierByCode(code: string): CarrierInfo | undefined {
-  return CARRIERS[code];
+  // Try exact match first, then uppercase (handles display names like 'PostNord' -> 'POSTNORD')
+  return CARRIERS[code] || CARRIERS[code.toUpperCase()] || Object.values(CARRIERS).find(c => c.name === code);
 }
 
 /**
@@ -325,7 +326,7 @@ export function getCarriersByWeight(weight: number): CarrierInfo[] {
  * Get tracking prefix for carrier
  */
 export function getTrackingPrefix(carrierCode: string): string {
-  const carrier = CARRIERS[carrierCode];
+  const carrier = getCarrierByCode(carrierCode);
   return carrier?.trackingPrefix || 'FE'; // Fortune Essence default
 }
 
