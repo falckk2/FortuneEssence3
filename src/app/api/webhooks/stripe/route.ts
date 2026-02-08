@@ -5,13 +5,20 @@ import { TOKENS } from '@/config/di-container';
 import type { IOrderService } from '@/interfaces';
 import type { IEmailService } from '@/interfaces/email';
 
-// Get Stripe key with fallback for build time
-const stripeKey = process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder';
-
-// Initialize Stripe with API key
-const stripe = new Stripe(stripeKey, {
-  apiVersion: '2025-08-27.basil',
-});
+// Lazy-initialize Stripe to avoid build-time errors when env var is missing
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error('STRIPE_SECRET_KEY is not configured');
+    }
+    _stripe = new Stripe(key, {
+      apiVersion: '2025-08-27.basil',
+    });
+  }
+  return _stripe;
+}
 
 // Webhook signing secret for verifying webhook authenticity
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
@@ -41,7 +48,7 @@ export async function POST(request: NextRequest) {
     // Verify webhook signature
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(
+      event = getStripe().webhooks.constructEvent(
         body,
         signature,
         webhookSecret

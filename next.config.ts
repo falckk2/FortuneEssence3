@@ -72,9 +72,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: process.env.NODE_ENV === 'production' 
-              ? 'https://fortune-essence.vercel.app' 
-              : '*'
+            value: process.env.NEXT_PUBLIC_APP_URL || '*'
           },
           {
             key: 'Access-Control-Allow-Methods',
@@ -92,11 +90,6 @@ const nextConfig: NextConfig = {
   // Redirects for SEO and user experience
   async redirects() {
     return [
-      {
-        source: '/admin',
-        destination: '/account',
-        permanent: false,
-      },
       {
         source: '/login',
         destination: '/auth/signin',

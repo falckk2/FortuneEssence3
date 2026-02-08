@@ -6,7 +6,8 @@ import { LocaleProvider } from "@/contexts/LocaleContext";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CookieConsent } from "@/components/gdpr/CookieConsent";
-import DevAdminButton from "@/components/admin/DevAdminButton";
+import dynamic from "next/dynamic";
+const DevAdminButton = dynamic(() => import("@/components/admin/DevAdminButton"));
 import { Toaster } from 'react-hot-toast';
 import "./globals.css";
 
@@ -20,7 +21,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+
 export const metadata: Metadata = {
+  metadataBase: appUrl ? new URL(appUrl) : undefined,
   title: "Fortune Essence - Premium Essential Oils",
   description: "Discover premium essential oils and aromatherapy products. Natural, organic, and ethically sourced from Fortune Essence.",
   keywords: "essential oils, aromatherapy, lavender, organic oils, natural wellness, Sweden",
