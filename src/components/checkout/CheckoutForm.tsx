@@ -72,6 +72,7 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(500);
   const [filterType, setFilterType] = useState<'all' | 'fastest' | 'cheapest' | 'eco'>('all');
+  const [expandedCarrier, setExpandedCarrier] = useState<string | null>(null);
 
   const {
     register,
@@ -582,80 +583,171 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
           </div>
 
           {/* Shipping Options */}
-          {shippingRates.length > 0 && (
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">
-                  {locale === 'sv' ? 'Leveransalternativ' : 'Shipping Options'}
-                </h3>
-                {isFreeShipping && (
-                  <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
-                    {locale === 'sv' ? '✓ Fri frakt!' : '✓ Free shipping!'}
-                  </span>
-                )}
-              </div>
-
-              {/* Filter buttons */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setFilterType('all')}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    filterType === 'all'
-                      ? 'bg-sage-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {locale === 'sv' ? 'Alla' : 'All'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterType('fastest')}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    filterType === 'fastest'
-                      ? 'bg-sage-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  ⚡ {locale === 'sv' ? 'Snabbast' : 'Fastest'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterType('cheapest')}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    filterType === 'cheapest'
-                      ? 'bg-sage-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  💰 {locale === 'sv' ? 'Billigast' : 'Cheapest'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterType('eco')}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    filterType === 'eco'
-                      ? 'bg-sage-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  🌿 {locale === 'sv' ? 'Miljövänligt' : 'Eco-friendly'}
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {shippingRates.map((rate) => (
-                  <CarrierOption
-                    key={rate.id}
-                    rate={rate}
-                    selected={selectedShipping?.id === rate.id}
-                    onClick={() => setSelectedShipping(rate)}
-                    locale={locale}
-                  />
-                ))}
-              </div>
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                {locale === 'sv' ? 'Leveransalternativ' : 'Shipping Options'}
+              </h3>
+              {isFreeShipping && shippingRates.length > 0 && (
+                <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+                  {locale === 'sv' ? '✓ Fri frakt!' : '✓ Free shipping!'}
+                </span>
+              )}
             </div>
-          )}
+
+            {shippingRates.length > 0 ? (
+              <>
+                {/* Filter buttons */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('all')}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                      filterType === 'all'
+                        ? 'bg-sage-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {locale === 'sv' ? 'Alla' : 'All'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('fastest')}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                      filterType === 'fastest'
+                        ? 'bg-sage-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {locale === 'sv' ? 'Snabbast' : 'Fastest'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('cheapest')}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                      filterType === 'cheapest'
+                        ? 'bg-sage-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {locale === 'sv' ? 'Billigast' : 'Cheapest'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterType('eco')}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                      filterType === 'eco'
+                        ? 'bg-sage-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {locale === 'sv' ? 'Milj\u00f6v\u00e4nligt' : 'Eco-friendly'}
+                  </button>
+                </div>
+
+                {/* Grouped by carrier */}
+                <div className="space-y-2">
+                  {Object.entries(
+                    shippingRates.reduce<Record<string, ShippingRate[]>>((groups, rate) => {
+                      const key = rate.carrierCode || rate.name;
+                      if (!groups[key]) groups[key] = [];
+                      groups[key].push(rate);
+                      return groups;
+                    }, {})
+                  ).map(([carrierCode, rates]) => {
+                    const cheapest = Math.min(...rates.map(r => r.price));
+                    const fastest = Math.min(...rates.map(r => r.estimatedDays));
+                    const hasSelected = rates.some(r => r.id === selectedShipping?.id);
+                    const isExpanded = expandedCarrier === carrierCode || hasSelected;
+                    const carrierName = rates[0].name.split(' ')[0];
+                    const isEco = rates.some(r => r.isEcoFriendly);
+
+                    return (
+                      <div key={carrierCode} className={`border rounded-lg overflow-hidden transition-all ${hasSelected ? 'border-sage-600' : 'border-gray-200'}`}>
+                        {/* Carrier header */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedCarrier(isExpanded && !hasSelected ? null : carrierCode)}
+                          className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${hasSelected ? 'bg-sage-50' : 'hover:bg-gray-50'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="font-semibold text-sm text-gray-900">{carrierName}</span>
+                            {isEco && <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Eco</span>}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-500">
+                              {fastest === 0
+                                ? (locale === 'sv' ? 'Samma dag' : 'Same day')
+                                : fastest === 1
+                                ? (locale === 'sv' ? '1 dag' : '1 day')
+                                : `${fastest} ${locale === 'sv' ? 'dagar' : 'days'}`}
+                            </span>
+                            <span className="text-sm font-bold text-gray-900">
+                              {locale === 'sv' ? 'fr.' : 'from'} {cheapest === 0 ? (locale === 'sv' ? 'Gratis' : 'Free') : `${cheapest.toFixed(0)} kr`}
+                            </span>
+                            <svg className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
+
+                        {/* Expanded options */}
+                        {isExpanded && (
+                          <div className="border-t border-gray-100">
+                            {rates.map((rate) => (
+                              <button
+                                key={rate.id}
+                                type="button"
+                                onClick={() => setSelectedShipping(rate)}
+                                className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors ${
+                                  selectedShipping?.id === rate.id
+                                    ? 'bg-sage-100'
+                                    : 'hover:bg-gray-50'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-shrink-0">
+                                    {selectedShipping?.id === rate.id ? (
+                                      <div className="w-4 h-4 rounded-full border-2 border-sage-600 bg-sage-600 flex items-center justify-center">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                                      </div>
+                                    ) : (
+                                      <div className="w-4 h-4 rounded-full border-2 border-gray-300"></div>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <span className="text-sm text-gray-900">{rate.serviceType ? rate.name.replace(carrierName, '').trim() || rate.name : rate.name}</span>
+                                    <span className="text-xs text-gray-500 ml-2">
+                                      {rate.estimatedDays === 0
+                                        ? (locale === 'sv' ? 'Samma dag' : 'Same day')
+                                        : rate.estimatedDays === 1
+                                        ? (locale === 'sv' ? '1 dag' : '1 day')
+                                        : `${rate.estimatedDays} ${locale === 'sv' ? 'dagar' : 'days'}`}
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className={`text-sm font-semibold ${rate.price === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+                                  {rate.price === 0 ? (locale === 'sv' ? 'Gratis' : 'Free') : `${rate.price.toFixed(0)} kr`}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-yellow-800">
+                  {locale === 'sv'
+                    ? 'Inga leveransalternativ tillg\u00e4ngliga. Fyll i din adress ovan eller f\u00f6rs\u00f6k igen senare.'
+                    : 'No shipping options available. Please fill in your address above or try again later.'}
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* Payment Method */}
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
@@ -663,25 +755,35 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
               {locale === 'sv' ? 'Betalningsmetod' : 'Payment Method'}
             </h3>
             
-            <div className="grid grid-cols-2 gap-3">
-              {availablePaymentMethods.filter(m => m.enabled).map((method) => {
-                const IconComponent = getPaymentIcon(method.id);
-                return (
-                  <label key={method.id} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                    <input
-                      {...register('paymentMethod')}
-                      type="radio"
-                      value={method.id}
-                      className="text-purple-600 focus:ring-purple-500"
-                    />
-                    <IconComponent className="h-5 w-5 ml-3 text-gray-600" />
-                    <span className="ml-2 text-sm font-medium text-gray-900">
-                      {getPaymentMethodName(method.id)}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
+            {availablePaymentMethods.filter(m => m.enabled).length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {availablePaymentMethods.filter(m => m.enabled).map((method) => {
+                  const IconComponent = getPaymentIcon(method.id);
+                  return (
+                    <label key={method.id} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                      <input
+                        {...register('paymentMethod')}
+                        type="radio"
+                        value={method.id}
+                        className="text-purple-600 focus:ring-purple-500"
+                      />
+                      <IconComponent className="h-5 w-5 ml-3 text-gray-600" />
+                      <span className="ml-2 text-sm font-medium text-gray-900">
+                        {getPaymentMethodName(method.id)}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-yellow-800">
+                  {locale === 'sv'
+                    ? 'Betalningar är för närvarande inte tillgängliga. Vänligen försök igen senare.'
+                    : 'Payments are currently unavailable. Please try again later.'}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Terms and Marketing */}
@@ -820,7 +922,7 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
 
             <button
               type="submit"
-              disabled={isProcessing || !selectedShipping}
+              disabled={isProcessing || !selectedShipping || availablePaymentMethods.filter(m => m.enabled).length === 0}
               className="w-full mt-6 px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isProcessing 

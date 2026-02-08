@@ -436,10 +436,12 @@ export class PaymentService implements IPaymentService {
 
   async getPaymentMethods(): Promise<ApiResponse<Array<{ id: string; name: string; enabled: boolean }>>> {
     try {
-      const methods = [
-        { id: 'stripe', name: 'Card (Stripe)', enabled: true },
-        { id: 'card', name: 'Card', enabled: true },
-      ];
+      const methods: Array<{ id: string; name: string; enabled: boolean }> = [];
+
+      if (config.payments.stripe.secretKey) {
+        methods.push({ id: 'stripe', name: 'Card (Stripe)', enabled: true });
+        methods.push({ id: 'card', name: 'Card', enabled: true });
+      }
 
       if (config.payments.swish.merchantId) {
         methods.push({ id: 'swish', name: 'Swish', enabled: true });

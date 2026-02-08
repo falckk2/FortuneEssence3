@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { ICartService, IShippingService, IPaymentService, IOrderService } from '@/interfaces';
 import { IEmailService } from '@/interfaces/email';
 import { container, TOKENS } from '@/config/di-container';
+import { config } from '@/config';
 import { orderSchema } from '@/utils/validation';
 
 const cartService = container.resolve<ICartService>(TOKENS.ICartService);
@@ -240,11 +241,6 @@ async function handleProcessPayment(body: any, userId?: string) {
 
     const order = orderResult.data!;
 
-    // TODO: Send order confirmation email
-    // Currently skipped because we need to fetch customer email from database using customerId
-    // This should be enhanced to query the customer email and name from the database
-    console.log(`Order ${order.id} created successfully. Email notification skipped (customer email not available in order data)`);
-
     // Generate shipping label for confirmed orders
     let shippingLabel = null;
     if (order.status === 'confirmed') {
@@ -260,6 +256,104 @@ async function handleProcessPayment(body: any, userId?: string) {
         // Log error but don't fail the order
         console.error(`Error generating shipping label for order ${order.id}:`, labelError);
       }
+    }
+
+    // Send order confirmation emails
+    const customerEmail = body.email;
+    const customerName = `${body.firstName || ''} ${body.lastName || ''}`.trim() || 'Kund';
+
+    if (customerEmail) {
+      try {
+        // Send confirmation to customer
+        await emailService.sendOrderConfirmation(
+          customerEmail,
+          {
+            orderId: order.id,
+            customerName,
+            items: order.items.map((item: any) => ({
+              name: item.productName || item.name || 'Produkt',
+              quantity: item.quantity,
+              price: item.price,
+            })),
+            subtotal: order.total - order.tax - order.shipping,
+            tax: order.tax,
+            shippingCost: order.shipping,
+            total: order.total,
+            shippingAddress: formatAddress(order.shippingAddress),
+            trackingNumber: order.trackingNumber,
+          },
+          'sv'
+        );
+        console.log(`Order confirmation email sent to ${customerEmail}`);
+      } catch (emailError) {
+        console.error(`Failed to send customer confirmation email:`, emailError);
+      }
+
+      try {
+        // Send order copy to company for packaging
+        const itemRows = order.items.map((item: any) =>
+          `<tr>
+            <td style="padding:8px;border-bottom:1px solid #eee;">${item.productName || item.name || 'Produkt'}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${(item.price * item.quantity).toFixed(2)} kr</td>
+          </tr>`
+        ).join('');
+
+        await emailService.sendEmail({
+          to: config.email.supportEmail,
+          subject: `Ny order - ${order.id.slice(0, 8)} - ${customerName}`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+              <h2 style="color:#8B4513;">Ny order mottagen</h2>
+              <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+                <tr><td style="padding:4px 0;font-weight:bold;">Order ID:</td><td>${order.id}</td></tr>
+                <tr><td style="padding:4px 0;font-weight:bold;">Kund:</td><td>${customerName}</td></tr>
+                <tr><td style="padding:4px 0;font-weight:bold;">E-post:</td><td>${customerEmail}</td></tr>
+                <tr><td style="padding:4px 0;font-weight:bold;">Telefon:</td><td>${body.phone || 'Ej angivet'}</td></tr>
+                <tr><td style="padding:4px 0;font-weight:bold;">Betalningsmetod:</td><td>${order.paymentMethod}</td></tr>
+                <tr><td style="padding:4px 0;font-weight:bold;">Status:</td><td>${order.status}</td></tr>
+              </table>
+
+              <h3 style="color:#8B4513;">Produkter att packa</h3>
+              <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+                <thead>
+                  <tr style="background:#f5f5f5;">
+                    <th style="padding:8px;text-align:left;">Produkt</th>
+                    <th style="padding:8px;text-align:center;">Antal</th>
+                    <th style="padding:8px;text-align:right;">Pris</th>
+                  </tr>
+                </thead>
+                <tbody>${itemRows}</tbody>
+                <tfoot>
+                  <tr><td colspan="2" style="padding:8px;text-align:right;">Delsumma:</td><td style="padding:8px;text-align:right;">${(order.total - order.tax - order.shipping).toFixed(2)} kr</td></tr>
+                  <tr><td colspan="2" style="padding:8px;text-align:right;">Moms (25%):</td><td style="padding:8px;text-align:right;">${order.tax.toFixed(2)} kr</td></tr>
+                  <tr><td colspan="2" style="padding:8px;text-align:right;">Frakt:</td><td style="padding:8px;text-align:right;">${order.shipping.toFixed(2)} kr</td></tr>
+                  <tr style="font-weight:bold;"><td colspan="2" style="padding:8px;text-align:right;border-top:2px solid #333;">Totalt:</td><td style="padding:8px;text-align:right;border-top:2px solid #333;">${order.total.toFixed(2)} kr</td></tr>
+                </tfoot>
+              </table>
+
+              <h3 style="color:#8B4513;">Leveransadress</h3>
+              <p style="white-space:pre-line;">${formatAddress(order.shippingAddress)}</p>
+
+              <h3 style="color:#8B4513;">Faktureringsadress</h3>
+              <p style="white-space:pre-line;">${formatAddress(order.billingAddress)}</p>
+
+              ${shippingLabel ? `
+                <h3 style="color:#8B4513;">Fraktinformation</h3>
+                <p><strong>Transportör:</strong> ${shippingLabel.carrierCode}</p>
+                <p><strong>Spårningsnummer:</strong> ${shippingLabel.trackingNumber}</p>
+              ` : ''}
+
+              <p style="margin-top:24px;"><a href="${process.env.NEXTAUTH_URL || ''}/admin/orders/${order.id}" style="color:#8B4513;">Visa order i admin</a></p>
+            </div>
+          `,
+        });
+        console.log(`Order copy sent to ${config.email.supportEmail}`);
+      } catch (emailError) {
+        console.error(`Failed to send admin order notification:`, emailError);
+      }
+    } else {
+      console.warn(`Order ${order.id} created but no customer email provided for confirmation`);
     }
 
     // Determine if we need to redirect for payment

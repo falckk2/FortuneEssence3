@@ -268,10 +268,10 @@ export interface IGDPRService {
   deleteUserData(userId: string): Promise<ApiResponse<void>>;
   updateConsent(userId: string, consentData: ConsentData): Promise<ApiResponse<void>>;
   getConsentStatus(userId: string): Promise<ApiResponse<ConsentData>>;
-  requestDataPortability(userId: string, format: 'json' | 'csv'): Promise<ApiResponse<any>>;
-  getDataProcessingPurposes(): Promise<ApiResponse<Array<{ id: string; name: string; description: string }>>>;
+  requestDataPortability(userId: string, format: 'json' | 'csv' | 'pdf'): Promise<ApiResponse<any>>;
+  getDataProcessingPurposes(): Promise<ApiResponse<Array<{ purpose: string; description: string; legalBasis: string; dataTypes: string[] }>>>;
   getDataRetentionPolicies(): Promise<ApiResponse<Array<{ dataType: string; retentionPeriod: string; purpose: string }>>>;
-  getGDPRActivityLog(userId: string): Promise<ApiResponse<Array<{ action: string; timestamp: string; details: string }>>>;
+  getGDPRActivityLog(userId: string): Promise<ApiResponse<Array<{ id: string; activity: string; description: string; timestamp: string }>>>;
 }
 
 export interface UserData {

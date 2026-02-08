@@ -145,7 +145,7 @@ export default function PrivacyPage() {
     }
   };
 
-  const handleExportData = async (format: 'json' | 'csv') => {
+  const handleExportData = async (format: 'json' | 'csv' | 'pdf') => {
     try {
       const response = await fetch(`/api/gdpr?action=data-portability&format=${format}`);
       
@@ -355,7 +355,7 @@ export default function PrivacyPage() {
             {purposes.length > 0 && (
               <div className="bg-white rounded-xl shadow-lg p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-6">
-                  {locale === 'sv' ? 'Hur vi använder dina data' : 'How we use your data'}
+                  {locale === 'sv' ? 'Hur vi använder din data' : 'How we use your data'}
                 </h2>
                 
                 <div className="space-y-4">
@@ -369,10 +369,12 @@ export default function PrivacyPage() {
                             <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
                               {purpose.legalBasis}
                             </span>
-                            <div className="mt-2">
-                              <span className="text-xs text-gray-500">
-                                {locale === 'sv' ? 'Datatyper:' : 'Data types:'} {purpose.dataTypes.join(', ')}
-                              </span>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {purpose.dataTypes.map((dataType, i) => (
+                                <span key={i} className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+                                  {dataType}
+                                </span>
+                              ))}
                             </div>
                           </div>
                         </div>
@@ -432,7 +434,15 @@ export default function PrivacyPage() {
                   <DocumentArrowDownIcon className="h-5 w-5 mr-3" />
                   {locale === 'sv' ? 'Exportera data (CSV)' : 'Export data (CSV)'}
                 </button>
-                
+
+                <button
+                  onClick={() => handleExportData('pdf')}
+                  className="w-full flex items-center justify-start px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <DocumentArrowDownIcon className="h-5 w-5 mr-3" />
+                  {locale === 'sv' ? 'Exportera data (PDF)' : 'Export data (PDF)'}
+                </button>
+
                 <button
                   onClick={() => setShowDeleteConfirmation(true)}
                   className="w-full flex items-center justify-start px-4 py-3 border border-red-300 text-red-600 font-medium rounded-lg hover:bg-red-50 transition-colors"

@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         return handleDataExport(session.user.id);
       
       case 'data-portability':
-        const format = searchParams.get('format') as 'json' | 'csv' || 'json';
+        const format = searchParams.get('format') as 'json' | 'csv' | 'pdf' || 'json';
         return handleDataPortability(session.user.id, format);
       
       case 'processing-purposes':
@@ -217,7 +217,7 @@ async function handleDataExport(userId: string) {
   }
 }
 
-async function handleDataPortability(userId: string, format: 'json' | 'csv') {
+async function handleDataPortability(userId: string, format: 'json' | 'csv' | 'pdf') {
   try {
     const result = await gdprService.requestDataPortability(userId, format);
 
@@ -229,6 +229,17 @@ async function handleDataPortability(userId: string, format: 'json' | 'csv') {
         },
         { status: 400 }
       );
+    }
+
+    if (format === 'pdf') {
+      const pdfBuffer = Buffer.from(result.data!, 'base64');
+      return new NextResponse(pdfBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="user-data-${userId}.pdf"`,
+        },
+      });
     }
 
     const contentType = format === 'json' ? 'application/json' : 'text/csv';

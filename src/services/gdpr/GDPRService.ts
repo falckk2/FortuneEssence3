@@ -1,6 +1,7 @@
 import { IGDPRService, UserData, ConsentData, UserPreferences } from '@/interfaces';
 import { Customer, Order, ApiResponse } from '@/types';
 import { supabase } from '@/lib/supabase/client';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 export class GDPRService implements IGDPRService {
 
@@ -343,35 +344,41 @@ export class GDPRService implements IGDPRService {
   // Additional GDPR utility methods
 
   async getDataProcessingPurposes(): Promise<ApiResponse<Array<{
-    id: string;
-    name: string;
+    purpose: string;
     description: string;
+    legalBasis: string;
+    dataTypes: string[];
   }>>> {
     const purposes = [
       {
-        id: 'order-processing',
-        name: 'Order Processing',
-        description: 'Processing customer orders and payments (Legal basis: Contract Performance)',
+        purpose: 'Order Processing',
+        description: 'Processing customer orders and payments',
+        legalBasis: 'Contract Performance',
+        dataTypes: ['Name', 'Email', 'Address', 'Phone', 'Order history', 'Payment info'],
       },
       {
-        id: 'customer-service',
-        name: 'Customer Service',
-        description: 'Providing customer support and handling inquiries (Legal basis: Legitimate Interest)',
+        purpose: 'Customer Service',
+        description: 'Providing customer support and handling inquiries',
+        legalBasis: 'Legitimate Interest',
+        dataTypes: ['Name', 'Email', 'Support messages'],
       },
       {
-        id: 'marketing',
-        name: 'Marketing Communications',
-        description: 'Sending promotional emails and newsletters (Legal basis: Consent)',
+        purpose: 'Marketing Communications',
+        description: 'Sending promotional emails and newsletters',
+        legalBasis: 'Consent',
+        dataTypes: ['Name', 'Email', 'Marketing preferences'],
       },
       {
-        id: 'analytics',
-        name: 'Analytics',
-        description: 'Understanding website usage and improving services (Legal basis: Consent)',
+        purpose: 'Analytics',
+        description: 'Understanding website usage and improving services',
+        legalBasis: 'Consent',
+        dataTypes: ['Usage data', 'Device info', 'Page views'],
       },
       {
-        id: 'legal-compliance',
-        name: 'Legal Compliance',
-        description: 'Meeting tax and regulatory requirements (Legal basis: Legal Obligation)',
+        purpose: 'Legal Compliance',
+        description: 'Meeting tax and regulatory requirements',
+        legalBasis: 'Legal Obligation',
+        dataTypes: ['Order history', 'Transaction data', 'Invoice data'],
       },
     ];
 
@@ -420,10 +427,10 @@ export class GDPRService implements IGDPRService {
     };
   }
 
-  async requestDataPortability(userId: string, format: 'json' | 'csv'): Promise<ApiResponse<string>> {
+  async requestDataPortability(userId: string, format: 'json' | 'csv' | 'pdf'): Promise<ApiResponse<string>> {
     try {
       const userDataResult = await this.exportUserData(userId);
-      
+
       if (!userDataResult.success) {
         return {
           success: false,
@@ -436,8 +443,10 @@ export class GDPRService implements IGDPRService {
 
       if (format === 'json') {
         exportData = JSON.stringify(userData, null, 2);
+      } else if (format === 'pdf') {
+        const pdfBytes = await this.convertToPDF(userData);
+        exportData = Buffer.from(pdfBytes).toString('base64');
       } else {
-        // Convert to CSV format
         exportData = this.convertToCSV(userData);
       }
 
@@ -458,9 +467,10 @@ export class GDPRService implements IGDPRService {
   }
 
   async getGDPRActivityLog(userId: string): Promise<ApiResponse<Array<{
-    action: string;
+    id: string;
+    activity: string;
+    description: string;
     timestamp: string;
-    details: string;
   }>>> {
     try {
       const { data: activities, error } = await supabase
@@ -478,9 +488,10 @@ export class GDPRService implements IGDPRService {
       }
 
       const transformedActivities = activities.map(activity => ({
-        action: activity.activity,
+        id: activity.id,
+        activity: activity.activity,
+        description: activity.description || '',
         timestamp: new Date(activity.created_at).toISOString(),
-        details: activity.description,
       }));
 
       return {
@@ -546,5 +557,97 @@ export class GDPRService implements IGDPRService {
     csv += `Newsletter,${userData.preferences.newsletter}\n`;
 
     return csv;
+  }
+
+  private async convertToPDF(userData: UserData): Promise<Uint8Array> {
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const fontSize = 10;
+    const titleSize = 16;
+    const sectionSize = 13;
+    const lineHeight = 16;
+    const margin = 50;
+
+    let page = pdfDoc.addPage([595, 842]); // A4
+    let y = 792;
+
+    const addText = (text: string, size: number, useBold = false, color = rgb(0, 0, 0)) => {
+      if (y < margin + lineHeight) {
+        page = pdfDoc.addPage([595, 842]);
+        y = 792;
+      }
+      page.drawText(text, { x: margin, y, size, font: useBold ? fontBold : font, color });
+      y -= size + 6;
+    };
+
+    const addLine = () => {
+      if (y < margin + lineHeight) {
+        page = pdfDoc.addPage([595, 842]);
+        y = 792;
+      }
+      page.drawLine({ start: { x: margin, y }, end: { x: 545, y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) });
+      y -= 10;
+    };
+
+    // Title
+    addText('Fortune Essence - GDPR Data Export', titleSize, true, rgb(0.4, 0.2, 0.6));
+    addText(`Generated: ${new Date().toLocaleDateString('sv-SE')}`, fontSize, false, rgb(0.5, 0.5, 0.5));
+    y -= 10;
+    addLine();
+
+    // Personal Information
+    addText('Personal Information', sectionSize, true);
+    y -= 4;
+    addText(`Name: ${userData.personalInfo.firstName} ${userData.personalInfo.lastName}`, fontSize);
+    addText(`Email: ${userData.personalInfo.email}`, fontSize);
+    addText(`Phone: ${userData.personalInfo.phone || 'N/A'}`, fontSize);
+    addText(`Marketing Opt-in: ${userData.personalInfo.marketingOptIn ? 'Yes' : 'No'}`, fontSize);
+    addText(`Account Created: ${new Date(userData.personalInfo.createdAt).toLocaleDateString('sv-SE')}`, fontSize);
+    y -= 10;
+    addLine();
+
+    // Address
+    const addr = userData.personalInfo.address;
+    if (addr) {
+      addText('Address', sectionSize, true);
+      y -= 4;
+      if (addr.street) addText(`Street: ${addr.street}`, fontSize);
+      if (addr.postalCode || addr.city) addText(`${addr.postalCode || ''} ${addr.city || ''}`.trim(), fontSize);
+      if (addr.country) addText(`Country: ${addr.country}`, fontSize);
+      y -= 10;
+      addLine();
+    }
+
+    // Orders
+    addText(`Orders (${userData.orders.length})`, sectionSize, true);
+    y -= 4;
+    if (userData.orders.length === 0) {
+      addText('No orders found.', fontSize, false, rgb(0.5, 0.5, 0.5));
+    } else {
+      for (const order of userData.orders) {
+        const items = order.items.map(item => `${item.productName} (${item.quantity}x)`).join(', ');
+        addText(`Order ${order.id.slice(0, 8)}... - ${order.status} - ${order.total} SEK`, fontSize, true);
+        addText(`  Date: ${new Date(order.createdAt).toLocaleDateString('sv-SE')}`, fontSize);
+        if (items) addText(`  Items: ${items.length > 80 ? items.slice(0, 80) + '...' : items}`, fontSize);
+        y -= 4;
+      }
+    }
+    y -= 6;
+    addLine();
+
+    // Preferences
+    addText('Preferences', sectionSize, true);
+    y -= 4;
+    addText(`Language: ${userData.preferences.language}`, fontSize);
+    addText(`Currency: ${userData.preferences.currency}`, fontSize);
+    addText(`Newsletter: ${userData.preferences.newsletter ? 'Yes' : 'No'}`, fontSize);
+    y -= 10;
+    addLine();
+
+    // Footer
+    addText('This document was generated as part of your GDPR data portability rights.', fontSize, false, rgb(0.5, 0.5, 0.5));
+
+    return pdfDoc.save();
   }
 }
