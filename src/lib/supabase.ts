@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from '@/config';
 
 const supabaseUrl = config.database.supabaseUrl || 'https://xxxxxxxxxxxxxxxxxxx.supabase.co';
-const supabasePublishableKey = config.database.supabasePublishableKey || '';
+const supabasePublishableKey = config.database.supabasePublishableKey || 'placeholder-key-for-build';
 
 // Warn at runtime if credentials are missing (but allow build to proceed)
 if (typeof window === 'undefined' && process.env.NODE_ENV !== 'production') {
