@@ -158,6 +158,7 @@ export interface IPaymentService {
   verifyPayment(paymentId: string, method: PaymentMethod): Promise<ApiResponse<boolean>>;
   createPaymentIntent(amount: number, currency: string): Promise<ApiResponse<{ clientSecret: string; paymentIntentId: string }>>;
   getPaymentMethods(): Promise<ApiResponse<Array<{ id: string; name: string; enabled: boolean }>>>;
+  refundPayment(paymentId: string, amount?: number): Promise<ApiResponse<string>>;
 }
 
 export interface PaymentData {
@@ -291,4 +292,18 @@ export interface UserPreferences {
   language: string;
   currency: string;
   newsletter: boolean;
+}
+
+import type { Return, CreateReturnItemData, ReturnFilters } from '@/types/returns';
+
+export interface IReturnService {
+  createReturn(orderId: string, items: CreateReturnItemData[], reason: string): Promise<ApiResponse<Return>>;
+  getReturnById(id: string): Promise<ApiResponse<Return>>;
+  getAllReturns(filters?: ReturnFilters): Promise<ApiResponse<Return[]>>;
+  approveReturn(returnId: string, adminNotes?: string): Promise<ApiResponse<Return>>;
+  rejectReturn(returnId: string, reason: string): Promise<ApiResponse<Return>>;
+  markReceived(returnId: string, adminNotes?: string): Promise<ApiResponse<Return>>;
+  processRefund(returnId: string): Promise<ApiResponse<Return>>;
+  markRefundedManually(returnId: string, adminNotes?: string): Promise<ApiResponse<Return>>;
+  getStatusCounts(): Promise<ApiResponse<Record<string, number>>>;
 }

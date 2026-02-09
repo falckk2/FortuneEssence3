@@ -23,6 +23,7 @@ export const TOKENS = {
   IAbandonedCartRepository: Symbol.for('IAbandonedCartRepository'),
   IBundleRepository: Symbol.for('IBundleRepository'),
   IWishlistRepository: Symbol.for('IWishlistRepository'),
+  IReturnRepository: Symbol.for('IReturnRepository'),
 
   // Services
   IProductService: Symbol.for('IProductService'),
@@ -35,6 +36,7 @@ export const TOKENS = {
   IGDPRService: Symbol.for('IGDPRService'),
   IEmailService: Symbol.for('IEmailService'),
   IBundleService: Symbol.for('IBundleService'),
+  IReturnService: Symbol.for('IReturnService'),
 
   // Test Services
   ITestCheckoutService: Symbol.for('ITestCheckoutService'),
@@ -73,6 +75,7 @@ export function configureDependencyInjection() {
   const { AbandonedCartRepository } = require('@/repositories/cart/AbandonedCartRepository');
   const { BundleRepository } = require('@/repositories/bundles/BundleRepository');
   const { WishlistRepository } = require('@/repositories/wishlist/WishlistRepository');
+  const { ReturnRepository } = require('@/repositories/returns/ReturnRepository');
 
   container.register(TOKENS.IProductRepository, { useClass: ProductRepository });
   container.register(TOKENS.ICartRepository, { useClass: CartRepository });
@@ -83,6 +86,7 @@ export function configureDependencyInjection() {
   container.register(TOKENS.IAbandonedCartRepository, { useClass: AbandonedCartRepository });
   container.register(TOKENS.IBundleRepository, { useClass: BundleRepository });
   container.register(TOKENS.IWishlistRepository, { useClass: WishlistRepository });
+  container.register(TOKENS.IReturnRepository, { useClass: ReturnRepository });
 
   // Register Services
   const { ProductService } = require('@/services/products/ProductService');
@@ -106,6 +110,18 @@ export function configureDependencyInjection() {
   container.register(TOKENS.IGDPRService, { useClass: GDPRService });
   container.register(TOKENS.IEmailService, { useClass: EmailService });
   container.register(TOKENS.IBundleService, { useClass: BundleService });
+
+  // Register ReturnService with factory to inject dependencies
+  const { ReturnService } = require('@/services/returns/ReturnService');
+  container.register(TOKENS.IReturnService, {
+    useFactory: (c: any) => {
+      return new ReturnService(
+        c.resolve(TOKENS.IReturnRepository),
+        c.resolve(TOKENS.IOrderRepository),
+        c.resolve(TOKENS.IPaymentService)
+      );
+    },
+  });
 
   // Register Utilities
   const { CategoryService } = require('@/config/categories');

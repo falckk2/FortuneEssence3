@@ -8,7 +8,8 @@ export type {
   ICartRepository,
   IInventoryRepository,
   IShippingRepository,
-  IAbandonedCartRepository
+  IAbandonedCartRepository,
+  IReturnRepository
 } from './repositories';
 
 // Explicitly re-export all interfaces from services
@@ -41,7 +42,8 @@ export type {
   IGDPRService,
   UserData,
   ConsentData,
-  UserPreferences
+  UserPreferences,
+  IReturnService
 } from './services';
 
 // Explicitly re-export all interfaces from email

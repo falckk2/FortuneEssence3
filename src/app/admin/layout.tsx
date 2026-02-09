@@ -11,7 +11,8 @@ import {
   UserGroupIcon,
   ChartBarIcon,
   Cog6ToothIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  ArrowUturnLeftIcon
 } from '@heroicons/react/24/outline';
 
 export default function AdminLayout({
@@ -47,6 +48,7 @@ export default function AdminLayout({
     { name: 'Dashboard', href: '/admin', icon: HomeIcon },
     { name: 'Products', href: '/admin/products', icon: CubeIcon },
     { name: 'Orders', href: '/admin/orders', icon: ShoppingBagIcon },
+    { name: 'Returns', href: '/admin/returns', icon: ArrowUturnLeftIcon },
     { name: 'Customers', href: '/admin/customers', icon: UserGroupIcon },
     { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon },
     { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },

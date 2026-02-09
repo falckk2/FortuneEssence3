@@ -115,6 +115,21 @@ export interface IShippingRepository {
   ): Promise<ApiResponse<CarrierPricingRule>>;
 }
 
+import type { Return, ReturnStatus, ReturnFilters, CreateReturnItemData } from '@/types/returns';
+
+export interface IReturnRepository {
+  create(
+    returnData: Omit<Return, 'id' | 'items' | 'createdAt' | 'updatedAt'>,
+    items: CreateReturnItemData[]
+  ): Promise<ApiResponse<Return>>;
+  findById(id: string): Promise<ApiResponse<Return>>;
+  findByOrderId(orderId: string): Promise<ApiResponse<Return[]>>;
+  findAll(filters?: ReturnFilters): Promise<ApiResponse<Return[]>>;
+  updateStatus(id: string, status: ReturnStatus, additionalData?: Partial<Return>): Promise<ApiResponse<Return>>;
+  update(id: string, data: Partial<Return>): Promise<ApiResponse<Return>>;
+  getStatusCounts(): Promise<ApiResponse<Record<string, number>>>;
+}
+
 export interface IAbandonedCartRepository {
   create(data: AbandonedCartCreateData): Promise<ApiResponse<AbandonedCart>>;
   update(id: string, data: Partial<AbandonedCart>): Promise<ApiResponse<AbandonedCart>>;
