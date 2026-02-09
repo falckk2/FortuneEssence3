@@ -75,12 +75,12 @@ export const ProductFilters = ({
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 ${className}`}>
+    <div className={`bg-white dark:bg-[#242a28] rounded-lg shadow-sm border border-gray-200 dark:border-[#3f4946] ${className}`}>
       {/* Mobile Filter Toggle */}
       <div className="lg:hidden">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-4 py-3 flex items-center justify-between text-sm font-medium text-gray-700"
+          className="w-full px-4 py-3 flex items-center justify-between text-sm font-medium text-gray-700 dark:text-[#C5D4C5]"
         >
           <div className="flex items-center">
             <FunnelIcon className="h-5 w-5 mr-2" />
@@ -99,13 +99,13 @@ export const ProductFilters = ({
       <div className={`${isOpen ? 'block' : 'hidden'} lg:block p-4 space-y-6`}>
         {/* Sort Options */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-[#C5D4C5] mb-2">
             {locale === 'sv' ? 'Sortera efter' : 'Sort by'}
           </label>
           <select
             value={getCurrentSortValue()}
             onChange={(e) => handleSortChange(e.target.value)}
-            className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+            className="block w-full px-3 py-2 border border-gray-300 dark:border-[#4a5552] rounded-md shadow-sm bg-white dark:bg-[#2a3330] dark:text-[#E8EDE8] focus:outline-none focus:ring-purple-500 focus:border-purple-500"
           >
             {sortOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -119,7 +119,7 @@ export const ProductFilters = ({
         <Disclosure defaultOpen>
           {({ open }) => (
             <div>
-              <Disclosure.Button className="flex w-full justify-between rounded-lg bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-900 hover:bg-gray-100 focus:outline-none focus-visible:ring focus-visible:ring-purple-500 focus-visible:ring-opacity-75">
+              <Disclosure.Button className="flex w-full justify-between rounded-lg bg-gray-50 dark:bg-[#2a3330] px-4 py-2 text-left text-sm font-medium text-gray-900 dark:text-[#E8EDE8] hover:bg-gray-100 dark:hover:bg-[#343c39] focus:outline-none focus-visible:ring focus-visible:ring-purple-500 focus-visible:ring-opacity-75">
                 <span>{locale === 'sv' ? 'Kategorier' : 'Categories'}</span>
                 <ChevronDownIcon className={`${open ? 'rotate-180 transform' : ''} h-5 w-5 text-gray-500`} />
               </Disclosure.Button>
@@ -133,7 +133,7 @@ export const ProductFilters = ({
                       onChange={() => handleFilterChange('category', undefined)}
                       className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300"
                     />
-                    <span className="ml-2 text-gray-700">
+                    <span className="ml-2 text-gray-700 dark:text-[#C5D4C5]">
                       {locale === 'sv' ? 'Alla kategorier' : 'All categories'}
                     </span>
                   </label>
@@ -147,7 +147,7 @@ export const ProductFilters = ({
                         onChange={(e) => handleFilterChange('category', e.target.value)}
                         className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300"
                       />
-                      <span className="ml-2 text-gray-700">
+                      <span className="ml-2 text-gray-700 dark:text-[#C5D4C5]">
                         {category.displayName[locale]} ({category.count})
                       </span>
                     </label>
@@ -162,7 +162,7 @@ export const ProductFilters = ({
         <Disclosure defaultOpen>
           {({ open }) => (
             <div>
-              <Disclosure.Button className="flex w-full justify-between rounded-lg bg-gray-50 px-4 py-2 text-left text-sm font-medium text-gray-900 hover:bg-gray-100 focus:outline-none focus-visible:ring focus-visible:ring-purple-500 focus-visible:ring-opacity-75">
+              <Disclosure.Button className="flex w-full justify-between rounded-lg bg-gray-50 dark:bg-[#2a3330] px-4 py-2 text-left text-sm font-medium text-gray-900 dark:text-[#E8EDE8] hover:bg-gray-100 dark:hover:bg-[#343c39] focus:outline-none focus-visible:ring focus-visible:ring-purple-500 focus-visible:ring-opacity-75">
                 <span>{locale === 'sv' ? 'Pris' : 'Price'}</span>
                 <ChevronDownIcon className={`${open ? 'rotate-180 transform' : ''} h-5 w-5 text-gray-500`} />
               </Disclosure.Button>
@@ -170,7 +170,7 @@ export const ProductFilters = ({
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-gray-700 dark:text-[#C5D4C5] mb-1">
                         {locale === 'sv' ? 'Min' : 'Min'}
                       </label>
                       <input
@@ -179,12 +179,12 @@ export const ProductFilters = ({
                         max={options.priceRange.max}
                         value={localFilters.minPrice || ''}
                         onChange={(e) => handleFilterChange('minPrice', e.target.value ? Number(e.target.value) : undefined)}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                        className="block w-full px-3 py-2 border border-gray-300 dark:border-[#4a5552] rounded-md shadow-sm bg-white dark:bg-[#2a3330] dark:text-[#E8EDE8] focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
                         placeholder={`${options.priceRange.min}`}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-gray-700 dark:text-[#C5D4C5] mb-1">
                         {locale === 'sv' ? 'Max' : 'Max'}
                       </label>
                       <input
@@ -193,7 +193,7 @@ export const ProductFilters = ({
                         max={options.priceRange.max}
                         value={localFilters.maxPrice || ''}
                         onChange={(e) => handleFilterChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
+                        className="block w-full px-3 py-2 border border-gray-300 dark:border-[#4a5552] rounded-md shadow-sm bg-white dark:bg-[#2a3330] dark:text-[#E8EDE8] focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm"
                         placeholder={`${options.priceRange.max}`}
                       />
                     </div>

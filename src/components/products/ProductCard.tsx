@@ -108,7 +108,7 @@ export const ProductCard = ({
   const productBenefits = getProductBenefits(product.name, product.category);
 
   return (
-    <div className={`bg-white rounded-3xl shadow-soft hover:shadow-xl transition-all duration-300 overflow-hidden group hover:-translate-y-1 transform ${className}`}>
+    <div className={`bg-white dark:bg-[#242a28] rounded-3xl shadow-soft hover:shadow-xl transition-all duration-300 overflow-hidden group hover:-translate-y-1 transform ${className}`}>
       <div className="relative">
         <Link href={`/products/${product.id}`}>
           <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden bg-gradient-to-br from-sage-50 to-forest-50">
@@ -190,22 +190,22 @@ export const ProductCard = ({
 
         <div className="mb-3">
           <Link href={`/products/${product.id}`}>
-            <h3 className="text-xl font-serif font-semibold text-forest-800 group-hover:text-sage-700 transition-colors line-clamp-2 leading-snug">
+            <h3 className="text-xl font-serif font-semibold text-forest-800 dark:text-[#E8EDE8] group-hover:text-sage-700 dark:group-hover:text-sage-400 transition-colors line-clamp-2 leading-snug">
               {localizedName}
             </h3>
           </Link>
         </div>
 
-        <p className="text-sm text-forest-600 line-clamp-2 mb-4 leading-relaxed">
+        <p className="text-sm text-forest-600 dark:text-[#B8C5B8] line-clamp-2 mb-4 leading-relaxed">
           {localizedDescription}
         </p>
 
         <div className="flex items-center justify-between mb-5">
           <div className="flex flex-col">
-            <span className="text-2xl font-bold text-forest-800">
+            <span className="text-2xl font-bold text-forest-800 dark:text-[#E8EDE8]">
               {formattedPrice}
             </span>
-            <span className="text-xs text-forest-500">
+            <span className="text-xs text-forest-500 dark:text-[#8A9A8A]">
               {locale === 'sv' ? 'Inkl. moms' : 'Incl. VAT'}
             </span>
           </div>

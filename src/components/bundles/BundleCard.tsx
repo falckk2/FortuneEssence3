@@ -23,7 +23,7 @@ export function BundleCard({
   return (
     <Link
       href={`/products/${product.id}`}
-      className="group block bg-white rounded-xl border-2 border-sage-200 hover:border-sage-400 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden"
+      className="group block bg-white dark:bg-[#242a28] rounded-xl border-2 border-sage-200 dark:border-[#3f4946] hover:border-sage-400 dark:hover:border-sage-600 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden"
     >
       {/* Badge */}
       <div className="relative">
@@ -42,21 +42,21 @@ export function BundleCard({
       {/* Content */}
       <div className="p-5">
         {/* Title */}
-        <h3 className="text-xl font-serif font-bold text-forest-800 mb-2 group-hover:text-sage-700 transition-colors">
+        <h3 className="text-xl font-serif font-bold text-forest-800 dark:text-[#E8EDE8] mb-2 group-hover:text-sage-700 dark:group-hover:text-sage-400 transition-colors">
           {locale === 'sv' ? product.translations.sv.name : product.translations.en.name}
         </h3>
 
         {/* Description */}
-        <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+        <p className="text-sm text-gray-600 dark:text-[#B8C5B8] mb-4 line-clamp-2">
           {locale === 'sv' ? product.translations.sv.description : product.translations.en.description}
         </p>
 
         {/* Pricing */}
         <div className="flex items-baseline gap-2 mb-3">
-          <span className="text-3xl font-bold text-forest-900">
+          <span className="text-3xl font-bold text-forest-900 dark:text-[#E8EDE8]">
             {product.price} kr
           </span>
-          <span className="text-lg text-gray-500 line-through">
+          <span className="text-lg text-gray-500 dark:text-[#6B7B6B] line-through">
             {regularPrice} kr
           </span>
         </div>
@@ -82,7 +82,7 @@ export function BundleCard({
 
         {/* Features */}
         <div className="space-y-2 mb-4">
-          <div className="flex items-center gap-2 text-sm text-gray-700">
+          <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-[#C5D4C5]">
             <svg
               className="w-5 h-5 text-sage-600 flex-shrink-0"
               fill="none"
@@ -100,7 +100,7 @@ export function BundleCard({
               {requiredQuantity}x {locale === 'sv' ? 'Lavendel Eterisk Olja' : 'Lavender Essential Oil'}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-700">
+          <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-[#C5D4C5]">
             <svg
               className="w-5 h-5 text-sage-600 flex-shrink-0"
               fill="none"
@@ -120,7 +120,7 @@ export function BundleCard({
                 : '10ml each, premium quality'}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-700">
+          <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-[#C5D4C5]">
             <svg
               className="w-5 h-5 text-sage-600 flex-shrink-0"
               fill="none"
@@ -143,7 +143,7 @@ export function BundleCard({
         </div>
 
         {/* CTA */}
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-[#3f4946]">
           <span className="text-sm font-medium text-sage-700">
             {locale === 'sv' ? 'Bygg din egen' : 'Build your own'}
           </span>

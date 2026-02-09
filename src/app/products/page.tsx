@@ -179,13 +179,13 @@ export default function ProductsPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-300 rounded w-1/4 mb-6"></div>
+          <div className="h-8 bg-gray-300 dark:bg-[#343c39] rounded w-1/4 mb-6"></div>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="h-96 bg-gray-300 rounded"></div>
+            <div className="h-96 bg-gray-300 dark:bg-[#343c39] rounded"></div>
             <div className="lg:col-span-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-96 bg-gray-300 rounded"></div>
+                  <div key={i} className="h-96 bg-gray-300 dark:bg-[#343c39] rounded"></div>
                 ))}
               </div>
             </div>
@@ -196,15 +196,15 @@ export default function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-yellow-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-yellow-50 to-white dark:from-[#1a1f1e] dark:to-[#242a28]">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-[#E8EDE8] mb-2">
             {locale === 'sv' ? 'Alla Produkter' : 'All Products'}
           </h1>
-          <p className="text-gray-600">
-            {locale === 'sv' 
+          <p className="text-gray-600 dark:text-[#B8C5B8]">
+            {locale === 'sv'
               ? 'Upptäck vårt fullständiga sortiment av premium eteriska oljor och aromaterapi-produkter.'
               : 'Discover our complete range of premium essential oils and aromatherapy products.'
             }
@@ -215,14 +215,14 @@ export default function ProductsPage() {
         <div className="mb-6">
           <form onSubmit={handleSearch} className="relative max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 dark:text-[#6B7B6B]" />
             </div>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={locale === 'sv' ? 'Sök produkter...' : 'Search products...'}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-[#4a5552] rounded-md leading-5 bg-white dark:bg-[#2a3330] dark:text-[#E8EDE8] placeholder-gray-500 dark:placeholder-[#6B7B6B] focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
             />
           </form>
         </div>
@@ -234,7 +234,7 @@ export default function ProductsPage() {
               <h2 className="text-2xl font-serif font-bold text-forest-800 mb-2">
                 {locale === 'sv' ? 'Spara med våra paket' : 'Save with our bundles'}
               </h2>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-[#B8C5B8]">
                 {locale === 'sv'
                   ? 'Välj dina favoritoljor och spara upp till 16% jämfört med att köpa dem separat'
                   : 'Choose your favorite oils and save up to 16% compared to buying them separately'}
@@ -260,7 +260,7 @@ export default function ProductsPage() {
 
         {/* Results Count */}
         <div className="mb-6 flex items-center justify-between">
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-gray-700 dark:text-[#C5D4C5]">
             {locale === 'sv' 
               ? `Visar ${filteredProducts.length} av ${products.length} produkter`
               : `Showing ${filteredProducts.length} of ${products.length} products`
