@@ -8,8 +8,8 @@ const customerRepository = new CustomerRepository();
 
 export const authOptions: NextAuthOptions = {
   adapter: SupabaseAdapter({
-    url: config.database.supabaseUrl,
-    secret: config.database.supabaseSecretKey,
+    url: config.database.supabaseUrl || 'https://placeholder.supabase.co',
+    secret: config.database.supabaseSecretKey || 'placeholder-secret-for-build',
   }),
   providers: [
     CredentialsProvider({
