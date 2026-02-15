@@ -8,6 +8,7 @@ import { Product, BundleSelection } from '@/types';
 import { PriceCalculator } from '@/utils/helpers';
 import Image from 'next/image';
 import Link from 'next/link';
+import { BundleImage } from '@/components/bundles/BundleImage';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -218,14 +219,20 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
                             <ul role="list" className="-my-6 divide-y divide-gray-200">
                               {cartItems.map((item) => (
                                 <li key={item.productId} className="flex py-6">
-                                  <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                                    <Image
-                                      src={getProductImage(item.product)}
-                                      alt={getProductName(item.product)}
-                                      width={80}
-                                      height={80}
-                                      className="h-full w-full object-cover object-center"
-                                    />
+                                  <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200 flex items-center justify-center">
+                                    {item.bundleSelection && item.selectedProducts && item.selectedProducts.length > 0 ? (
+                                      <div className="bg-gradient-to-br from-sage-50 to-forest-50 w-full h-full flex items-center justify-center">
+                                        <BundleImage quantity={item.selectedProducts.length} size={44} />
+                                      </div>
+                                    ) : (
+                                      <Image
+                                        src={getProductImage(item.product)}
+                                        alt={getProductName(item.product)}
+                                        width={80}
+                                        height={80}
+                                        className="h-full w-full object-cover object-center"
+                                      />
+                                    )}
                                   </div>
 
                                   <div className="ml-4 flex flex-1 flex-col">

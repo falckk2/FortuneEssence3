@@ -17,6 +17,7 @@ import {
   BuildingLibraryIcon
 } from '@heroicons/react/24/outline';
 import CarrierOption from './CarrierOption';
+import { BundleImage } from '@/components/bundles/BundleImage';
 
 interface CartItemWithProduct {
   productId: string;
@@ -846,14 +847,20 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
               ) : (
                 cartItems.map((item) => (
                   <div key={item.productId} className="flex gap-3">
-                    <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-200 dark:border-[#3f4946]">
-                      <Image
-                        src={getProductImage(item.product)}
-                        alt={getProductName(item.product)}
-                        width={64}
-                        height={64}
-                        className="h-full w-full object-cover object-center"
-                      />
+                    <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-gray-200 dark:border-[#3f4946] flex items-center justify-center">
+                      {item.bundleSelection && item.selectedProducts && item.selectedProducts.length > 0 ? (
+                        <div className="bg-gradient-to-br from-sage-50 to-forest-50 dark:from-[#2a3330] dark:to-[#242a28] w-full h-full flex items-center justify-center">
+                          <BundleImage quantity={item.selectedProducts.length} size={36} />
+                        </div>
+                      ) : (
+                        <Image
+                          src={getProductImage(item.product)}
+                          alt={getProductName(item.product)}
+                          width={64}
+                          height={64}
+                          className="h-full w-full object-cover object-center"
+                        />
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-900 dark:text-[#E8EDE8] text-sm">
