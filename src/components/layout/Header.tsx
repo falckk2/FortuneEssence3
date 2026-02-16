@@ -92,13 +92,21 @@ export const Header = () => {
       <div className="bg-gradient-to-r from-sage-100 to-cream-100 dark:from-[#2a3330] dark:to-[#1f2624] border-b border-sage-200 dark:border-gray-700">
         <div className="container mx-auto px-4 py-2">
           <div className="flex items-center justify-between text-sm">
-            <p className="text-forest-700 dark:text-[#B8C5B8]">
-              {locale === 'sv'
-                ? 'Fri frakt över 500 kr | Snabb leverans i hela Sverige'
-                : 'Free shipping over 500 SEK | Fast delivery across Sweden'
-              }
+            <p className="text-forest-700 dark:text-[#B8C5B8] truncate mr-4">
+              <span className="hidden sm:inline">
+                {locale === 'sv'
+                  ? 'Fri frakt över 500 kr | Snabb leverans i hela Sverige'
+                  : 'Free shipping over 500 SEK | Fast delivery across Sweden'
+                }
+              </span>
+              <span className="sm:hidden">
+                {locale === 'sv'
+                  ? 'Fri frakt över 500 kr'
+                  : 'Free shipping over 500 SEK'
+                }
+              </span>
             </p>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3 sm:space-x-4 flex-shrink-0">
               <Link
                 href="/faq"
                 className="text-forest-600 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] transition-colors font-medium"
@@ -196,7 +204,7 @@ export const Header = () => {
           </div>
 
           {/* Right side icons */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
             {/* Search icon for mobile */}
             <button className="md:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors">
               <MagnifyingGlassIcon className="h-6 w-6" />

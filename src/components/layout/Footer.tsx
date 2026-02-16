@@ -237,14 +237,14 @@ export const Footer = () => {
         {/* Payment Methods & Bottom Bar */}
         <div className="mt-8 pt-8 border-t border-forest-200 dark:border-gray-800">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-forest-600 dark:text-[#8A9A8A] text-sm">
+            <p className="text-forest-600 dark:text-[#8A9A8A] text-sm text-center md:text-left">
               © {currentYear} Fortune Essence. {locale === 'sv' ? 'Alla rättigheter förbehållna.' : 'All rights reserved.'}
             </p>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
               <span className="text-forest-600 dark:text-[#8A9A8A] text-sm">
                 {locale === 'sv' ? 'Vi accepterar:' : 'We accept:'}
               </span>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {/* Payment method badges */}
                 <div className="px-3 py-1.5 bg-white rounded text-xs font-semibold text-forest-800">
                   Swish

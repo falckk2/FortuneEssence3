@@ -151,7 +151,7 @@ export default function HomePage() {
             </div>
 
             {/* Image - Lifestyle Photography */}
-            <div className="relative">
+            <div className="relative overflow-hidden">
               <div className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl">
                 <Image
                   src="/images/hero-lifestyle.png"
@@ -169,7 +169,7 @@ export default function HomePage() {
               </div>
 
               {/* Floating product highlight */}
-              <div className="absolute -bottom-6 -left-6 bg-white dark:bg-[#1a221f] rounded-2xl p-4 shadow-xl max-w-[200px]">
+              <div className="absolute bottom-2 left-2 sm:-bottom-6 sm:-left-6 bg-white dark:bg-[#1a221f] rounded-2xl p-3 sm:p-4 shadow-xl max-w-[200px]">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-sage-100 dark:bg-sage-900 rounded-full flex items-center justify-center">
                     <SparklesIcon className="h-6 w-6 text-sage-600 dark:text-sage-400" />

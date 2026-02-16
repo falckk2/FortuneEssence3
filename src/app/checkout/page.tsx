@@ -33,34 +33,34 @@ export default function CheckoutPage() {
 
         {/* Progress Steps */}
         <div className="mb-8">
-          <div className="flex items-center justify-center space-x-8">
+          <div className="flex items-center justify-center space-x-2 sm:space-x-4 md:space-x-8">
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
+              <div className="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0">
                 1
               </div>
-              <span className="ml-2 text-sm font-medium text-gray-900 dark:text-[#E8EDE8]">
+              <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm font-medium text-gray-900 dark:text-[#E8EDE8]">
                 {locale === 'sv' ? 'Information' : 'Information'}
               </span>
             </div>
-            
-            <div className="w-16 h-0.5 bg-gray-300 dark:bg-[#4a5552]"></div>
+
+            <div className="w-6 sm:w-10 md:w-16 h-0.5 bg-gray-300 dark:bg-[#4a5552] flex-shrink-0"></div>
 
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gray-300 dark:bg-[#4a5552] text-gray-600 dark:text-[#8A9A8A] rounded-full flex items-center justify-center text-sm font-medium">
+              <div className="w-8 h-8 bg-gray-300 dark:bg-[#4a5552] text-gray-600 dark:text-[#8A9A8A] rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0">
                 2
               </div>
-              <span className="ml-2 text-sm font-medium text-gray-500 dark:text-[#8A9A8A]">
+              <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm font-medium text-gray-500 dark:text-[#8A9A8A]">
                 {locale === 'sv' ? 'Betalning' : 'Payment'}
               </span>
             </div>
-            
-            <div className="w-16 h-0.5 bg-gray-300 dark:bg-[#4a5552]"></div>
+
+            <div className="w-6 sm:w-10 md:w-16 h-0.5 bg-gray-300 dark:bg-[#4a5552] flex-shrink-0"></div>
 
             <div className="flex items-center">
-              <div className="w-8 h-8 bg-gray-300 dark:bg-[#4a5552] text-gray-600 dark:text-[#8A9A8A] rounded-full flex items-center justify-center text-sm font-medium">
+              <div className="w-8 h-8 bg-gray-300 dark:bg-[#4a5552] text-gray-600 dark:text-[#8A9A8A] rounded-full flex items-center justify-center text-sm font-medium flex-shrink-0">
                 3
               </div>
-              <span className="ml-2 text-sm font-medium text-gray-500 dark:text-[#8A9A8A]">
+              <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm font-medium text-gray-500 dark:text-[#8A9A8A]">
                 {locale === 'sv' ? 'Bekräftelse' : 'Confirmation'}
               </span>
             </div>
