@@ -5,6 +5,8 @@ export type {
   IBundleRepository,
   ICustomerRepository,
   IOrderRepository,
+  IOrderItemRepository,
+  IAnalyticsRepository,
   ICartRepository,
   IInventoryRepository,
   IShippingRepository,
@@ -43,6 +45,9 @@ export type {
   UserData,
   ConsentData,
   UserPreferences,
+  IAnalyticsService,
+  AnalyticsData,
+  AnalyticsRange,
   IReturnService
 } from './services';
 

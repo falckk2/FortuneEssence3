@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { OrderService } from '@/services/orders/OrderService';
 import {
   IOrderRepository,
+  IOrderItemRepository,
   ICartService,
   IPaymentService,
   IShippingService,
@@ -14,6 +15,7 @@ import { Order, CartItem, OrderItem, ApiResponse, ShippingRate } from '@/types';
 describe('OrderService', () => {
   let orderService: OrderService;
   let mockOrderRepository: jest.Mocked<IOrderRepository>;
+  let mockOrderItemRepository: jest.Mocked<IOrderItemRepository>;
   let mockCartService: jest.Mocked<ICartService>;
   let mockPaymentService: jest.Mocked<IPaymentService>;
   let mockShippingService: jest.Mocked<IShippingService>;
@@ -93,6 +95,12 @@ describe('OrderService', () => {
       getRecentOrders: jest.fn(),
     } as jest.Mocked<IOrderRepository>;
 
+    mockOrderItemRepository = {
+      createMany: jest.fn().mockResolvedValue({ success: true }),
+      findByOrderId: jest.fn(),
+      findByProductId: jest.fn(),
+    } as jest.Mocked<IOrderItemRepository>;
+
     mockCartService = {
       getCart: jest.fn(),
       addItem: jest.fn(),
@@ -143,6 +151,7 @@ describe('OrderService', () => {
 
     orderService = new OrderService(
       mockOrderRepository,
+      mockOrderItemRepository,
       mockCartService,
       mockPaymentService,
       mockShippingService,
@@ -261,7 +270,7 @@ describe('OrderService', () => {
 
       // Assert
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Product not available');
+      expect(result.error).toContain('not available');
       expect(mockOrderRepository.create).not.toHaveBeenCalled();
     });
 
@@ -354,6 +363,29 @@ describe('OrderService', () => {
 
       // Assert
       expect(mockCartService.clearCart).toHaveBeenCalledWith('cart-1');
+    });
+
+    it('should write order items to order_items table after order creation', async () => {
+      // Act
+      await orderService.createOrder(mockOrderData);
+
+      // Assert
+      expect(mockOrderItemRepository.createMany).toHaveBeenCalledWith(
+        'order-1',
+        expect.any(Array)
+      );
+    });
+
+    it('should not fail order creation if order_items write fails', async () => {
+      // Arrange
+      mockOrderItemRepository.createMany.mockRejectedValue(new Error('DB write failed'));
+
+      // Act
+      const result = await orderService.createOrder(mockOrderData);
+
+      // Assert - order still succeeds
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual(mockOrder);
     });
 
     it('should transform cart items to order items', async () => {

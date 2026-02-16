@@ -391,7 +391,7 @@ describe('CustomerRepository', () => {
       expect(result.data?.firstName).toBe('John');
       expect(result.data?.lastName).toBe('Doe');
       expect(result.data?.phone).toBe('+46701234567');
-      expect(result.data?.address).toEqual(mockAddress);
+      expect(result.data?.address).toEqual({ ...mockAddress, region: null });
       expect(result.data?.consentGiven).toBe(true);
       expect(result.data?.marketingOptIn).toBe(false);
       expect(result.data?.createdAt).toBeInstanceOf(Date);

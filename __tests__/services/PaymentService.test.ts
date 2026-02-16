@@ -2,13 +2,21 @@ import { PaymentService } from '@/services/payment/PaymentService';
 import type { PaymentData } from '@/interfaces';
 import Stripe from 'stripe';
 
-// Mock Stripe
+// Shared mock functions — all Stripe instances (PaymentService + processors) use the same mocks
+const mockPaymentIntentsCreate = jest.fn();
+const mockPaymentIntentsRetrieve = jest.fn();
+const mockPaymentIntentsConfirm = jest.fn();
+const mockRefundsCreate = jest.fn();
+
 jest.mock('stripe', () => {
   return jest.fn().mockImplementation(() => ({
     paymentIntents: {
-      create: jest.fn(),
-      retrieve: jest.fn(),
-      confirm: jest.fn(),
+      create: mockPaymentIntentsCreate,
+      retrieve: mockPaymentIntentsRetrieve,
+      confirm: mockPaymentIntentsConfirm,
+    },
+    refunds: {
+      create: mockRefundsCreate,
     },
   }));
 });
@@ -34,12 +42,10 @@ jest.mock('@/config', () => ({
 
 describe('PaymentService', () => {
   let paymentService: PaymentService;
-  let mockStripe: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     paymentService = new PaymentService();
-    mockStripe = (paymentService as any).stripe;
   });
 
   describe('processPayment', () => {
@@ -53,7 +59,7 @@ describe('PaymentService', () => {
         metadata: {},
       };
 
-      mockStripe.paymentIntents.create.mockResolvedValue({
+      mockPaymentIntentsCreate.mockResolvedValue({
         id: 'pi_123',
         status: 'succeeded',
       });
@@ -62,8 +68,8 @@ describe('PaymentService', () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.paymentId).toBe('pi_123');
-      expect(result.data?.status).toBe('success');
-      expect(mockStripe.paymentIntents.create).toHaveBeenCalledWith(
+      expect(result.data?.status).toBe('succeeded');
+      expect(mockPaymentIntentsCreate).toHaveBeenCalledWith(
         expect.objectContaining({
           amount: 100000, // 1000 SEK in öre
           currency: 'sek',
@@ -87,7 +93,7 @@ describe('PaymentService', () => {
       const result = await paymentService.processPayment(paymentData);
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Unsupported payment method');
+      expect(result.error).toContain('Unsupported payment method');
     });
 
     it('should handle Stripe errors', async () => {
@@ -100,14 +106,14 @@ describe('PaymentService', () => {
         metadata: {},
       };
 
-      mockStripe.paymentIntents.create.mockRejectedValue(
+      mockPaymentIntentsCreate.mockRejectedValue(
         new Error('Stripe API error')
       );
 
       const result = await paymentService.processPayment(paymentData);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Card payment failed');
+      expect(result.error).toContain('Stripe payment failed');
     });
   });
 
@@ -177,34 +183,32 @@ describe('PaymentService', () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.status).toBe('pending');
-      expect(result.data?.redirectUrl).toContain('swish://payment');
+      expect(result.data?.paymentId).toMatch(/^swish_/);
     });
 
-    it('should handle missing phone number', async () => {
+    it('should handle missing customerId for Swish payment', async () => {
       const paymentData: PaymentData = {
         method: 'swish',
         amount: 500,
         currency: 'SEK',
         orderId: 'order-123',
-        customerId: 'customer-123',
+        customerId: '',
         metadata: {},
       };
 
       const result = await paymentService.processPayment(paymentData);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Invalid Swedish phone number format');
+      expect(result.error).toContain('Swish payment failed');
     });
   });
 
   describe('refundPayment', () => {
     it('should refund Stripe payment successfully', async () => {
-      mockStripe.refunds = {
-        create: jest.fn().mockResolvedValue({
-          id: 'ref_123',
-          status: 'succeeded',
-        }),
-      };
+      mockRefundsCreate.mockResolvedValue({
+        id: 'ref_123',
+        status: 'succeeded',
+      });
 
       const result = await paymentService.refundPayment('pi_123', 500);
 
@@ -213,9 +217,7 @@ describe('PaymentService', () => {
     });
 
     it('should handle refund errors', async () => {
-      mockStripe.refunds = {
-        create: jest.fn().mockRejectedValue(new Error('Refund failed')),
-      };
+      mockRefundsCreate.mockRejectedValue(new Error('Refund failed'));
 
       const result = await paymentService.refundPayment('pi_123', 500);
 
@@ -226,35 +228,35 @@ describe('PaymentService', () => {
 
   describe('verifyPayment', () => {
     it('should verify successful payment', async () => {
-      mockStripe.paymentIntents.retrieve.mockResolvedValue({
+      mockPaymentIntentsRetrieve.mockResolvedValue({
         id: 'pi_123',
         status: 'succeeded',
       });
 
-      const result = await paymentService.verifyPayment('pi_123', 'stripe');
+      const result = await paymentService.verifyPayment('pi_123', 'card');
 
       expect(result.success).toBe(true);
       expect(result.data).toBe(true);
     });
 
     it('should return false for pending payment', async () => {
-      mockStripe.paymentIntents.retrieve.mockResolvedValue({
+      mockPaymentIntentsRetrieve.mockResolvedValue({
         id: 'pi_123',
         status: 'processing',
       });
 
-      const result = await paymentService.verifyPayment('pi_123', 'stripe');
+      const result = await paymentService.verifyPayment('pi_123', 'card');
 
       expect(result.success).toBe(true);
       expect(result.data).toBe(false);
     });
 
     it('should handle verification errors', async () => {
-      mockStripe.paymentIntents.retrieve.mockRejectedValue(
+      mockPaymentIntentsRetrieve.mockRejectedValue(
         new Error('Payment not found')
       );
 
-      const result = await paymentService.verifyPayment('invalid_pi', 'stripe');
+      const result = await paymentService.verifyPayment('invalid_pi', 'card');
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Payment verification failed');

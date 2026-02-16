@@ -294,6 +294,54 @@ export interface UserPreferences {
   newsletter: boolean;
 }
 
+export type AnalyticsRange = 'week' | 'month' | 'year';
+
+export interface AnalyticsData {
+  revenue: {
+    total: number;
+    today: number;
+    thisWeek: number;
+    thisMonth: number;
+    change: number;
+  };
+  orders: {
+    total: number;
+    today: number;
+    thisWeek: number;
+    thisMonth: number;
+    change: number;
+  };
+  customers: {
+    total: number;
+    new: number;
+    returning: number;
+    change: number;
+  };
+  products: {
+    totalSold: number;
+    topSelling: Array<{
+      id: string;
+      name: string;
+      quantity: number;
+      revenue: number;
+    }>;
+  };
+  revenueByCategory: Array<{
+    category: string;
+    revenue: number;
+    percentage: number;
+  }>;
+  recentSales: Array<{
+    date: string;
+    revenue: number;
+    orders: number;
+  }>;
+}
+
+export interface IAnalyticsService {
+  getAnalytics(range: AnalyticsRange): Promise<ApiResponse<AnalyticsData>>;
+}
+
 import type { Return, CreateReturnItemData, ReturnFilters } from '@/types/returns';
 
 export interface IReturnService {

@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
           success: false,
           error: result.error || 'Failed to recover cart',
         },
-        { status: result.error === 'Invalid or expired recovery link' ? 404 : 500 }
+        { status: (result.error === 'Invalid or expired recovery link' || result.error === 'Recovery link has expired') ? 404 : 500 }
       );
     }
 
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: result.error || 'Failed to recover cart',
         },
-        { status: result.error === 'Invalid or expired recovery link' ? 404 : 500 }
+        { status: (result.error === 'Invalid or expired recovery link' || result.error === 'Recovery link has expired') ? 404 : 500 }
       );
     }
 

@@ -9,6 +9,7 @@ export interface MockSupabaseQuery {
   update: jest.Mock;
   delete: jest.Mock;
   eq: jest.Mock;
+  neq: jest.Mock;
   in: jest.Mock;
   lt: jest.Mock;
   lte: jest.Mock;
@@ -27,6 +28,7 @@ export function createMockSupabaseClient() {
     update: jest.fn().mockReturnThis(),
     delete: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
+    neq: jest.fn().mockReturnThis(),
     in: jest.fn().mockReturnThis(),
     lt: jest.fn().mockReturnThis(),
     lte: jest.fn().mockReturnThis(),

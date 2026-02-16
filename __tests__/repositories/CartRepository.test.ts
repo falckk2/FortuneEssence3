@@ -309,7 +309,7 @@ describe('CartRepository', () => {
         updated_at: '2025-01-01T12:00:00Z',
       };
 
-      // Mock the sequence of calls
+      // Mock the sequence of single() calls — don't override eq (let it chain)
       mockSupabase.mockQuery.single = jest.fn()
         .mockResolvedValueOnce(mockSupabaseSuccess(guestCart)) // findBySessionId
         .mockResolvedValueOnce(mockSupabaseSuccess(userCart))  // findByUserId
@@ -321,10 +321,6 @@ describe('CartRepository', () => {
           ],
           total: 749.48,
         }));
-
-      mockSupabase.mockQuery.eq = jest.fn().mockResolvedValue(
-        mockSupabaseSuccess(null)
-      );
 
       const result = await repository.mergeGuestCartToUser('session-789', 'user-456');
 
@@ -343,10 +339,11 @@ describe('CartRepository', () => {
         updated_at: '2025-01-01T12:00:00Z',
       };
 
+      // Use generic error (not PGRST116) to avoid auto-create in findByUserId
       mockSupabase.mockQuery.single = jest.fn()
         .mockResolvedValueOnce(mockSupabaseSuccess(guestCart)) // findBySessionId
-        .mockResolvedValueOnce(mockSupabaseNotFound())         // findByUserId - not found
-        .mockResolvedValueOnce(mockSupabaseSuccess({           // create new user cart
+        .mockResolvedValueOnce(mockSupabaseError('Not found')) // findByUserId - not found (generic)
+        .mockResolvedValueOnce(mockSupabaseSuccess({           // update (convert guest to user)
           ...guestCart,
           id: 'new-user-cart',
           user_id: 'user-456',
@@ -360,8 +357,9 @@ describe('CartRepository', () => {
     });
 
     it('should return user cart when no guest cart exists', async () => {
+      // Use generic error (not PGRST116) to avoid auto-create in findBySessionId
       mockSupabase.mockQuery.single = jest.fn()
-        .mockResolvedValueOnce(mockSupabaseNotFound())         // findBySessionId - not found
+        .mockResolvedValueOnce(mockSupabaseError('Not found')) // findBySessionId - not found (generic)
         .mockResolvedValueOnce(mockSupabaseSuccess(mockDbCart)); // findByUserId
 
       const result = await repository.mergeGuestCartToUser('session-789', 'user-456');

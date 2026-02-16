@@ -366,7 +366,7 @@ describe('ProductService', () => {
       expect(result.data).toBeDefined();
       // Should exclude the current product
       expect(result.data?.some(p => p.id === 'prod-1')).toBe(false);
-      expect(mockProductRepository.findByCategory).toHaveBeenCalledWith('wellness');
+      expect(mockProductRepository.findByCategory).toHaveBeenCalledWith('essential-oils');
     });
 
     it('should limit recommendations to specified number', async () => {

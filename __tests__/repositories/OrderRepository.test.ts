@@ -85,7 +85,7 @@ describe('OrderRepository', () => {
     });
 
     it('should filter orders by customer ID', async () => {
-      mockSupabase.mockQuery.order = jest.fn().mockResolvedValue(
+      mockSupabase.mockQuery.eq = jest.fn().mockResolvedValue(
         mockSupabaseSuccess([mockDbOrder])
       );
 
@@ -396,7 +396,7 @@ describe('OrderRepository', () => {
         { status: 'confirmed' },
       ];
 
-      mockSupabase.mockQuery.select = jest.fn().mockResolvedValue(
+      mockSupabase.mockQuery.eq = jest.fn().mockResolvedValue(
         mockSupabaseSuccess(mockOrders)
       );
 

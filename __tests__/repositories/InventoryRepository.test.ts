@@ -129,9 +129,10 @@ describe('InventoryRepository', () => {
         mockSupabaseSuccess(mockDbInventoryItem)
       );
 
-      mockSupabase.mockQuery.eq = jest.fn().mockResolvedValue(
-        mockSupabaseSuccess(null)
-      );
+      // eq is intermediate in findByProductId (.eq().single()), then terminal in update (.update().eq())
+      mockSupabase.mockQuery.eq = jest.fn()
+        .mockReturnValueOnce(mockSupabase.mockQuery) // findByProductId: chain to .single()
+        .mockResolvedValueOnce(mockSupabaseSuccess(null)); // update: terminal
 
       const result = await repository.reserveStock('prod-1', 5);
 
@@ -171,9 +172,9 @@ describe('InventoryRepository', () => {
         mockSupabaseSuccess(mockDbInventoryItem)
       );
 
-      mockSupabase.mockQuery.eq = jest.fn().mockResolvedValue(
-        mockSupabaseSuccess(null)
-      );
+      mockSupabase.mockQuery.eq = jest.fn()
+        .mockReturnValueOnce(mockSupabase.mockQuery)
+        .mockResolvedValueOnce(mockSupabaseSuccess(null));
 
       const result = await repository.releaseReservedStock('prod-1', 5);
 
@@ -189,9 +190,9 @@ describe('InventoryRepository', () => {
         mockSupabaseSuccess(mockDbInventoryItem)
       );
 
-      mockSupabase.mockQuery.eq = jest.fn().mockResolvedValue(
-        mockSupabaseSuccess(null)
-      );
+      mockSupabase.mockQuery.eq = jest.fn()
+        .mockReturnValueOnce(mockSupabase.mockQuery)
+        .mockResolvedValueOnce(mockSupabaseSuccess(null));
 
       const result = await repository.releaseReservedStock('prod-1', 20); // More than reserved
 
@@ -260,7 +261,8 @@ describe('InventoryRepository', () => {
         { ...mockDbInventoryItem, product_id: 'prod-2', quantity: 8 },
       ];
 
-      mockSupabase.mockQuery.order = jest.fn().mockResolvedValue(
+      // When threshold is provided, chain is: select().order().lte() — mock lte as terminal
+      mockSupabase.mockQuery.lte = jest.fn().mockResolvedValue(
         mockSupabaseSuccess(mockLowStockItems)
       );
 

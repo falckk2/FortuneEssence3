@@ -95,7 +95,7 @@ describe('CartService - Abandoned Cart Methods', () => {
       expect(result.data?.abandonedCartId).toBe(mockAbandonedCart.id);
       expect(result.data?.recoveryToken).toBeDefined();
 
-      expect(mockCartRepository.findByUserId).toHaveBeenCalledWith('user-456', undefined);
+      expect(mockCartRepository.findByUserId).toHaveBeenCalledWith('user-456');
       expect(mockAbandonedCartRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           cartId: 'cart-123',
@@ -195,10 +195,16 @@ describe('CartService - Abandoned Cart Methods', () => {
         error: 'Not found',
       });
 
-      mockAbandonedCartRepository.create.mockResolvedValue({
-        success: true,
-        data: mockAbandonedCart,
-      });
+      // Return different tokens for each create call
+      mockAbandonedCartRepository.create
+        .mockResolvedValueOnce({
+          success: true,
+          data: { ...mockAbandonedCart, recoveryToken: 'token-unique-1' },
+        })
+        .mockResolvedValueOnce({
+          success: true,
+          data: { ...mockAbandonedCart, id: 'abandoned-cart-2', recoveryToken: 'token-unique-2' },
+        });
 
       // Act
       const result1 = await cartService.trackAbandonedCart('cart-1', 'test@example.com', 'user-1');
@@ -207,7 +213,7 @@ describe('CartService - Abandoned Cart Methods', () => {
       // Assert
       expect(result1.data?.recoveryToken).toBeDefined();
       expect(result2.data?.recoveryToken).toBeDefined();
-      // Tokens should be different (statistically very unlikely to be the same)
+      // Tokens should be different
       expect(result1.data?.recoveryToken).not.toBe(result2.data?.recoveryToken);
     });
   });
@@ -328,10 +334,11 @@ describe('CartService - Abandoned Cart Methods', () => {
 
   describe('recoverAbandonedCart', () => {
     it('should recover valid abandoned cart', async () => {
-      // Arrange
+      // Arrange — use a recent abandonedAt date (within 30 days)
+      const recentAbandonedCart = { ...mockAbandonedCart, abandonedAt: new Date() };
       mockAbandonedCartRepository.findByRecoveryToken.mockResolvedValue({
         success: true,
-        data: mockAbandonedCart,
+        data: recentAbandonedCart,
       });
 
       // Act

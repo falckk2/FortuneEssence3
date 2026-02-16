@@ -10,6 +10,7 @@ import {
   AbandonedCart,
   AbandonedCartCreateData,
   BundleConfiguration,
+  OrderItem,
   ApiResponse
 } from '@/types';
 
@@ -128,6 +129,25 @@ export interface IReturnRepository {
   updateStatus(id: string, status: ReturnStatus, additionalData?: Partial<Return>): Promise<ApiResponse<Return>>;
   update(id: string, data: Partial<Return>): Promise<ApiResponse<Return>>;
   getStatusCounts(): Promise<ApiResponse<Record<string, number>>>;
+}
+
+export interface IOrderItemRepository {
+  createMany(orderId: string, items: OrderItem[]): Promise<ApiResponse<void>>;
+  findByOrderId(orderId: string): Promise<ApiResponse<OrderItem[]>>;
+  findByProductId(productId: string, startDate?: Date, endDate?: Date): Promise<ApiResponse<OrderItem[]>>;
+}
+
+export interface IAnalyticsRepository {
+  getOrdersInRange(startDate: Date, endDate: Date): Promise<ApiResponse<Order[]>>;
+  getOrderItemsInRange(startDate: Date, endDate: Date): Promise<ApiResponse<Array<{
+    productId: string;
+    productName: string;
+    category: string;
+    quantity: number;
+    price: number;
+  }>>>;
+  getCustomerCountInRange(startDate: Date, endDate: Date): Promise<ApiResponse<number>>;
+  getTotalCustomerCount(): Promise<ApiResponse<number>>;
 }
 
 export interface IAbandonedCartRepository {

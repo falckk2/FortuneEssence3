@@ -6,6 +6,7 @@ import type {
   IShippingService,
   IInventoryService,
   IOrderRepository,
+  IOrderItemRepository,
   IProductService
 } from '@/interfaces';
 import { CreateOrderData } from '@/interfaces';
@@ -16,6 +17,7 @@ import { TOKENS } from '@/config/di-container';
 export class OrderService implements IOrderService {
   constructor(
     @inject(TOKENS.IOrderRepository) private readonly orderRepository: IOrderRepository,
+    @inject(TOKENS.IOrderItemRepository) private readonly orderItemRepository: IOrderItemRepository,
     @inject(TOKENS.ICartService) private readonly cartService: ICartService,
     @inject(TOKENS.IPaymentService) private readonly paymentService: IPaymentService,
     @inject(TOKENS.IShippingService) private readonly shippingService: IShippingService,
@@ -104,6 +106,13 @@ export class OrderService implements IOrderService {
         // Release stock reservation if order creation fails
         await this.inventoryService.releaseReservation(stockReservation.data!);
         return order;
+      }
+
+      // Write normalized order items for analytics (best-effort, non-blocking)
+      try {
+        await this.orderItemRepository.createMany(order.data!.id, orderItemsResult.data!);
+      } catch (err) {
+        console.error('Failed to write order_items (non-critical):', err);
       }
 
       // Mark reservation as completed (order finalized)
