@@ -4,6 +4,7 @@ import type { IProductRepository } from '@/interfaces';
 import { ProductSearchParams } from '@/interfaces';
 import { Product, ApiResponse, ProductCategory } from '@/types';
 import { TOKENS } from '@/config/di-container';
+import { BaseRepository } from '@/repositories/BaseRepository';
 
 // Mock data for development
 const mockProducts: Product[] = [
@@ -39,12 +40,14 @@ const mockProducts: Product[] = [
 ];
 
 @injectable()
-export class ProductRepository implements IProductRepository {
-  private readonly tableName = 'products';
+export class ProductRepository extends BaseRepository<Product> implements IProductRepository {
+  protected readonly tableName = 'products';
 
   constructor(
-    @inject(TOKENS.SupabaseClient) private readonly supabase: SupabaseClient
-  ) {}
+    @inject(TOKENS.SupabaseClient) supabase: SupabaseClient
+  ) {
+    super(supabase);
+  }
 
   async findAll(params?: ProductSearchParams): Promise<ApiResponse<Product[]>> {
     try {
@@ -179,117 +182,57 @@ export class ProductRepository implements IProductRepository {
   }
 
   async create(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Product>> {
-    try {
-      const productData = {
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        category: product.category,
-        images: product.images,
-        stock: product.stock,
-        sku: product.sku,
-        weight: product.weight,
-        length: product.dimensions.length,
-        width: product.dimensions.width,
-        height: product.dimensions.height,
-        is_active: product.isActive,
-        name_sv: product.translations.sv.name,
-        description_sv: product.translations.sv.description,
-        name_en: product.translations.en.name,
-        description_en: product.translations.en.description,
-      };
-
-      const { data, error } = await this.supabase
-        .from(this.tableName)
-        .insert(productData)
-        .select()
-        .single();
-
-      if (error) {
-        if (error.code === '23505') {
-          return {
-            success: false,
-            error: 'Product with this SKU already exists',
-          };
-        }
-        return {
-          success: false,
-          error: error.message,
-        };
-      }
-
-      return {
-        success: true,
-        data: this.transformDbRecord(data),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Failed to create product: ${error}`,
-      };
+    const result = await this.executeCreate({
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      category: product.category,
+      images: product.images,
+      stock: product.stock,
+      sku: product.sku,
+      weight: product.weight,
+      length: product.dimensions.length,
+      width: product.dimensions.width,
+      height: product.dimensions.height,
+      is_active: product.isActive,
+      name_sv: product.translations.sv.name,
+      description_sv: product.translations.sv.description,
+      name_en: product.translations.en.name,
+      description_en: product.translations.en.description,
+    });
+    if (!result.success && result.error?.includes('23505')) {
+      return { success: false, error: 'Product with this SKU already exists' };
     }
+    return result;
   }
 
   async update(id: string, product: Partial<Product>): Promise<ApiResponse<Product>> {
-    try {
-      const updateData: any = {};
-
-      if (product.name) updateData.name = product.name;
-      if (product.description) updateData.description = product.description;
-      if (product.price !== undefined) updateData.price = product.price;
-      if (product.category) updateData.category = product.category;
-      if (product.images) updateData.images = product.images;
-      if (product.stock !== undefined) updateData.stock = product.stock;
-      if (product.sku) updateData.sku = product.sku;
-      if (product.weight !== undefined) updateData.weight = product.weight;
-      if (product.dimensions) {
-        if (product.dimensions.length) updateData.length = product.dimensions.length;
-        if (product.dimensions.width) updateData.width = product.dimensions.width;
-        if (product.dimensions.height) updateData.height = product.dimensions.height;
-      }
-      if (product.isActive !== undefined) updateData.is_active = product.isActive;
-      if (product.translations) {
-        if (product.translations.sv) {
-          updateData.name_sv = product.translations.sv.name;
-          updateData.description_sv = product.translations.sv.description;
-        }
-        if (product.translations.en) {
-          updateData.name_en = product.translations.en.name;
-          updateData.description_en = product.translations.en.description;
-        }
-      }
-
-      const { data, error } = await this.supabase
-        .from(this.tableName)
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
-        return {
-          success: false,
-          error: error.message,
-        };
-      }
-
-      if (!data) {
-        return {
-          success: false,
-          error: 'Product not found',
-        };
-      }
-
-      return {
-        success: true,
-        data: this.transformDbRecord(data),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Failed to update product: ${error}`,
-      };
+    const updateData: Record<string, unknown> = {};
+    if (product.name) updateData.name = product.name;
+    if (product.description) updateData.description = product.description;
+    if (product.price !== undefined) updateData.price = product.price;
+    if (product.category) updateData.category = product.category;
+    if (product.images) updateData.images = product.images;
+    if (product.stock !== undefined) updateData.stock = product.stock;
+    if (product.sku) updateData.sku = product.sku;
+    if (product.weight !== undefined) updateData.weight = product.weight;
+    if (product.dimensions) {
+      if (product.dimensions.length) updateData.length = product.dimensions.length;
+      if (product.dimensions.width) updateData.width = product.dimensions.width;
+      if (product.dimensions.height) updateData.height = product.dimensions.height;
     }
+    if (product.isActive !== undefined) updateData.is_active = product.isActive;
+    if (product.translations) {
+      if (product.translations.sv) {
+        updateData.name_sv = product.translations.sv.name;
+        updateData.description_sv = product.translations.sv.description;
+      }
+      if (product.translations.en) {
+        updateData.name_en = product.translations.en.name;
+        updateData.description_en = product.translations.en.description;
+      }
+    }
+    return this.executeUpdate(id, updateData);
   }
 
   async delete(id: string): Promise<ApiResponse<void>> {
@@ -318,7 +261,33 @@ export class ProductRepository implements IProductRepository {
     }
   }
 
-  private transformDbRecord(record: any): Product {
+  async reactivate(id: string): Promise<ApiResponse<void>> {
+    try {
+      // Reactivate by setting is_active to true
+      const { error } = await this.supabase
+        .from(this.tableName)
+        .update({ is_active: true })
+        .eq('id', id);
+
+      if (error) {
+        return {
+          success: false,
+          error: error.message,
+        };
+      }
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to reactivate product: ${error}`,
+      };
+    }
+  }
+
+  protected transformDbRecord(record: any): Product {
     return {
       id: record.id,
       name: record.name,

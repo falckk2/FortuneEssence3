@@ -12,7 +12,9 @@ import {
   ChartBarIcon,
   Cog6ToothIcon,
   ArrowLeftIcon,
-  ArrowUturnLeftIcon
+  ArrowUturnLeftIcon,
+  ArchiveBoxIcon,
+  SwatchIcon,
 } from '@heroicons/react/24/outline';
 
 export default function AdminLayout({
@@ -21,16 +23,14 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isAdmin, isLoading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   useEffect(() => {
-    // In production, check if user is admin
-    // For now, just check if authenticated
-    if (!isLoading && !isAuthenticated) {
+    if (!isLoading && (!isAuthenticated || !isAdmin)) {
       router.push('/auth/signin?redirect=/admin');
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isAdmin, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -40,13 +40,15 @@ export default function AdminLayout({
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !isAdmin) {
     return null;
   }
 
   const navigation = [
     { name: 'Dashboard', href: '/admin', icon: HomeIcon },
     { name: 'Products', href: '/admin/products', icon: CubeIcon },
+    { name: 'Inventory', href: '/admin/inventory', icon: ArchiveBoxIcon },
+    { name: 'Bundles', href: '/admin/bundles', icon: SwatchIcon },
     { name: 'Orders', href: '/admin/orders', icon: ShoppingBagIcon },
     { name: 'Returns', href: '/admin/returns', icon: ArrowUturnLeftIcon },
     { name: 'Customers', href: '/admin/customers', icon: UserGroupIcon },

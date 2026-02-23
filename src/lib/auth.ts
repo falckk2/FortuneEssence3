@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { SupabaseAdapter } from '@next-auth/supabase-adapter';
 import { config } from '@/config';
 import { CustomerRepository } from '@/repositories/customers/CustomerRepository';
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 const customerRepository = new CustomerRepository();
 
@@ -34,12 +35,28 @@ export const authOptions: NextAuthOptions = {
           }
 
           const user = result.data;
+
+          // Fetch is_admin from database using server client (bypasses RLS)
+          let isAdmin = false;
+          try {
+            const supabaseServer = getSupabaseServer();
+            const { data: adminData } = await supabaseServer
+              .from('customers')
+              .select('is_admin')
+              .eq('id', user.id)
+              .single();
+            isAdmin = adminData?.is_admin ?? false;
+          } catch {
+            // Non-fatal: default to false
+          }
+
           return {
             id: user.id,
             email: user.email,
             name: `${user.firstName} ${user.lastName}`,
             firstName: user.firstName,
             lastName: user.lastName,
+            isAdmin,
           };
         } catch (error) {
           console.error('Authentication error:', error);
@@ -61,6 +78,7 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.firstName = (user as {firstName?: string}).firstName;
         token.lastName = (user as {lastName?: string}).lastName;
+        token.isAdmin = (user as {isAdmin?: boolean}).isAdmin ?? false;
       }
       return token;
     },
@@ -69,6 +87,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         (session.user as {firstName?: string}).firstName = token.firstName as string;
         (session.user as {lastName?: string}).lastName = token.lastName as string;
+        session.user.isAdmin = token.isAdmin as boolean;
       }
       return session;
     },

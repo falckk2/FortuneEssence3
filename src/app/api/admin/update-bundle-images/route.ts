@@ -1,8 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
     console.log('Updating bundle images...');
 
     // Update Duo Pack

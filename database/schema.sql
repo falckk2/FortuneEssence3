@@ -381,3 +381,6 @@ CREATE TRIGGER create_inventory_trigger
   AFTER INSERT ON products
   FOR EACH ROW
   EXECUTE FUNCTION create_inventory_for_product();
+
+-- Add is_admin column to customers table for admin role gate
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;

@@ -12,6 +12,7 @@ export interface UseAuthResult {
   user: Customer | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<ApiResponse<void>>;
   signUp: (data: SignUpData) => Promise<ApiResponse<Customer>>;
   signOut: () => Promise<void>;
@@ -104,6 +105,7 @@ export const useAuth = (): UseAuthResult => {
     user,
     isLoading: status === 'loading' || isLoading,
     isAuthenticated: !!session,
+    isAdmin: session?.user?.isAdmin ?? false,
     signIn: handleSignIn,
     signUp: handleSignUp,
     signOut: handleSignOut,

@@ -21,10 +21,9 @@ export async function GET(
         { status: 401 }
       );
     }
-    // TODO: Add admin role check when role system is implemented
-    // if (!session.user.isAdmin) {
-    //   return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
-    // }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
 
     const returnService = getReturnService();
     const { id } = await params;
@@ -54,10 +53,9 @@ export async function PATCH(
         { status: 401 }
       );
     }
-    // TODO: Add admin role check when role system is implemented
-    // if (!session.user.isAdmin) {
-    //   return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
-    // }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
 
     const returnService = getReturnService();
     const { id } = await params;

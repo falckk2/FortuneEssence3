@@ -21,10 +21,9 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-    // TODO: Add admin role check when role system is implemented
-    // if (!session.user.isAdmin) {
-    //   return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
-    // }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
 
     const returnService = getReturnService();
     const { searchParams } = new URL(request.url);
@@ -71,10 +70,9 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-    // TODO: Add admin role check when role system is implemented
-    // if (!session.user.isAdmin) {
-    //   return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
-    // }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
 
     const returnService = getReturnService();
     const body = await request.json();
@@ -103,6 +101,44 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, {
       status: result.success ? 201 : 400,
     });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: `Server error: ${error}` },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const returnService = getReturnService();
+    const { searchParams } = new URL(request.url);
+
+    if (searchParams.get('orphaned') === 'preview') {
+      const result = await returnService.findOrphanedReturns();
+      return NextResponse.json(result, { status: result.success ? 200 : 500 });
+    }
+
+    if (searchParams.get('orphaned') === 'delete') {
+      const result = await returnService.deleteOrphanedReturns();
+      return NextResponse.json(result, { status: result.success ? 200 : 500 });
+    }
+
+    return NextResponse.json(
+      { success: false, error: 'Invalid action. Use ?orphaned=preview or ?orphaned=delete' },
+      { status: 400 }
+    );
   } catch (error) {
     return NextResponse.json(
       { success: false, error: `Server error: ${error}` },

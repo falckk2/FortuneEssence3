@@ -36,6 +36,7 @@ export type Database = {
           region: string | null;
           consent_given: boolean;
           marketing_opt_in: boolean;
+          is_admin: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -52,6 +53,7 @@ export type Database = {
           region?: string | null;
           consent_given: boolean;
           marketing_opt_in?: boolean;
+          is_admin?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -68,6 +70,7 @@ export type Database = {
           region?: string | null;
           consent_given?: boolean;
           marketing_opt_in?: boolean;
+          is_admin?: boolean;
           created_at?: string;
           updated_at?: string;
         };

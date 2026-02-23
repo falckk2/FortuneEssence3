@@ -38,6 +38,9 @@ export interface ProductSearchParams {
 export interface IBundleRepository {
   findByProductId(bundleProductId: string): Promise<ApiResponse<BundleConfiguration>>;
   findAll(): Promise<ApiResponse<BundleConfiguration[]>>;
+  create(config: Omit<BundleConfiguration, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<BundleConfiguration>>;
+  update(id: string, data: Partial<Omit<BundleConfiguration, 'id' | 'createdAt' | 'updatedAt'>>): Promise<ApiResponse<BundleConfiguration>>;
+  delete(id: string): Promise<ApiResponse<void>>;
 }
 
 export interface ICustomerRepository {
@@ -129,6 +132,8 @@ export interface IReturnRepository {
   updateStatus(id: string, status: ReturnStatus, additionalData?: Partial<Return>): Promise<ApiResponse<Return>>;
   update(id: string, data: Partial<Return>): Promise<ApiResponse<Return>>;
   getStatusCounts(): Promise<ApiResponse<Record<string, number>>>;
+  findOrphanedReturns(): Promise<ApiResponse<{ id: string; createdAt: Date }[]>>;
+  deleteOrphanedReturns(): Promise<ApiResponse<{ deleted: number }>>;
 }
 
 export interface IOrderItemRepository {

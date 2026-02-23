@@ -218,6 +218,14 @@ export class ReturnService implements IReturnService {
     return this.returnRepository.getStatusCounts();
   }
 
+  async findOrphanedReturns(): Promise<ApiResponse<{ id: string; createdAt: Date }[]>> {
+    return this.returnRepository.findOrphanedReturns();
+  }
+
+  async deleteOrphanedReturns(): Promise<ApiResponse<{ deleted: number }>> {
+    return this.returnRepository.deleteOrphanedReturns();
+  }
+
   async processRefund(returnId: string): Promise<ApiResponse<Return>> {
     try {
       const existing = await this.returnRepository.findById(returnId);

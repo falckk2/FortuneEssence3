@@ -1,6 +1,8 @@
 import { IReturnRepository } from '@/interfaces/repositories';
 import { Return, ReturnItem, ReturnStatus, ReturnFilters, CreateReturnItemData, ApiResponse } from '@/types';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase-server';
+
+const supabase = getSupabaseServer();
 
 export class ReturnRepository implements IReturnRepository {
   private readonly tableName = 'returns';
@@ -11,54 +13,32 @@ export class ReturnRepository implements IReturnRepository {
     items: CreateReturnItemData[]
   ): Promise<ApiResponse<Return>> {
     try {
-      const dbData = {
-        order_id: returnData.orderId,
-        customer_id: returnData.customerId,
-        status: returnData.status || 'pending',
-        reason: returnData.reason,
-        refund_amount: returnData.refundAmount,
-        refund_method: returnData.refundMethod,
-        admin_notes: returnData.adminNotes,
-        tracking_number: returnData.trackingNumber,
-      };
-
-      const { data: returnRecord, error: returnError } = await supabase
-        .from(this.tableName)
-        .insert(dbData)
-        .select()
-        .single();
-
-      if (returnError) {
-        return { success: false, error: returnError.message };
-      }
-
-      // Insert return items
       // Note: order_item_id uses productId as a reference key since orders store
       // items as JSON (no order_items table). If duplicate products exist in an
       // order (e.g. different bundle selections), the first match is used for
       // price enrichment, which is acceptable for refund calculation purposes.
-      const returnItems = items.map(item => ({
-        return_id: returnRecord.id,
-        order_item_id: item.productId,
-        product_id: item.productId,
-        quantity: item.quantity,
-        reason: item.reason,
-        condition: item.condition,
-      }));
+      const { data: returnId, error } = await supabase.rpc('create_return_with_items', {
+        p_order_id: returnData.orderId,
+        p_customer_id: returnData.customerId,
+        p_status: returnData.status || 'pending',
+        p_reason: returnData.reason,
+        p_refund_amount: returnData.refundAmount,
+        p_refund_method: returnData.refundMethod ?? null,
+        p_admin_notes: returnData.adminNotes ?? null,
+        p_tracking_number: returnData.trackingNumber ?? null,
+        p_items: items.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          reason: item.reason ?? null,
+          condition: item.condition ?? null,
+        })),
+      });
 
-      const { error: itemsError } = await supabase
-        .from(this.itemsTableName)
-        .insert(returnItems);
-
-      if (itemsError) {
-        // Best-effort cleanup: ideally this would be wrapped in a DB transaction
-        // via an RPC function to guarantee atomicity. If this delete fails, an
-        // orphaned return record remains and should be cleaned up manually.
-        await supabase.from(this.tableName).delete().eq('id', returnRecord.id);
-        return { success: false, error: itemsError.message };
+      if (error) {
+        return { success: false, error: error.message };
       }
 
-      return this.findById(returnRecord.id);
+      return this.findById(returnId as string);
     } catch (error) {
       return { success: false, error: `Failed to create return: ${error}` };
     }
@@ -294,6 +274,71 @@ export class ReturnRepository implements IReturnRepository {
       return this.findById(id);
     } catch (error) {
       return { success: false, error: `Failed to update return: ${error}` };
+    }
+  }
+
+  async findOrphanedReturns(): Promise<ApiResponse<{ id: string; createdAt: Date }[]>> {
+    try {
+      const { data: allReturns, error: returnsError } = await supabase
+        .from(this.tableName)
+        .select('id, created_at');
+
+      if (returnsError) {
+        return { success: false, error: returnsError.message };
+      }
+
+      if (!allReturns || allReturns.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      const returnIds = allReturns.map(r => r.id);
+      const { data: itemRows, error: itemsError } = await supabase
+        .from(this.itemsTableName)
+        .select('return_id')
+        .in('return_id', returnIds);
+
+      if (itemsError) {
+        return { success: false, error: itemsError.message };
+      }
+
+      const returnIdsWithItems = new Set((itemRows || []).map(r => r.return_id));
+
+      const orphaned = allReturns
+        .filter(r => !returnIdsWithItems.has(r.id))
+        .map(r => ({ id: r.id, createdAt: new Date(r.created_at) }));
+
+      return { success: true, data: orphaned };
+    } catch (error) {
+      return { success: false, error: `Failed to find orphaned returns: ${error}` };
+    }
+  }
+
+  async deleteOrphanedReturns(): Promise<ApiResponse<{ deleted: number }>> {
+    try {
+      const orphanedResult = await this.findOrphanedReturns();
+
+      if (!orphanedResult.success || !orphanedResult.data) {
+        return { success: false, error: orphanedResult.error };
+      }
+
+      if (orphanedResult.data.length === 0) {
+        return { success: true, data: { deleted: 0 } };
+      }
+
+      const orphanedIds = orphanedResult.data.map(r => r.id);
+
+      const { error } = await supabase
+        .from(this.tableName)
+        .delete()
+        .in('id', orphanedIds);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data: { deleted: orphanedIds.length } };
+    } catch (error) {
+      return { success: false, error: `Failed to delete orphaned returns: ${error}` };
     }
   }
 

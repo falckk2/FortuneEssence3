@@ -354,4 +354,6 @@ export interface IReturnService {
   processRefund(returnId: string): Promise<ApiResponse<Return>>;
   markRefundedManually(returnId: string, adminNotes?: string): Promise<ApiResponse<Return>>;
   getStatusCounts(): Promise<ApiResponse<Record<string, number>>>;
+  findOrphanedReturns(): Promise<ApiResponse<{ id: string; createdAt: Date }[]>>;
+  deleteOrphanedReturns(): Promise<ApiResponse<{ deleted: number }>>;
 }
