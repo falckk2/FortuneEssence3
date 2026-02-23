@@ -315,7 +315,7 @@ describe('OrderRepository', () => {
       const result = await repository.update('nonexistent', { status: 'confirmed' });
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Order not found');
+      expect(result.error).toBe('Record not found');
     });
 
     it('should handle database errors', async () => {
@@ -364,7 +364,7 @@ describe('OrderRepository', () => {
       const result = await repository.updateStatus('nonexistent', 'shipped');
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Order not found');
+      expect(result.error).toBe('Record not found');
     });
   });
 

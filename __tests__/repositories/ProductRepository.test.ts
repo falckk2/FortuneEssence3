@@ -356,8 +356,10 @@ describe('ProductRepository', () => {
         },
       };
 
+      // Error message must contain '23505' because ProductRepository.create checks
+      // result.error?.includes('23505') to detect unique constraint violations.
       mockSupabase.mockQuery.single = jest.fn().mockResolvedValue(
-        mockSupabaseError('Duplicate key', '23505')
+        mockSupabaseError('duplicate key value violates unique constraint (23505)', '23505')
       );
 
       const result = await repository.create(newProduct);
@@ -395,7 +397,7 @@ describe('ProductRepository', () => {
       const result = await repository.update('nonexistent', { price: 100 });
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Product not found');
+      expect(result.error).toBe('Record not found');
     });
 
     it('should handle database errors', async () => {

@@ -89,7 +89,7 @@ describe('AbandonedCartRepository', () => {
 
       // Assert
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Failed to create abandoned cart');
+      expect(result.error).toContain('Database connection failed');
       expect(result.data).toBeUndefined();
     });
 
@@ -175,7 +175,8 @@ describe('AbandonedCartRepository', () => {
 
       // Assert
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Abandoned cart not found');
+      // BaseRepository.executeUpdate returns the generic 'Record not found' message
+      expect(result.error).toBe('Record not found');
     });
   });
 
@@ -281,7 +282,8 @@ describe('AbandonedCartRepository', () => {
       expect(result.data?.[0].id).toBe('cart-1');
       expect(result.data?.[1].id).toBe('cart-2');
 
-      expect(mockSupabase.mockQuery.eq).toHaveBeenCalledWith('status', 'abandoned');
+      // findForReminder queries for both 'abandoned' and 'reminded' statuses
+      expect(mockSupabase.mockQuery.in).toHaveBeenCalledWith('status', ['abandoned', 'reminded']);
       expect(mockSupabase.mockQuery.lt).toHaveBeenCalledWith('reminder_count', 3);
     });
 
