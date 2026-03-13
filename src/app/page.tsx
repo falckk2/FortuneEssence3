@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLocale } from '@/contexts/LocaleContext';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Product } from '@/types';
@@ -9,8 +10,6 @@ import {
   SparklesIcon,
   ShieldCheckIcon,
   TruckIcon,
-  HeartIcon,
-  StarIcon,
   ArrowRightIcon
 } from '@heroicons/react/24/outline';
 // import { InstagramFeed } from '@/components/social/InstagramFeed';
@@ -18,7 +17,7 @@ import {
 export default function HomePage() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const locale = 'sv'; // This would come from context or props in real app
+  const { locale } = useLocale();
 
   useEffect(() => {
     const fetchFeaturedProducts = async () => {

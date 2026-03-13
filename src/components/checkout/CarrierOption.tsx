@@ -2,7 +2,7 @@
 
 import { ShippingRate } from '@/types';
 import Image from 'next/image';
-import { CheckCircle2, Circle } from 'lucide-react';
+import { CheckCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
 
 interface CarrierOptionProps {
   rate: ShippingRate;
@@ -21,8 +21,8 @@ export default function CarrierOption({ rate, selected, onClick, locale = 'sv' }
       className={`
         w-full p-4 rounded-lg border-2 transition-all text-left
         ${selected
-          ? 'border-sage-600 bg-sage-50 shadow-md'
-          : 'border-gray-200 hover:border-sage-300 bg-white hover:bg-sage-50/30'
+          ? 'border-sage-600 bg-sage-50 dark:bg-[#2a3330] shadow-md'
+          : 'border-cream-200 dark:border-[#3f4946] hover:border-sage-300 bg-white dark:bg-[#242a28] hover:bg-sage-50/30 dark:hover:bg-[#2a3330]'
         }
       `}
     >
@@ -30,9 +30,9 @@ export default function CarrierOption({ rate, selected, onClick, locale = 'sv' }
         {/* Selection indicator */}
         <div className="flex-shrink-0 mt-1">
           {selected ? (
-            <CheckCircle2 className="w-6 h-6 text-sage-600" />
+            <CheckCircleIcon className="w-6 h-6 text-sage-600" />
           ) : (
-            <Circle className="w-6 h-6 text-gray-300" />
+            <div className="w-6 h-6 rounded-full border-2 border-cream-300 dark:border-[#4a5552]" />
           )}
         </div>
 
@@ -55,7 +55,7 @@ export default function CarrierOption({ rate, selected, onClick, locale = 'sv' }
         {/* Carrier details */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1">
-            <h3 className="font-semibold text-forest-800 text-base">
+            <h3 className="font-semibold text-forest-800 dark:text-[#E8EDE8] text-base">
               {rate.name}
             </h3>
             <div className="flex-shrink-0">
@@ -64,22 +64,20 @@ export default function CarrierOption({ rate, selected, onClick, locale = 'sv' }
                   {locale === 'sv' ? 'Gratis' : 'Free'}
                 </span>
               ) : (
-                <span className="text-lg font-bold text-forest-800">
+                <span className="text-lg font-bold text-forest-800 dark:text-[#E8EDE8]">
                   {rate.price.toFixed(0)} kr
                 </span>
               )}
             </div>
           </div>
 
-          <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+          <p className="text-sm text-forest-600 dark:text-[#B8C5B8] mb-2 line-clamp-2">
             {rate.description}
           </p>
 
           {/* Delivery estimate */}
-          <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+          <div className="flex items-center gap-2 text-sm text-forest-700 dark:text-[#C5D4C5] mb-2">
+            <ClockIcon className="w-4 h-4 flex-shrink-0" />
             <span>
               {rate.estimatedDays === 0
                 ? (locale === 'sv' ? 'Samma dag' : 'Same day')
@@ -99,8 +97,8 @@ export default function CarrierOption({ rate, selected, onClick, locale = 'sv' }
                   className={`
                     inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
                     ${rate.isEcoFriendly && feature.toLowerCase().includes('miljö')
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-700'
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300'
+                      : 'bg-cream-100 dark:bg-[#2a3330] text-forest-700 dark:text-[#C5D4C5]'
                     }
                   `}
                 >

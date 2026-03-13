@@ -1,25 +1,22 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { container } from '@/config/di-container';
-import { TOKENS } from '@/config/di-container';
+import { container, TOKENS } from '@/config/di-container';
 import type { IAuthService } from '@/interfaces';
+
+const authService = container.resolve<IAuthService>(TOKENS.IAuthService);
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email } = body;
 
-    // Validate email format
-    if (!email || !email.includes('@')) {
+    if (!email || !email.includes('@') || !email.includes('.')) {
       return NextResponse.json(
         { success: false, error: 'Invalid email address' },
         { status: 400 }
       );
     }
 
-    // Get AuthService from DI container
-    const authService = container.resolve<IAuthService>(TOKENS.IAuthService);
-
-    // Request password reset
     const result = await authService.resetPassword(email);
 
     if (!result.success) {
@@ -35,7 +32,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Forgot password error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to process request' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

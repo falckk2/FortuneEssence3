@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocale } from '@/contexts/LocaleContext';
 import Link from 'next/link';
 import { EnvelopeIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
@@ -9,7 +10,7 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  const locale = 'sv'; // Would come from context in real app
+  const { locale } = useLocale();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +38,7 @@ export default function ForgotPasswordPage() {
             : 'Reset link sent! Check your email.'
         );
       } else {
-        toast.error(data.error || (locale === 'sv' ? 'Något gick fel' : 'Something went wrong'));
+        toast.error(locale === 'sv' ? 'Något gick fel' : 'Something went wrong');
       }
     } catch (error) {
       toast.error(locale === 'sv' ? 'Kunde inte skicka återställningslänk' : 'Failed to send reset link');

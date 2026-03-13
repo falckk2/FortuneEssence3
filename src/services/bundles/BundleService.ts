@@ -3,7 +3,6 @@ import type {
   IBundleService,
   IBundleRepository,
   IProductRepository,
-  IInventoryService
 } from '@/interfaces';
 import type {
   BundleConfiguration,
@@ -18,7 +17,6 @@ export class BundleService implements IBundleService {
   constructor(
     @inject(TOKENS.IBundleRepository) private readonly bundleRepository: IBundleRepository,
     @inject(TOKENS.IProductRepository) private readonly productRepository: IProductRepository,
-    @inject(TOKENS.IInventoryService) private readonly inventoryService: IInventoryService
   ) {}
 
   async getBundleConfiguration(bundleProductId: string): Promise<ApiResponse<BundleConfiguration>> {
@@ -55,14 +53,9 @@ export class BundleService implements IBundleService {
         };
       }
 
-      // Filter to only active products with stock > 0
-      const eligibleProducts = (productsResult.data || []).filter(
-        p => p.isActive && p.stock > 0
-      );
-
       return {
         success: true,
-        data: eligibleProducts,
+        data: productsResult.data ?? [],
       };
     } catch (error) {
       return {
@@ -103,16 +96,30 @@ export class BundleService implements IBundleService {
       // Note: Duplicates are allowed - customers can select the same product multiple times
       // This enables quantity bundles (e.g., 3x Lavender Oil)
 
-      // Validate each selected product
-      for (const productId of selectedProductIds) {
-        const productResult = await this.productRepository.findById(productId);
+      // Batch-fetch all selected products in one query
+      const uniqueIds = [...new Set(selectedProductIds)];
+      const productsResult = await this.productRepository.findByIds(uniqueIds);
+      const productMap = new Map((productsResult.data ?? []).map(p => [p.id, p]));
 
-        if (!productResult.success || !productResult.data) {
+      // Count total quantity requested per product (duplicates in selectedProductIds
+      // mean the customer wants multiple of the same item, e.g. 3× Lavender Oil).
+      const requestedQuantities = new Map<string, number>();
+      for (const productId of selectedProductIds) {
+        requestedQuantities.set(productId, (requestedQuantities.get(productId) ?? 0) + 1);
+      }
+      // quantities param overrides the count when explicitly provided
+      for (const [productId, qty] of Object.entries(quantities)) {
+        if (qty > 0) requestedQuantities.set(productId, qty);
+      }
+
+      // Validate each unique product once
+      for (const productId of uniqueIds) {
+        const product = productMap.get(productId);
+
+        if (!product) {
           errors.push(`Product ${productId} not found`);
           continue;
         }
-
-        const product = productResult.data;
 
         // Check category
         if (product.category !== config.allowedCategory) {
@@ -126,13 +133,13 @@ export class BundleService implements IBundleService {
           errors.push(`Product "${product.name}" is no longer available`);
         }
 
-        // Check stock
-        const requestedQty = quantities[productId] || 1;
+        // Check stock against total requested quantity for this product
+        const requestedQty = requestedQuantities.get(productId) ?? 1;
         if (product.stock < requestedQty) {
           errors.push(
             `Product "${product.name}" has insufficient stock (${product.stock} available, ${requestedQty} requested)`
           );
-        } else if (product.stock <= 5 && product.stock >= requestedQty) {
+        } else if (product.stock <= 5) {
           warnings.push(`Product "${product.name}" is low in stock (only ${product.stock} left)`);
         }
       }
@@ -169,16 +176,17 @@ export class BundleService implements IBundleService {
 
       const bundlePrice = bundleResult.data.price;
 
-      // Calculate individual total
-      let individualTotal = 0;
-      for (const productId of selectedProductIds) {
-        const productResult = await this.productRepository.findById(productId);
-        if (productResult.success && productResult.data) {
-          individualTotal += productResult.data.price;
-        }
-      }
+      // Batch-fetch all selected products to calculate individual total
+      const uniqueIds = [...new Set(selectedProductIds)];
+      const productsResult = await this.productRepository.findByIds(uniqueIds);
+      const productMap = new Map((productsResult.data ?? []).map(p => [p.id, p]));
 
-      const savings = individualTotal - bundlePrice;
+      const individualTotal = selectedProductIds.reduce((sum, productId) => {
+        const product = productMap.get(productId);
+        return sum + (product?.price ?? 0);
+      }, 0);
+
+      const savings = Math.max(0, individualTotal - bundlePrice);
 
       return {
         success: true,

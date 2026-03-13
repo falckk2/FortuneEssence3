@@ -55,25 +55,11 @@ export class ProductSearchService implements IProductSearchService {
         maxPrice: filters.maxPrice,
         inStock: filters.inStock,
         locale: filters.locale,
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
       };
 
-      const result = await this.productRepository.findAll(params);
-
-      if (!result.success) {
-        return result;
-      }
-
-      let products = result.data!;
-
-      // Apply sorting
-      if (filters.sortBy) {
-        products = this.sortProducts(products, filters.sortBy, filters.sortOrder, filters.locale);
-      }
-
-      return {
-        success: true,
-        data: products,
-      };
+      return await this.productRepository.findAll(params);
     } catch (error) {
       return {
         success: false,
@@ -84,7 +70,7 @@ export class ProductSearchService implements IProductSearchService {
 
   async getByCategory(category: string): Promise<ApiResponse<Product[]>> {
     try {
-      return await this.productRepository.findByCategory(category);
+      return await this.productRepository.findAll({ category, inStock: true });
     } catch (error) {
       return {
         success: false,
@@ -93,39 +79,5 @@ export class ProductSearchService implements IProductSearchService {
     }
   }
 
-  private sortProducts(
-    products: Product[],
-    sortBy: 'name' | 'price' | 'created',
-    sortOrder: 'asc' | 'desc' = 'asc',
-    locale?: 'sv' | 'en'
-  ): Product[] {
-    return products.sort((a, b) => {
-      let valueA: any;
-      let valueB: any;
 
-      switch (sortBy) {
-        case 'name':
-          valueA = locale === 'sv' ? a.translations.sv.name : a.translations.en.name;
-          valueB = locale === 'sv' ? b.translations.sv.name : b.translations.en.name;
-          break;
-        case 'price':
-          valueA = a.price;
-          valueB = b.price;
-          break;
-        case 'created':
-          valueA = a.createdAt;
-          valueB = b.createdAt;
-          break;
-        default:
-          valueA = a.name;
-          valueB = b.name;
-      }
-
-      if (sortOrder === 'desc') {
-        return valueA > valueB ? -1 : valueA < valueB ? 1 : 0;
-      } else {
-        return valueA < valueB ? -1 : valueA > valueB ? 1 : 0;
-      }
-    });
-  }
 }

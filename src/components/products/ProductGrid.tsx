@@ -1,6 +1,7 @@
 'use client';
 
 import { Product } from '@/types';
+import { CubeIcon } from '@heroicons/react/24/outline';
 import { ProductCard } from './ProductCard';
 import { useCartStore } from '@/stores/cartStore';
 import { useWishlistStore } from '@/stores/wishlistStore';
@@ -122,15 +123,11 @@ export const ProductGrid = ({
   if (products.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="mx-auto h-12 w-12 text-gray-400 dark:text-[#6B7B6B] mb-4">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-medium text-gray-900 dark:text-[#E8EDE8] mb-2">
+        <CubeIcon className="mx-auto h-12 w-12 text-forest-400 dark:text-[#6B7B6B] mb-4" />
+        <h3 className="text-lg font-medium text-forest-900 dark:text-[#E8EDE8] mb-2">
           {emptyMessage || (locale === 'sv' ? 'Inga produkter hittades' : 'No products found')}
         </h3>
-        <p className="text-gray-500 dark:text-[#8A9A8A]">
+        <p className="text-forest-500 dark:text-[#8A9A8A]">
           {locale === 'sv' 
             ? 'Försök att ändra dina filterinställningar eller sök efter något annat.' 
             : 'Try changing your filter settings or search for something else.'

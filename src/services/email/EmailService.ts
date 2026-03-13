@@ -17,6 +17,15 @@ export class EmailService implements IEmailService {
     this.fromName = config.email.fromName || 'Fortune Essence';
   }
 
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+  }
+
   async sendEmail(options: EmailOptions): Promise<ApiResponse<{ messageId: string }>> {
     try {
       if (!this.apiKey) {
@@ -73,18 +82,26 @@ export class EmailService implements IEmailService {
   async sendTemplateEmail(
     to: string | string[],
     template: EmailTemplate,
-    data: Record<string, any>
+    data: Record<string, unknown>
   ): Promise<ApiResponse<{ messageId: string }>> {
-    // Simple template variable replacement
+    // Simple template variable replacement.
+    // Values are HTML-escaped when substituted into the HTML body to prevent injection.
     let html = template.html;
     let text = template.text;
     let subject = template.subject;
 
     Object.keys(data).forEach(key => {
       const regex = new RegExp(`{{${key}}}`, 'g');
-      html = html.replace(regex, String(data[key]));
-      text = text.replace(regex, String(data[key]));
-      subject = subject.replace(regex, String(data[key]));
+      const raw = String(data[key]);
+      const escaped = raw
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+      html = html.replace(regex, escaped);
+      text = text.replace(regex, raw);
+      subject = subject.replace(regex, raw);
     });
 
     return this.sendEmail({
@@ -120,7 +137,7 @@ export class EmailService implements IEmailService {
       .map(
         item => `
         <tr>
-          <td style="padding: 10px; border-bottom: 1px solid #eee;">${item.name}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${this.escapeHtml(item.name)}</td>
           <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">${item.quantity}</td>
           <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">${(item.price * item.quantity).toFixed(2)} SEK</td>
         </tr>
@@ -129,7 +146,7 @@ export class EmailService implements IEmailService {
       .join('');
 
     const subject = isSwedish
-      ? `Orderbekraftelse - ${orderData.orderId}`
+      ? `Orderbekräftelse - ${orderData.orderId}`
       : `Order Confirmation - ${orderData.orderId}`;
 
     const html = `
@@ -156,17 +173,17 @@ export class EmailService implements IEmailService {
             <h1>Fortune Essence</h1>
           </div>
           <div class="content">
-            <h2>${isSwedish ? 'Tack for din bestallning!' : 'Thank you for your order!'}</h2>
-            <p>${isSwedish ? 'Hej' : 'Hi'} ${orderData.customerName},</p>
+            <h2>${isSwedish ? 'Tack för din beställning!' : 'Thank you for your order!'}</h2>
+            <p>${isSwedish ? 'Hej' : 'Hi'} ${this.escapeHtml(orderData.customerName)},</p>
             <p>
               ${isSwedish
-                ? 'Vi har mottagit din bestallning och borjar forbereda den for leverans.'
+                ? 'Vi har mottagit din beställning och börjar förbereda den för leverans.'
                 : 'We have received your order and are preparing it for delivery.'}
             </p>
 
             <h3>${isSwedish ? 'Orderdetaljer' : 'Order Details'}</h3>
             <p><strong>${isSwedish ? 'Ordernummer' : 'Order Number'}:</strong> ${orderData.orderId}</p>
-            ${orderData.trackingNumber ? `<p><strong>${isSwedish ? 'Sparningsnummer' : 'Tracking Number'}:</strong> ${orderData.trackingNumber}</p>` : ''}
+            ${orderData.trackingNumber ? `<p><strong>${isSwedish ? 'Spårningsnummer' : 'Tracking Number'}:</strong> ${orderData.trackingNumber}</p>` : ''}
 
             <table>
               <thead>
@@ -201,21 +218,21 @@ export class EmailService implements IEmailService {
             </table>
 
             <h3>${isSwedish ? 'Leveransadress' : 'Shipping Address'}</h3>
-            <p>${orderData.shippingAddress.replace(/\n/g, '<br>')}</p>
+            <p>${this.escapeHtml(orderData.shippingAddress).replace(/\n/g, '<br>')}</p>
 
             <p>
               ${orderData.trackingNumber
                 ? (isSwedish
-                    ? 'Du kan folja din leverans med sparningsnumret ovan.'
+                    ? 'Du kan följa din leverans med spårningsnumret ovan.'
                     : 'You can track your delivery using the tracking number above.')
                 : (isSwedish
-                    ? 'Du kommer att fa ett sparningsnummer via e-post nar din order har skickats.'
+                    ? 'Du kommer att få ett spårningsnummer via e-post när din order har skickats.'
                     : 'You will receive a tracking number via email when your order has been shipped.')}
             </p>
           </div>
           <div class="footer">
             <p>Fortune Essence | www.fortuneessence.se</p>
-            <p>${isSwedish ? 'Fragor? Kontakta oss pa' : 'Questions? Contact us at'} support@fortuneessence.se</p>
+            <p>${isSwedish ? 'Frågor? Kontakta oss på' : 'Questions? Contact us at'} support@fortuneessence.se</p>
           </div>
         </div>
       </body>
@@ -233,7 +250,7 @@ export class EmailService implements IEmailService {
       to: email,
       subject,
       html,
-      text: `${subject}\n\n${isSwedish ? 'Tack for din bestallning!' : 'Thank you for your order!'}\n\nOrder: ${orderData.orderId}\n${orderData.trackingNumber ? `${isSwedish ? 'Sparningsnummer' : 'Tracking'}: ${orderData.trackingNumber}\n` : ''}\n${textBreakdown}`,
+      text: `${subject}\n\n${isSwedish ? 'Tack för din beställning!' : 'Thank you for your order!'}\n\nOrder: ${orderData.orderId}\n${orderData.trackingNumber ? `${isSwedish ? 'Spårningsnummer' : 'Tracking'}: ${orderData.trackingNumber}\n` : ''}\n${textBreakdown}`,
     });
   }
 
@@ -322,7 +339,7 @@ export class EmailService implements IEmailService {
           </div>
           <div style="padding: 20px;">
             <h2>${subject}</h2>
-            <p>${isSwedish ? 'Hej' : 'Hi'} ${firstName}!</p>
+            <p>${isSwedish ? 'Hej' : 'Hi'} ${this.escapeHtml(firstName)}!</p>
             <p>
               ${isSwedish
                 ? 'Tack för att du skapade ett konto hos Fortune Essence. Vi är glada att ha dig som kund!'
@@ -384,7 +401,7 @@ export class EmailService implements IEmailService {
           ${discountCode ? `
             <div class="discount">
               <p>${isSwedish ? 'Som tack får du 10% rabatt på din första beställning!' : 'As a thank you, get 10% off your first order!'}</p>
-              <p class="code">${discountCode}</p>
+              <p class="code">${this.escapeHtml(discountCode)}</p>
               <p style="font-size: 12px; color: #666;">
                 ${isSwedish ? 'Använd denna kod i kassan' : 'Use this code at checkout'}
               </p>
@@ -432,7 +449,7 @@ export class EmailService implements IEmailService {
       <body>
         <div class="container">
           <h2>${subject}</h2>
-          <p>${isSwedish ? 'Hej' : 'Hi'} ${name}!</p>
+          <p>${isSwedish ? 'Hej' : 'Hi'} ${this.escapeHtml(name)}!</p>
           <p>
             ${isSwedish
               ? 'Tack för att du kontaktade oss. Vi har mottagit ditt meddelande och kommer att återkomma till dig inom 24 timmar.'
@@ -546,7 +563,7 @@ export class EmailService implements IEmailService {
     const itemsHtml = cartData.items.map(item => `
       <tr>
         <td style="padding: 10px; border-bottom: 1px solid #eee;">
-          ${item.name}
+          ${this.escapeHtml(item.name)}
         </td>
         <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: center;">
           ${item.quantity}

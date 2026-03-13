@@ -151,13 +151,13 @@ export const ProductCard = ({
         {onToggleWishlist && (
           <button
             onClick={handleToggleWishlist}
-            className="absolute top-3 right-3 p-2.5 rounded-full bg-white/95 backdrop-blur-sm shadow-soft hover:bg-white hover:scale-110 transition-all z-10"
+            className="absolute top-3 right-3 p-2.5 rounded-full bg-white/95 dark:bg-[#2a3330]/95 backdrop-blur-sm shadow-soft hover:bg-white dark:hover:bg-[#2a3330] hover:scale-110 transition-all z-10"
             aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
           >
             {isInWishlist ? (
               <HeartSolidIcon className="h-5 w-5 text-rose-500" />
             ) : (
-              <HeartIcon className="h-5 w-5 text-forest-400 hover:text-rose-500 transition-colors" />
+              <HeartIcon className="h-5 w-5 text-forest-400 dark:text-[#6B7B6B] hover:text-rose-500 transition-colors" />
             )}
           </button>
         )}
@@ -217,7 +217,7 @@ export const ProductCard = ({
             disabled={isOutOfStock || isLoading}
             className={`w-full flex items-center justify-center px-6 py-3.5 rounded-full text-sm font-medium transition-all shadow-soft ${
               isOutOfStock
-                ? 'bg-cream-200 text-forest-400 cursor-not-allowed'
+                ? 'bg-cream-200 dark:bg-[#3f4946] text-forest-400 dark:text-[#6B7B6B] cursor-not-allowed'
                 : 'bg-sage-600 text-white hover:bg-sage-700 hover:shadow-lg hover:-translate-y-0.5 transform active:translate-y-0'
             } ${isLoading ? 'opacity-75 cursor-wait' : ''}`}
           >

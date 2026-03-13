@@ -7,7 +7,7 @@ import {
   IPaymentService,
   IShippingService,
   IInventoryService,
-  IProductService,
+  IProductRepository,
   CreateOrderData,
 } from '@/interfaces';
 import { Order, CartItem, OrderItem, ApiResponse, ShippingRate } from '@/types';
@@ -20,7 +20,7 @@ describe('OrderService', () => {
   let mockPaymentService: jest.Mocked<IPaymentService>;
   let mockShippingService: jest.Mocked<IShippingService>;
   let mockInventoryService: jest.Mocked<IInventoryService>;
-  let mockProductService: jest.Mocked<IProductService>;
+  let mockProductService: jest.Mocked<IProductRepository>;
 
   const mockCartItems: CartItem[] = [
     {
@@ -142,12 +142,18 @@ describe('OrderService', () => {
     } as any;
 
     mockProductService = {
-      getProduct: jest.fn(),
-      getProducts: jest.fn(),
-      searchProducts: jest.fn(),
-      getProductsByCategory: jest.fn(),
-      getFeaturedProducts: jest.fn(),
-    } as any;
+      findAll: jest.fn(),
+      findById: jest.fn(),
+      findByIds: jest.fn(),
+      findByCategory: jest.fn(),
+      findFeatured: jest.fn(),
+      findBySku: jest.fn(),
+      findBySkus: jest.fn(),
+      getCategories: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    } as jest.Mocked<IProductRepository>;
 
     orderService = new OrderService(
       mockOrderRepository,
@@ -197,13 +203,21 @@ describe('OrderService', () => {
         data: 'reservation-1',
       });
 
-      mockProductService.getProduct.mockResolvedValue({
+      mockProductService.findById.mockResolvedValue({
         success: true,
         data: {
           id: 'prod-1',
           name: 'Product 1',
           price: 299.99,
         } as any,
+      });
+
+      mockProductService.findByIds.mockResolvedValue({
+        success: true,
+        data: [
+          { id: 'prod-1', name: 'Product 1', price: 299.99 } as any,
+          { id: 'prod-2', name: 'Product 2', price: 149.99 } as any,
+        ],
       });
 
       mockOrderRepository.create.mockResolvedValue({
@@ -401,9 +415,9 @@ describe('OrderService', () => {
 
     it('should handle product not found during cart item transformation', async () => {
       // Arrange
-      mockProductService.getProduct.mockResolvedValue({
-        success: false,
-        error: 'Product not found',
+      mockProductService.findByIds.mockResolvedValue({
+        success: true,
+        data: [], // empty — no products found
       });
 
       // Act
@@ -508,7 +522,7 @@ describe('OrderService', () => {
       // Assert
       expect(result.success).toBe(true);
       expect(result.data?.status).toBe('shipped');
-      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('order-1', 'shipped');
+      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('order-1', 'shipped', undefined);
     });
 
     it('should handle status update to confirmed', async () => {
@@ -552,7 +566,10 @@ describe('OrderService', () => {
         success: true,
         data: mockOrder,
       });
-      mockInventoryService.releaseReservation.mockResolvedValue({
+      mockInventoryService.updateStock.mockResolvedValue({
+        success: true,
+      });
+      mockPaymentService.refundPayment.mockResolvedValue({
         success: true,
       });
 
@@ -560,7 +577,7 @@ describe('OrderService', () => {
       await orderService.updateOrderStatus('order-1', 'cancelled');
 
       // Assert
-      expect(mockInventoryService.releaseReservation).toHaveBeenCalledWith('order-1');
+      expect(mockInventoryService.updateStock).toHaveBeenCalledWith('prod-1', 2);
     });
 
     it('should handle status update to delivered', async () => {
@@ -569,19 +586,13 @@ describe('OrderService', () => {
         success: true,
         data: { ...mockOrder, status: 'delivered' },
       });
-      mockOrderRepository.findById.mockResolvedValue({
-        success: true,
-        data: mockOrder,
-      });
-      mockInventoryService.updateStock.mockResolvedValue({
-        success: true,
-      });
 
       // Act
-      await orderService.updateOrderStatus('order-1', 'delivered');
+      const result = await orderService.updateOrderStatus('order-1', 'delivered');
 
       // Assert
-      expect(mockInventoryService.updateStock).toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      expect(result.data?.status).toBe('delivered');
     });
   });
 
@@ -596,7 +607,10 @@ describe('OrderService', () => {
         success: true,
         data: { ...mockOrder, status: 'cancelled' },
       });
-      mockInventoryService.releaseReservation.mockResolvedValue({
+      mockInventoryService.updateStock.mockResolvedValue({
+        success: true,
+      });
+      mockPaymentService.refundPayment.mockResolvedValue({
         success: true,
       });
 
@@ -605,7 +619,7 @@ describe('OrderService', () => {
 
       // Assert
       expect(result.success).toBe(true);
-      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('order-1', 'cancelled');
+      expect(mockOrderRepository.updateStatus).toHaveBeenCalledWith('order-1', 'cancelled', undefined);
     });
 
     it('should not cancel delivered order', async () => {

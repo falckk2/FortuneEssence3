@@ -138,11 +138,11 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
   return (
     <div className="space-y-8">
       {/* Reviews Summary */}
-      <div className="bg-cream-50 rounded-2xl p-6">
+      <div className="bg-cream-50 dark:bg-[#2a3330] rounded-2xl p-6">
         <div className="grid md:grid-cols-2 gap-8">
           {/* Average Rating */}
           <div className="text-center">
-            <div className="text-5xl font-bold text-forest-800 mb-2">
+            <div className="text-5xl font-bold text-forest-800 dark:text-[#E8EDE8] mb-2">
               {averageRating.toFixed(1)}
             </div>
             <div className="flex items-center justify-center gap-1 mb-2">
@@ -152,12 +152,12 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
                   className={`h-6 w-6 ${
                     star <= Math.round(averageRating)
                       ? 'text-yellow-400'
-                      : 'text-gray-300'
+                      : 'text-cream-300 dark:text-[#4a5552]'
                   }`}
                 />
               ))}
             </div>
-            <p className="text-forest-600">
+            <p className="text-forest-600 dark:text-[#B8C5B8]">
               Baserat på {reviews.length} {reviews.length === 1 ? 'recension' : 'recensioner'}
             </p>
           </div>
@@ -166,7 +166,7 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
           <div className="space-y-2">
             {ratingDistribution.map(({ star, count, percentage }) => (
               <div key={star} className="flex items-center gap-3">
-                <span className="text-sm font-medium text-forest-700 w-12">
+                <span className="text-sm font-medium text-forest-700 dark:text-[#C5D4C5] w-12">
                   {star} stjärnor
                 </span>
                 <div className="flex-1 h-3 bg-cream-200 rounded-full overflow-hidden">
@@ -175,7 +175,7 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
                     style={{ width: `${percentage}%` }}
                   />
                 </div>
-                <span className="text-sm text-forest-600 w-8 text-right">{count}</span>
+                <span className="text-sm text-forest-600 dark:text-[#B8C5B8] w-8 text-right">{count}</span>
               </div>
             ))}
           </div>
@@ -196,15 +196,15 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
 
       {/* Review Form */}
       {showForm && (
-        <div className="bg-white rounded-2xl shadow-soft p-6">
-          <h3 className="text-xl font-serif font-bold text-forest-800 mb-4">
+        <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6">
+          <h3 className="text-xl font-serif font-bold text-forest-800 dark:text-[#E8EDE8] mb-4">
             Skriv din recension
           </h3>
 
           <form onSubmit={handleSubmitReview} className="space-y-4">
             {/* Rating */}
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-2">
+              <label className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-2">
                 Betyg
               </label>
               <div className="flex gap-2">
@@ -220,7 +220,7 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
                     {star <= (hoverRating || rating) ? (
                       <StarIcon className="h-8 w-8 text-yellow-400" />
                     ) : (
-                      <StarIconOutline className="h-8 w-8 text-gray-300" />
+                      <StarIconOutline className="h-8 w-8 text-cream-300 dark:text-[#4a5552]" />
                     )}
                   </button>
                 ))}
@@ -229,7 +229,7 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
 
             {/* Title */}
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-2">
+              <label className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-2">
                 Rubrik
               </label>
               <input
@@ -238,14 +238,14 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Sammanfatta din upplevelse"
                 maxLength={100}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none transition-colors"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#4a5552] bg-white dark:bg-[#1a1f1e] text-forest-900 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none transition-colors"
                 required
               />
             </div>
 
             {/* Comment */}
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-2">
+              <label className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-2">
                 Din recension
               </label>
               <textarea
@@ -254,10 +254,10 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
                 placeholder="Berätta om din upplevelse med produkten..."
                 rows={4}
                 maxLength={1000}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none transition-colors resize-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#4a5552] bg-white dark:bg-[#1a1f1e] text-forest-900 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none transition-colors resize-none"
                 required
               />
-              <p className="text-xs text-forest-500 mt-1">
+              <p className="text-xs text-forest-500 dark:text-[#8A9A8A] mt-1">
                 {comment.length}/1000 tecken
               </p>
             </div>
@@ -274,7 +274,7 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="px-6 py-3 rounded-full border-2 border-cream-300 text-forest-700 font-semibold hover:bg-cream-50 transition-all"
+                className="px-6 py-3 rounded-full border-2 border-cream-300 dark:border-[#4a5552] text-forest-700 dark:text-[#C5D4C5] font-semibold hover:bg-cream-50 dark:hover:bg-[#2a3330] transition-all"
               >
                 Avbryt
               </button>
@@ -285,20 +285,20 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
 
       {/* Reviews List */}
       <div className="space-y-4">
-        <h3 className="text-xl font-serif font-bold text-forest-800">
+        <h3 className="text-xl font-serif font-bold text-forest-800 dark:text-[#E8EDE8]">
           Recensioner ({reviews.length})
         </h3>
 
         {reviews.length > 0 ? (
           reviews.map((review) => (
-            <div key={review.id} className="bg-white rounded-2xl shadow-soft p-6">
+            <div key={review.id} className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6">
               {/* Header */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <UserCircleIcon className="h-10 w-10 text-sage-600" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-forest-800">
+                      <span className="font-semibold text-forest-800 dark:text-[#E8EDE8]">
                         {review.userName}
                       </span>
                       {review.verified && (
@@ -308,7 +308,7 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
                         />
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-forest-600">
+                    <div className="flex items-center gap-2 text-sm text-forest-600 dark:text-[#B8C5B8]">
                       <div className="flex gap-0.5">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <StarIcon
@@ -316,7 +316,7 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
                             className={`h-4 w-4 ${
                               star <= review.rating
                                 ? 'text-yellow-400'
-                                : 'text-gray-300'
+                                : 'text-cream-300 dark:text-[#4a5552]'
                             }`}
                           />
                         ))}
@@ -331,14 +331,14 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
               </div>
 
               {/* Content */}
-              <h4 className="font-semibold text-forest-800 mb-2">{review.title}</h4>
-              <p className="text-forest-700 leading-relaxed mb-4">{review.comment}</p>
+              <h4 className="font-semibold text-forest-800 dark:text-[#E8EDE8] mb-2">{review.title}</h4>
+              <p className="text-forest-700 dark:text-[#C5D4C5] leading-relaxed mb-4">{review.comment}</p>
 
               {/* Actions */}
               <div className="flex items-center gap-4 text-sm">
                 <button
                   onClick={() => handleMarkHelpful(review.id)}
-                  className="text-forest-600 hover:text-sage-700 transition-colors"
+                  className="text-forest-600 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-sage-400 transition-colors"
                 >
                   Hjälpsam ({review.helpful})
                 </button>
@@ -346,7 +346,7 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
             </div>
           ))
         ) : (
-          <div className="text-center py-12 text-forest-600">
+          <div className="text-center py-12 text-forest-600 dark:text-[#B8C5B8]">
             <p className="mb-2">Inga recensioner ännu</p>
             <p className="text-sm">Var den första att recensera denna produkt!</p>
           </div>

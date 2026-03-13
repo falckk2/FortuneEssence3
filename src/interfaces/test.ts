@@ -38,15 +38,15 @@ export interface TestOrderResult {
   order: {
     id: string;
     customerId: string;
-    items: any[];
+    items: Record<string, unknown>[];
     subtotal: number;
     tax: number;
     shipping: number;
     total: number;
     paymentId: string;
     paymentStatus: string;
-    shippingAddress: any;
-    billingAddress: any;
+    shippingAddress: Record<string, unknown>;
+    billingAddress: Record<string, unknown>;
     paymentMethod: string;
     carrier?: string;
   };
@@ -71,7 +71,7 @@ export interface ShipmentSimulationResult {
   orderId: string;
   previousStatus?: string;
   currentStatus: string;
-  order?: any;
+  order?: Record<string, unknown>;
   progression?: Array<{
     status: string;
     timestamp: string;
@@ -113,7 +113,7 @@ export interface IShipmentSimulationService {
   progressToNextStatus(orderId: string): Promise<ApiResponse<ShipmentSimulationResult>>;
   setOrderStatus(orderId: string, status: string): Promise<ApiResponse<ShipmentSimulationResult>>;
   simulateCompleteDelivery(orderId: string): Promise<ApiResponse<ShipmentSimulationResult>>;
-  generateTrackingEvents(orderId: string): Promise<ApiResponse<any>>;
+  generateTrackingEvents(orderId: string): Promise<ApiResponse<Record<string, unknown>[]>>;
 }
 
 /**

@@ -12,6 +12,14 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
+    rules: {
+      // Downgrade to warn: the codebase uses `any` extensively in repository/Supabase layers
+      "@typescript-eslint/no-explicit-any": "warn",
+      // Downgrade to warn: di-container uses require() for lazy loading to avoid circular deps
+      "@typescript-eslint/no-require-imports": "warn",
+    },
+  },
+  {
     ignores: [
       "node_modules/**",
       ".next/**",

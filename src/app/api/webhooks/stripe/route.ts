@@ -1,9 +1,10 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { container } from '@/config/di-container';
-import { TOKENS } from '@/config/di-container';
+import { container, TOKENS } from '@/config/di-container';
 import type { IOrderService } from '@/interfaces';
 import type { IEmailService } from '@/interfaces/email';
+import { config } from '@/config';
 
 // Lazy-initialize Stripe to avoid build-time errors when env var is missing
 let _stripe: Stripe | null = null;
@@ -20,12 +21,14 @@ function getStripe(): Stripe {
   return _stripe;
 }
 
+const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
+const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
+
 // Webhook signing secret for verifying webhook authenticity
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the raw body as text
     const body = await request.text();
     const signature = request.headers.get('stripe-signature');
 
@@ -48,11 +51,7 @@ export async function POST(request: NextRequest) {
     // Verify webhook signature
     let event: Stripe.Event;
     try {
-      event = getStripe().webhooks.constructEvent(
-        body,
-        signature,
-        webhookSecret
-      );
+      event = getStripe().webhooks.constructEvent(body, signature, webhookSecret);
     } catch (err) {
       const error = err as Error;
       console.error('Webhook signature verification failed:', error.message);
@@ -62,14 +61,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log the event for debugging
     console.log('Stripe webhook event received:', {
       id: event.id,
       type: event.type,
       created: new Date(event.created * 1000).toISOString(),
     });
 
-    // Handle different event types
     switch (event.type) {
       case 'payment_intent.succeeded':
         await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
@@ -95,12 +92,7 @@ export async function POST(request: NextRequest) {
         console.log(`Unhandled event type: ${event.type}`);
     }
 
-    // Return success response
-    return NextResponse.json({
-      success: true,
-      received: true,
-      eventId: event.id,
-    });
+    return NextResponse.json({ success: true, received: true, eventId: event.id });
 
   } catch (error) {
     console.error('Webhook processing error:', error);
@@ -111,7 +103,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Handler for successful payment
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   try {
     const orderId = paymentIntent.metadata.orderId;
@@ -128,19 +119,12 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       return;
     }
 
-    // Get services from DI container
-    const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
-    const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
-
-    // Update order status to confirmed
     const updateResult = await orderService.updateOrderStatus(orderId, 'confirmed');
     if (!updateResult.success) {
       console.error('Failed to update order status:', updateResult.error);
       return;
     }
-    console.log(`Order ${orderId} marked as confirmed`);
 
-    // Get order details for email
     const orderResult = await orderService.getOrder(orderId);
     if (!orderResult.success || !orderResult.data) {
       console.error('Failed to get order details:', orderResult.error);
@@ -155,7 +139,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       return;
     }
 
-    // Send order confirmation email to customer
     const customerName = `${order.shippingAddress.firstName || ''} ${order.shippingAddress.lastName || ''}`.trim();
     await emailService.sendOrderConfirmation(
       customerEmail,
@@ -172,12 +155,9 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       },
       'sv'
     );
-    console.log(`Order confirmation email sent to ${customerEmail}`);
 
-    // Send admin notification
-    const adminEmail = process.env.EMAIL_SUPPORT || 'support@fortuneessence.se';
     await emailService.sendEmail({
-      to: adminEmail,
+      to: config.email.supportEmail,
       subject: `Ny betalning mottagen - Order ${orderId}`,
       html: `
         <h2>Ny betalning mottagen</h2>
@@ -189,9 +169,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
         <p><a href="${process.env.NEXTAUTH_URL}/admin/orders/${orderId}">Visa order</a></p>
       `,
     });
-    console.log('Admin notification sent');
-
-    console.log(`Order ${orderId} marked as confirmed and paid`);
 
   } catch (error) {
     console.error('Error handling payment_intent.succeeded:', error);
@@ -199,7 +176,6 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   }
 }
 
-// Handler for failed payment
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   try {
     const orderId = paymentIntent.metadata.orderId;
@@ -216,23 +192,14 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
       return;
     }
 
-    // Get services from DI container
-    const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
-    const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
-
-    // Update order status to cancelled (payment failed)
     const updateResult = await orderService.updateOrderStatus(orderId, 'cancelled');
     if (!updateResult.success) {
       console.error('Failed to update order status:', updateResult.error);
-    } else {
-      console.log(`Order ${orderId} marked as cancelled due to payment failure`);
     }
 
-    // Get customer email
     const customerEmail = paymentIntent.receipt_email || paymentIntent.metadata.customerEmail;
 
     if (customerEmail) {
-      // Send payment failed notification to customer (Swedish)
       await emailService.sendEmail({
         to: customerEmail,
         subject: 'Betalningen misslyckades - Fortune Essence',
@@ -248,13 +215,10 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
           <p>Med vänliga hälsningar,<br>Fortune Essence</p>
         `,
       });
-      console.log(`Payment failed notification sent to ${customerEmail}`);
     }
 
-    // Send admin notification about failed payment
-    const adminEmail = process.env.EMAIL_SUPPORT || 'support@fortuneessence.se';
     await emailService.sendEmail({
-      to: adminEmail,
+      to: config.email.supportEmail,
       subject: `Betalning misslyckades - Order ${orderId}`,
       html: `
         <h2>Betalning misslyckades</h2>
@@ -266,9 +230,6 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
         <p><a href="${process.env.NEXTAUTH_URL}/admin/orders/${orderId}">Visa order</a></p>
       `,
     });
-    console.log('Admin notification sent about failed payment');
-
-    console.log(`Order ${orderId} marked as payment failed`);
 
   } catch (error) {
     console.error('Error handling payment_intent.payment_failed:', error);
@@ -276,7 +237,6 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   }
 }
 
-// Handler for canceled payment intent
 async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) {
   try {
     const orderId = paymentIntent.metadata.orderId;
@@ -291,17 +251,11 @@ async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) 
       return;
     }
 
-    // Get OrderService from DI container
-    const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
-
-    // Cancel order (this will also release stock reservation via OrderService)
     const cancelResult = await orderService.cancelOrder(orderId);
     if (!cancelResult.success) {
       console.error('Failed to cancel order:', cancelResult.error);
       return;
     }
-
-    console.log(`Order ${orderId} marked as cancelled and stock reservation released`);
 
   } catch (error) {
     console.error('Error handling payment_intent.canceled:', error);
@@ -309,11 +263,10 @@ async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) 
   }
 }
 
-// Handler for refunded charge
 async function handleChargeRefunded(charge: Stripe.Charge) {
   try {
     const paymentIntentId = charge.payment_intent as string;
-    const refundAmount = charge.amount_refunded / 100; // Convert from smallest currency unit
+    const refundAmount = charge.amount_refunded / 100;
 
     console.log('Charge refunded:', {
       chargeId: charge.id,
@@ -321,15 +274,10 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
       amountRefunded: charge.amount_refunded,
     });
 
-    // Get EmailService from DI container
-    const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
-
-    // Get customer email from charge metadata or billing details
     const customerEmail = charge.receipt_email || charge.billing_details?.email;
     const orderId = charge.metadata?.orderId;
 
     if (customerEmail) {
-      // Send refund confirmation email to customer (Swedish)
       await emailService.sendEmail({
         to: customerEmail,
         subject: 'Återbetalning bekräftad - Fortune Essence',
@@ -347,7 +295,6 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
           <p>Med vänliga hälsningar,<br>Fortune Essence</p>
         `,
       });
-      console.log(`Refund confirmation email sent to ${customerEmail}`);
     } else {
       console.warn('No customer email found for refund notification');
     }
@@ -358,12 +305,11 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
   }
 }
 
-// Handler for dispute created
 async function handleDisputeCreated(dispute: Stripe.Dispute) {
   try {
     const chargeId = dispute.charge as string;
     const reason = dispute.reason;
-    const disputeAmount = dispute.amount / 100; // Convert from smallest currency unit
+    const disputeAmount = dispute.amount / 100;
     const evidenceDeadline = dispute.evidence_details?.due_by
       ? new Date(dispute.evidence_details.due_by * 1000).toLocaleString('sv-SE')
       : 'Ej angivet';
@@ -375,17 +321,12 @@ async function handleDisputeCreated(dispute: Stripe.Dispute) {
       amount: dispute.amount,
     });
 
-    // Get EmailService from DI container
-    const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
-
-    // Send URGENT email to admin/support
-    const adminEmail = process.env.EMAIL_SUPPORT || 'support@fortuneessence.se';
     await emailService.sendEmail({
-      to: adminEmail,
-      subject: `🚨 BRÅDSKANDE: Betalningsdispyt skapad - ${dispute.id}`,
+      to: config.email.supportEmail,
+      subject: `BRADSKANDE: Betalningsdispyt skapad - ${dispute.id}`,
       html: `
         <div style="border: 3px solid #dc3545; padding: 20px; background-color: #fff5f5;">
-          <h1 style="color: #dc3545;">🚨 BRÅDSKANDE ÅTGÄRD KRÄVS</h1>
+          <h1 style="color: #dc3545;">BRADSKANDE ATGARD KRAVS</h1>
           <h2>En betalningsdispyt har skapats</h2>
 
           <h3>Disputinformation:</h3>
@@ -398,12 +339,12 @@ async function handleDisputeCreated(dispute: Stripe.Dispute) {
             <li><strong>Svarsfrist:</strong> <span style="color: #dc3545; font-weight: bold;">${evidenceDeadline}</span></li>
           </ul>
 
-          <h3>Vad du behöver göra:</h3>
+          <h3>Vad du behover gora:</h3>
           <ol>
             <li>Granska disputen omedelbart i Stripe Dashboard</li>
             <li>Samla in all relevant dokumentation och bevis</li>
             <li>Svara innan deadline: ${evidenceDeadline}</li>
-            <li>Kontakta kunden om möjligt för att lösa situationen</li>
+            <li>Kontakta kunden om mojligt for att losa situationen</li>
           </ol>
 
           <p style="margin-top: 20px;">
@@ -414,12 +355,11 @@ async function handleDisputeCreated(dispute: Stripe.Dispute) {
           </p>
 
           <p style="color: #dc3545; font-weight: bold; margin-top: 20px;">
-            OBS: Om du inte svarar i tid kan disputen leda till förlust av pengarna och eventuella avgifter.
+            OBS: Om du inte svarar i tid kan disputen leda till forlust av pengarna och eventuella avgifter.
           </p>
         </div>
       `,
     });
-    console.log(`URGENT dispute notification sent to ${adminEmail}`);
 
   } catch (error) {
     console.error('Error handling charge.dispute.created:', error);
@@ -427,7 +367,6 @@ async function handleDisputeCreated(dispute: Stripe.Dispute) {
   }
 }
 
-// Helper function to format address for emails
 function formatAddress(address: any): string {
   const parts = [
     address.street,

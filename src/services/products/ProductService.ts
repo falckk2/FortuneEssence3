@@ -14,25 +14,17 @@ export class ProductService implements IProductService {
 
   async getProducts(params?: ProductSearchParams): Promise<ApiResponse<Product[]>> {
     try {
-      const result = await this.productRepository.findAll(params);
-      return result;
+      return await this.productRepository.findAll(params);
     } catch (error) {
-      return {
-        success: false,
-        error: `Failed to get products: ${error}`,
-      };
+      return { success: false, error: `Failed to get products: ${error}` };
     }
   }
 
   async getProduct(id: string): Promise<ApiResponse<Product>> {
     try {
-      const result = await this.productRepository.findById(id);
-      return result;
+      return await this.productRepository.findById(id);
     } catch (error) {
-      return {
-        success: false,
-        error: `Failed to get product: ${error}`,
-      };
+      return { success: false, error: `Failed to get product: ${error}` };
     }
   }
 
@@ -43,38 +35,25 @@ export class ProductService implements IProductService {
         locale,
         inStock: true, // Only show products in stock for search results
       };
-
-      const result = await this.productRepository.findAll(searchParams);
-      return result;
+      return await this.productRepository.findAll(searchParams);
     } catch (error) {
-      return {
-        success: false,
-        error: `Failed to search products: ${error}`,
-      };
+      return { success: false, error: `Failed to search products: ${error}` };
     }
   }
 
   async getProductsByCategory(category: string): Promise<ApiResponse<Product[]>> {
     try {
-      const result = await this.productRepository.findByCategory(category);
-      return result;
+      return await this.productRepository.findByCategory(category);
     } catch (error) {
-      return {
-        success: false,
-        error: `Failed to get products by category: ${error}`,
-      };
+      return { success: false, error: `Failed to get products by category: ${error}` };
     }
   }
 
   async getFeaturedProducts(): Promise<ApiResponse<Product[]>> {
     try {
-      const result = await this.productRepository.findFeatured(8);
-      return result;
+      return await this.productRepository.findFeatured(8);
     } catch (error) {
-      return {
-        success: false,
-        error: `Failed to get featured products: ${error}`,
-      };
+      return { success: false, error: `Failed to get featured products: ${error}` };
     }
   }
 
@@ -82,64 +61,30 @@ export class ProductService implements IProductService {
   async getProductWithLocalization(id: string, locale: 'sv' | 'en'): Promise<ApiResponse<Product & { localizedName: string; localizedDescription: string }>> {
     try {
       const result = await this.productRepository.findById(id);
-      
+
       if (!result.success || !result.data) {
-        return result as any;
+        return { success: false, error: result.error ?? 'Product not found' };
       }
 
       const product = result.data;
-      const localized = {
-        ...product,
-        localizedName: product.translations[locale].name,
-        localizedDescription: product.translations[locale].description,
-      };
+      const translation = product.translations[locale];
+
+      if (!translation) {
+        return { success: false, error: `No translation available for locale '${locale}'` };
+      }
 
       return {
         success: true,
-        data: localized,
+        data: {
+          ...product,
+          localizedName: translation.name,
+          localizedDescription: translation.description,
+        },
       };
     } catch (error) {
       return {
         success: false,
         error: `Failed to get localized product: ${error}`,
-      };
-    }
-  }
-
-  async getProductRecommendations(productId: string, limit: number = 4): Promise<ApiResponse<Product[]>> {
-    try {
-      // Get the current product to find similar products
-      const productResult = await this.productRepository.findById(productId);
-      
-      if (!productResult.success || !productResult.data) {
-        return {
-          success: false,
-          error: 'Product not found for recommendations',
-        };
-      }
-
-      const product = productResult.data;
-
-      // Find products in the same category
-      const categoryResult = await this.productRepository.findByCategory(product.category);
-      
-      if (!categoryResult.success) {
-        return categoryResult;
-      }
-
-      // Filter out the current product and limit results
-      const recommendations = categoryResult.data!
-        .filter(p => p.id !== productId)
-        .slice(0, limit);
-
-      return {
-        success: true,
-        data: recommendations,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Failed to get product recommendations: ${error}`,
       };
     }
   }
@@ -160,69 +105,47 @@ export class ProductService implements IProductService {
         maxPrice: filters.maxPrice,
         inStock: filters.inStock,
         locale: filters.locale,
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder,
       };
-
       const result = await this.productRepository.findAll(params);
 
-      if (!result.success) {
+      if (!result.success || !result.data || !filters.sortBy) {
         return result;
       }
 
-      let products = result.data!;
-
-      // Apply sorting
-      if (filters.sortBy) {
-        products.sort((a, b) => {
-          let valueA: any;
-          let valueB: any;
-
-          switch (filters.sortBy) {
-            case 'name':
-              valueA = filters.locale === 'sv' ? a.translations.sv.name : a.translations.en.name;
-              valueB = filters.locale === 'sv' ? b.translations.sv.name : b.translations.en.name;
-              break;
-            case 'price':
-              valueA = a.price;
-              valueB = b.price;
-              break;
-            case 'created':
-              valueA = a.createdAt;
-              valueB = b.createdAt;
-              break;
-            default:
-              valueA = a.name;
-              valueB = b.name;
+      const sorted = [...result.data].sort((a, b) => {
+        const order = filters.sortOrder === 'desc' ? -1 : 1;
+        switch (filters.sortBy) {
+          case 'price':
+            return (a.price - b.price) * order;
+          case 'name': {
+            const locale = filters.locale ?? 'en';
+            const nameA = a.translations?.[locale]?.name ?? a.name ?? '';
+            const nameB = b.translations?.[locale]?.name ?? b.name ?? '';
+            return nameA.localeCompare(nameB, locale === 'sv' ? 'sv' : 'en') * order;
           }
+          case 'created':
+            return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * order;
+          default:
+            return 0;
+        }
+      });
 
-          if (filters.sortOrder === 'desc') {
-            return valueA > valueB ? -1 : valueA < valueB ? 1 : 0;
-          } else {
-            return valueA < valueB ? -1 : valueA > valueB ? 1 : 0;
-          }
-        });
-      }
-
-      return {
-        success: true,
-        data: products,
-      };
+      return { success: true, data: sorted };
     } catch (error) {
-      return {
-        success: false,
-        error: `Failed to get filtered products: ${error}`,
-      };
+      return { success: false, error: `Failed to get products with filters: ${error}` };
     }
   }
 
   async getProductCategories(): Promise<ApiResponse<{ category: string; count: number; displayName: { sv: string; en: string } }[]>> {
     try {
       const result = await this.productRepository.getCategories();
-      
+
       if (!result.success) {
-        return result as any;
+        return { success: false, error: result.error ?? 'Failed to get categories' };
       }
 
-      // Add localized display names for categories
       const categoriesWithNames = result.data!.map(cat => ({
         ...cat,
         displayName: this.getCategoryDisplayName(cat.category),
@@ -247,7 +170,7 @@ export class ProductService implements IProductService {
   async validateProductAvailability(productId: string, quantity: number): Promise<ApiResponse<boolean>> {
     try {
       const result = await this.productRepository.findById(productId);
-      
+
       if (!result.success || !result.data) {
         return {
           success: false,
@@ -272,24 +195,36 @@ export class ProductService implements IProductService {
 
   async getProductsBySku(skus: string[]): Promise<ApiResponse<Product[]>> {
     try {
-      const products: Product[] = [];
-      
-      for (const sku of skus) {
-        const result = await this.productRepository.findBySku(sku);
-        if (result.success && result.data) {
-          products.push(result.data);
-        }
+      if (skus.length === 0) {
+        return { success: true, data: [] };
       }
-
-      return {
-        success: true,
-        data: products,
-      };
+      const results = await Promise.all(skus.map(sku => this.productRepository.findBySku(sku)));
+      const products = results
+        .filter(r => r.success && r.data)
+        .map(r => r.data!);
+      return { success: true, data: products };
     } catch (error) {
-      return {
-        success: false,
-        error: `Failed to get products by SKU: ${error}`,
-      };
+      return { success: false, error: `Failed to get products by SKU: ${error}` };
+    }
+  }
+
+  async getProductRecommendations(productId: string, limit = 4): Promise<ApiResponse<Product[]>> {
+    try {
+      const productResult = await this.productRepository.findById(productId);
+      if (!productResult.success || !productResult.data) {
+        return { success: false, error: 'Product not found for recommendations' };
+      }
+      const category = productResult.data.category;
+      const categoryResult = await this.productRepository.findByCategory(category);
+      if (!categoryResult.success) {
+        return { success: false, error: categoryResult.error ?? 'Failed to get recommendations' };
+      }
+      const recommendations = (categoryResult.data ?? [])
+        .filter(p => p.id !== productId)
+        .slice(0, limit);
+      return { success: true, data: recommendations };
+    } catch (error) {
+      return { success: false, error: `Failed to get product recommendations: ${error}` };
     }
   }
 }

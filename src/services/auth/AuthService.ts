@@ -1,23 +1,22 @@
 import 'reflect-metadata';
+import crypto from 'crypto';
 import { injectable, inject } from 'tsyringe';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IAuthService, SignUpData, IEmailService } from '@/interfaces';
+import type { ICustomerRepository } from '@/interfaces/repositories';
 import { Customer, ApiResponse } from '@/types';
-import { CustomerRepository } from '@/repositories/customers/CustomerRepository';
 import { signUpSchema } from '@/utils/validation';
 import { signIn, signOut, getSession } from 'next-auth/react';
 import bcrypt from 'bcryptjs';
-import { supabase } from '@/lib/supabase';
 import { TOKENS } from '@/config/di-container';
 
 @injectable()
 export class AuthService implements IAuthService {
-  private customerRepository: CustomerRepository;
-  private emailService: IEmailService;
-
-  constructor(@inject(TOKENS.IEmailService) emailService: IEmailService) {
-    this.customerRepository = new CustomerRepository();
-    this.emailService = emailService;
-  }
+  constructor(
+    @inject(TOKENS.ICustomerRepository) private readonly customerRepository: ICustomerRepository,
+    @inject(TOKENS.IEmailService) private readonly emailService: IEmailService,
+    @inject(TOKENS.SupabaseClient) private readonly supabase: SupabaseClient
+  ) {}
 
   async signIn(email: string, password: string): Promise<ApiResponse<{ user: Customer; token: string }>> {
     try {
@@ -71,9 +70,10 @@ export class AuthService implements IAuthService {
 
       const validatedData = validation.data;
 
-      // Check if customer already exists
+      // Check if customer already exists. Check .data explicitly — a DB error
+      // also returns success: false, and we must not treat that as "not found".
       const existingCustomer = await this.customerRepository.findByEmail(validatedData.email);
-      if (existingCustomer.success) {
+      if (existingCustomer.data) {
         return {
           success: false,
           error: 'Customer with this email already exists',
@@ -168,8 +168,6 @@ export class AuthService implements IAuthService {
 
   async resetPassword(email: string): Promise<ApiResponse<void>> {
     try {
-      console.log(`Password reset requested for: ${email}`);
-
       // Check if customer exists
       const customerResult = await this.customerRepository.findByEmail(email);
 
@@ -179,16 +177,13 @@ export class AuthService implements IAuthService {
         const customer = customerResult.data;
 
         // Generate secure random token (32 bytes = 64 hex characters)
-        const crypto = await import('crypto');
         const token = crypto.randomBytes(32).toString('hex');
 
         // Set expiration to 1 hour from now
         const expiresAt = new Date(Date.now() + 3600000); // 1 hour = 3600000ms
 
-        console.log(`Generated reset token for customer ${customer.id}, expires at ${expiresAt.toISOString()}`);
-
         // Store token in password_reset_tokens table
-        const { error: insertError } = await supabase
+        const { error: insertError } = await this.supabase
           .from('password_reset_tokens')
           .insert({
             customer_id: customer.id,
@@ -210,10 +205,8 @@ export class AuthService implements IAuthService {
         const emailResult = await this.emailService.sendPasswordReset(email, token);
 
         if (!emailResult.success) {
-          console.error(`Failed to send reset email: ${emailResult.error}`);
+          console.error('Failed to send password reset email:', emailResult.error);
           // Don't reveal the error to the user
-        } else {
-          console.log(`Password reset email sent to ${email}`);
         }
       }
 
@@ -232,17 +225,14 @@ export class AuthService implements IAuthService {
 
   async verifyResetToken(token: string): Promise<ApiResponse<{ email: string }>> {
     try {
-      console.log(`Verifying reset token: ${token.substring(0, 10)}...`);
-
       // Query password_reset_tokens table for the token
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('password_reset_tokens')
         .select('*')
         .eq('token', token)
         .single();
 
       if (error || !data) {
-        console.log(`Token not found in database`);
         return {
           success: false,
           error: 'Invalid or expired reset token',
@@ -251,7 +241,6 @@ export class AuthService implements IAuthService {
 
       // Check if token has been used
       if (data.used_at) {
-        console.log(`Token already used at ${data.used_at}`);
         return {
           success: false,
           error: 'Reset token has already been used',
@@ -263,14 +252,11 @@ export class AuthService implements IAuthService {
       const now = new Date();
 
       if (now > expiresAt) {
-        console.log(`Token expired at ${expiresAt.toISOString()}`);
         return {
           success: false,
           error: 'Reset token has expired',
         };
       }
-
-      console.log(`Token verified successfully for email: ${data.email}`);
 
       return {
         success: true,
@@ -287,13 +273,15 @@ export class AuthService implements IAuthService {
 
   async completePasswordReset(token: string, newPassword: string): Promise<ApiResponse<void>> {
     try {
-      console.log(`Completing password reset with token: ${token.substring(0, 10)}...`);
+      // Validate new password meets minimum requirements (mirrors signUpSchema)
+      if (!newPassword || newPassword.length < 8) {
+        return { success: false, error: 'Password must be at least 8 characters' };
+      }
 
       // Verify token is valid
       const tokenVerification = await this.verifyResetToken(token);
 
       if (!tokenVerification.success || !tokenVerification.data) {
-        console.log(`Token verification failed: ${tokenVerification.error}`);
         return {
           success: false,
           error: tokenVerification.error || 'Invalid reset token',
@@ -318,10 +306,8 @@ export class AuthService implements IAuthService {
       // Hash new password
       const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-      console.log(`Updating password for customer: ${customer.id}`);
-
       // Update customer password in database
-      const { error: updateError } = await supabase
+      const { error: updateError } = await this.supabase
         .from('customers')
         .update({
           password_hash: hashedPassword,
@@ -338,7 +324,7 @@ export class AuthService implements IAuthService {
       }
 
       // Mark token as used
-      const { error: tokenError } = await supabase
+      const { error: tokenError } = await this.supabase
         .from('password_reset_tokens')
         .update({ used_at: new Date().toISOString() })
         .eq('token', token);
@@ -348,13 +334,11 @@ export class AuthService implements IAuthService {
         // Don't fail the operation if we can't mark the token as used
       }
 
-      console.log(`Password reset completed successfully for customer: ${customer.id}`);
-
       return {
         success: true,
       };
     } catch (error) {
-      console.error(`Password reset completion error: ${error}`);
+      console.error('Password reset completion error:', error);
       return {
         success: false,
         error: `Failed to reset password: ${error}`,

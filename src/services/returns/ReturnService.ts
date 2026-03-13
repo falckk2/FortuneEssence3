@@ -1,6 +1,10 @@
 import { IReturnRepository, IOrderRepository } from '@/interfaces/repositories';
 import { IPaymentService, IReturnService } from '@/interfaces/services';
-import { Return, CreateReturnItemData, ReturnFilters, ApiResponse, OrderItem } from '@/types';
+import { Return, ReturnStatus, CreateReturnItemData, ReturnFilters, ApiResponse, OrderItem } from '@/types';
+
+// Statuses that indicate an in-progress or completed return.
+// 'rejected' and 'cancelled' are excluded so customers can re-submit.
+const BLOCKING_STATUSES = new Set<ReturnStatus>(['pending', 'approved', 'received', 'refunded']);
 
 export class ReturnService implements IReturnService {
   constructor(
@@ -23,14 +27,18 @@ export class ReturnService implements IReturnService {
 
       const order = orderResult.data;
 
-      // Check for existing active return on this order (unpaginated query)
+      // Block duplicate returns for statuses that represent an in-progress or
+      // completed return. A 'rejected' or 'cancelled' return does NOT block a
+      // new attempt — the customer should be able to re-submit after rejection.
       const existingReturns = await this.returnRepository.findByOrderId(orderId);
-      if (existingReturns.success && existingReturns.data && existingReturns.data.length > 0) {
-        const activeReturn = existingReturns.data[0];
-        return {
-          success: false,
-          error: `An active return already exists for this order (ID: ${activeReturn.id.substring(0, 8)})`,
-        };
+      if (existingReturns.success && existingReturns.data) {
+        const blocking = existingReturns.data.find(r => BLOCKING_STATUSES.has(r.status));
+        if (blocking) {
+          return {
+            success: false,
+            error: `An active return already exists for this order (ID: ${blocking.id.substring(0, 8)}, status: ${blocking.status})`,
+          };
+        }
       }
 
       // Validate order status - must be delivered or shipped
@@ -61,8 +69,9 @@ export class ReturnService implements IReturnService {
 
       // Validate items belong to order and enforce unopened policy for oils
       const orderItems = order.items || [];
+      const orderItemMap = new Map(orderItems.map((oi: OrderItem) => [oi.productId, oi]));
       for (const item of items) {
-        const orderItem = orderItems.find((oi: OrderItem) => oi.productId === item.productId);
+        const orderItem = orderItemMap.get(item.productId);
         if (!orderItem) {
           return {
             success: false,
@@ -95,7 +104,7 @@ export class ReturnService implements IReturnService {
       // is non-refundable and tax adjustments are handled separately in accounting.
       let refundAmount = 0;
       for (const item of items) {
-        const orderItem = orderItems.find((oi: OrderItem) => oi.productId === item.productId);
+        const orderItem = orderItemMap.get(item.productId);
         if (orderItem) {
           refundAmount += orderItem.price * item.quantity;
         }
@@ -125,65 +134,15 @@ export class ReturnService implements IReturnService {
   }
 
   async approveReturn(returnId: string, adminNotes?: string): Promise<ApiResponse<Return>> {
-    try {
-      const existing = await this.returnRepository.findById(returnId);
-      if (!existing.success || !existing.data) {
-        return { success: false, error: 'Return not found' };
-      }
-
-      if (existing.data.status !== 'pending') {
-        return {
-          success: false,
-          error: `Cannot approve a return with status '${existing.data.status}'. Must be 'pending'.`,
-        };
-      }
-
-      return this.returnRepository.updateStatus(returnId, 'approved', { adminNotes });
-    } catch (error) {
-      return { success: false, error: `Failed to approve return: ${error}` };
-    }
+    return this.transitionStatus(returnId, 'pending', 'approved', { adminNotes }, 'approve return');
   }
 
   async rejectReturn(returnId: string, reason: string): Promise<ApiResponse<Return>> {
-    try {
-      const existing = await this.returnRepository.findById(returnId);
-      if (!existing.success || !existing.data) {
-        return { success: false, error: 'Return not found' };
-      }
-
-      if (existing.data.status !== 'pending') {
-        return {
-          success: false,
-          error: `Cannot reject a return with status '${existing.data.status}'. Must be 'pending'.`,
-        };
-      }
-
-      return this.returnRepository.updateStatus(returnId, 'rejected', {
-        adminNotes: reason,
-      });
-    } catch (error) {
-      return { success: false, error: `Failed to reject return: ${error}` };
-    }
+    return this.transitionStatus(returnId, 'pending', 'rejected', { adminNotes: reason }, 'reject return');
   }
 
   async markReceived(returnId: string, adminNotes?: string): Promise<ApiResponse<Return>> {
-    try {
-      const existing = await this.returnRepository.findById(returnId);
-      if (!existing.success || !existing.data) {
-        return { success: false, error: 'Return not found' };
-      }
-
-      if (existing.data.status !== 'approved') {
-        return {
-          success: false,
-          error: `Cannot mark as received with status '${existing.data.status}'. Must be 'approved'.`,
-        };
-      }
-
-      return this.returnRepository.updateStatus(returnId, 'received', { adminNotes });
-    } catch (error) {
-      return { success: false, error: `Failed to mark return as received: ${error}` };
-    }
+    return this.transitionStatus(returnId, 'approved', 'received', { adminNotes }, 'mark return as received');
   }
 
   async markRefundedManually(returnId: string, adminNotes?: string): Promise<ApiResponse<Return>> {
@@ -211,6 +170,32 @@ export class ReturnService implements IReturnService {
       });
     } catch (error) {
       return { success: false, error: `Failed to mark as refunded: ${error}` };
+    }
+  }
+
+  private async transitionStatus(
+    returnId: string,
+    requiredStatus: ReturnStatus,
+    newStatus: ReturnStatus,
+    updateData: { adminNotes?: string },
+    errorContext: string
+  ): Promise<ApiResponse<Return>> {
+    try {
+      const existing = await this.returnRepository.findById(returnId);
+      if (!existing.success || !existing.data) {
+        return { success: false, error: 'Return not found' };
+      }
+
+      if (existing.data.status !== requiredStatus) {
+        return {
+          success: false,
+          error: `Cannot ${errorContext} with status '${existing.data.status}'. Must be '${requiredStatus}'.`,
+        };
+      }
+
+      return this.returnRepository.updateStatus(returnId, newStatus, updateData);
+    } catch (error) {
+      return { success: false, error: `Failed to ${errorContext}: ${error}` };
     }
   }
 

@@ -1,12 +1,20 @@
+import { injectable, inject } from 'tsyringe';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { IInventoryService } from '@/interfaces';
 import { Product, CartItem, ApiResponse } from '@/types';
-import { supabase } from '@/lib/supabase/client';
+import { TOKENS } from '@/config/di-container';
 
+const LOW_STOCK_THRESHOLD = 10;
+
+@injectable()
 export class InventoryService implements IInventoryService {
-  
+  constructor(
+    @inject(TOKENS.SupabaseClient) private readonly supabase: SupabaseClient
+  ) {}
+
   async checkAvailability(productId: string, quantity: number): Promise<ApiResponse<boolean>> {
     try {
-      const { data: product, error } = await supabase
+      const { data: product, error } = await this.supabase
         .from('products')
         .select('stock, is_active')
         .eq('id', productId)
@@ -26,11 +34,14 @@ export class InventoryService implements IInventoryService {
         };
       }
 
-      const isAvailable = product.stock >= quantity;
+      // Subtract soft-reserved quantities so concurrent reservations don't
+      // both pass on the same stock before either is committed.
+      const reservationsResult = await this.getActiveReservations(productId);
+      const reserved = reservationsResult.success ? (reservationsResult.data ?? 0) : 0;
 
       return {
         success: true,
-        data: isAvailable,
+        data: product.stock - reserved >= quantity,
       };
 
     } catch (error) {
@@ -43,26 +54,23 @@ export class InventoryService implements IInventoryService {
 
   async reserveStock(items: CartItem[], customerId?: string, sessionId?: string): Promise<ApiResponse<string>> {
     try {
-      // First, verify all items are available
-      for (const item of items) {
-        const availabilityResult = await this.checkAvailability(item.productId, item.quantity);
-
-        if (!availabilityResult.success || !availabilityResult.data) {
-          return {
-            success: false,
-            error: `Product ${item.productId} is not available in requested quantity`,
-          };
-        }
+      // Verify all items are available in parallel
+      const availabilityResults = await Promise.all(
+        items.map(item => this.checkAvailability(item.productId, item.quantity))
+      );
+      const failedIndex = availabilityResults.findIndex(r => !r.success || !r.data);
+      if (failedIndex !== -1) {
+        return {
+          success: false,
+          error: `Product ${items[failedIndex].productId} is not available in requested quantity`,
+        };
       }
 
-      // Generate unique reservation ID
-      const reservationId = `RSV_${Date.now()}_${Math.random().toString(36).substring(7).toUpperCase()}`;
+      const reservationId = crypto.randomUUID();
 
-      // Set expiration time (15 minutes from now)
       const expiresAt = new Date();
       expiresAt.setMinutes(expiresAt.getMinutes() + 15);
 
-      // Create reservation records for each item
       const reservationRecords = items.map(item => ({
         reservation_id: reservationId,
         product_id: item.productId,
@@ -73,7 +81,7 @@ export class InventoryService implements IInventoryService {
         expires_at: expiresAt.toISOString(),
       }));
 
-      const { error: insertError } = await supabase
+      const { error: insertError } = await this.supabase
         .from('stock_reservations')
         .insert(reservationRecords);
 
@@ -85,7 +93,6 @@ export class InventoryService implements IInventoryService {
         };
       }
 
-      // Log the reservation
       console.log(`Stock reserved: ${reservationId} for ${items.length} items, expires at ${expiresAt.toISOString()}`);
 
       return {
@@ -103,8 +110,7 @@ export class InventoryService implements IInventoryService {
 
   async releaseReservation(reservationId: string): Promise<ApiResponse<void>> {
     try {
-      // Update reservation status to cancelled instead of deleting (for audit trail)
-      const { error: updateError } = await supabase
+      const { error: updateError } = await this.supabase
         .from('stock_reservations')
         .update({
           status: 'cancelled',
@@ -123,10 +129,7 @@ export class InventoryService implements IInventoryService {
 
       console.log(`Reservation released: ${reservationId}`);
 
-      return {
-        success: true,
-        data: undefined,
-      };
+      return { success: true, data: undefined };
 
     } catch (error) {
       return {
@@ -138,8 +141,11 @@ export class InventoryService implements IInventoryService {
 
   async updateStock(productId: string, quantity: number): Promise<ApiResponse<void>> {
     try {
-      // Get current stock
-      const { data: product, error: fetchError } = await supabase
+      // Fetch current stock to compute new value.
+      // NOTE: For true atomicity under concurrent load a Postgres function via
+      // .rpc('update_stock', { p_id, p_delta }) is recommended. The .gte()
+      // guard below prevents negative stock at DB level as a safety net.
+      const { data: product, error: fetchError } = await this.supabase
         .from('products')
         .select('stock')
         .eq('id', productId)
@@ -161,14 +167,19 @@ export class InventoryService implements IInventoryService {
         };
       }
 
-      // Update stock
-      const { error: updateError } = await supabase
+      // Guard: for decrements, only update if the DB stock is still sufficient.
+      // This prevents negative stock even if a concurrent request changed it.
+      const query = this.supabase
         .from('products')
-        .update({ 
+        .update({
           stock: newStock,
           updated_at: new Date().toISOString(),
         })
         .eq('id', productId);
+
+      const { data: updated, error: updateError } = quantity < 0
+        ? await query.gte('stock', Math.abs(quantity)).select('id')
+        : await query.select('id');
 
       if (updateError) {
         return {
@@ -177,13 +188,16 @@ export class InventoryService implements IInventoryService {
         };
       }
 
-      // Log inventory movement
+      if (!updated || updated.length === 0) {
+        return {
+          success: false,
+          error: 'Insufficient stock — update rejected by a concurrent modification',
+        };
+      }
+
       await this.logInventoryMovement(productId, quantity, 'stock_update');
 
-      return {
-        success: true,
-        data: undefined,
-      };
+      return { success: true, data: undefined };
 
     } catch (error) {
       return {
@@ -195,10 +209,10 @@ export class InventoryService implements IInventoryService {
 
   async getLowStockAlerts(): Promise<ApiResponse<Product[]>> {
     try {
-      const { data: products, error } = await supabase
+      const { data: products, error } = await this.supabase
         .from('products')
         .select('*')
-        .lt('stock', 10) // Products with less than 10 items
+        .lt('stock', LOW_STOCK_THRESHOLD)
         .eq('is_active', true)
         .order('stock', { ascending: true });
 
@@ -235,10 +249,7 @@ export class InventoryService implements IInventoryService {
         updatedAt: new Date(product.updated_at),
       }));
 
-      return {
-        success: true,
-        data: transformedProducts,
-      };
+      return { success: true, data: transformedProducts };
 
     } catch (error) {
       return {
@@ -248,7 +259,6 @@ export class InventoryService implements IInventoryService {
     }
   }
 
-  // Additional utility methods
   async getInventoryStatus(): Promise<ApiResponse<{
     totalProducts: number;
     inStockProducts: number;
@@ -257,7 +267,7 @@ export class InventoryService implements IInventoryService {
     totalValue: number;
   }>> {
     try {
-      const { data: products, error } = await supabase
+      const { data: products, error } = await this.supabase
         .from('products')
         .select('stock, price, cost_price, is_active')
         .eq('is_active', true);
@@ -272,21 +282,14 @@ export class InventoryService implements IInventoryService {
       const totalProducts = products.length;
       const inStockProducts = products.filter(p => p.stock > 0).length;
       const outOfStockProducts = products.filter(p => p.stock === 0).length;
-      const lowStockProducts = products.filter(p => p.stock > 0 && p.stock < 10).length;
-      
+      const lowStockProducts = products.filter(p => p.stock > 0 && p.stock < LOW_STOCK_THRESHOLD).length;
       const totalValue = products.reduce((sum, product) => {
         return sum + (product.stock * (product.cost_price || product.price));
       }, 0);
 
       return {
         success: true,
-        data: {
-          totalProducts,
-          inStockProducts,
-          outOfStockProducts,
-          lowStockProducts,
-          totalValue,
-        },
+        data: { totalProducts, inStockProducts, outOfStockProducts, lowStockProducts, totalValue },
       };
 
     } catch (error) {
@@ -303,28 +306,14 @@ export class InventoryService implements IInventoryService {
     reason?: string;
   }>): Promise<ApiResponse<void>> {
     try {
-      for (const update of updates) {
-        const result = await this.updateStock(update.productId, update.quantity);
-        
-        if (!result.success) {
-          return result;
-        }
+      // NOTE: updates are applied sequentially; there is no DB-level rollback
+      // if a later item fails. For true atomicity use a Postgres RPC transaction.
+      const results = await Promise.all(updates.map(u => this.updateStock(u.productId, u.quantity)));
 
-        // Log with reason if provided
-        if (update.reason) {
-          await this.logInventoryMovement(
-            update.productId, 
-            update.quantity, 
-            'bulk_update',
-            update.reason
-          );
-        }
-      }
+      const failed = results.find(r => !r.success);
+      if (failed) return failed;
 
-      return {
-        success: true,
-        data: undefined,
-      };
+      return { success: true, data: undefined };
 
     } catch (error) {
       return {
@@ -345,7 +334,7 @@ export class InventoryService implements IInventoryService {
     createdAt: Date;
   }>>> {
     try {
-      const { data: movements, error } = await supabase
+      const { data: movements, error } = await this.supabase
         .from('inventory_movements')
         .select('*')
         .eq('product_id', productId)
@@ -359,17 +348,15 @@ export class InventoryService implements IInventoryService {
         };
       }
 
-      const transformedMovements = movements.map(movement => ({
-        id: movement.id,
-        quantity: movement.quantity,
-        type: movement.type,
-        reason: movement.reason,
-        createdAt: new Date(movement.created_at),
-      }));
-
       return {
         success: true,
-        data: transformedMovements,
+        data: movements.map(movement => ({
+          id: movement.id,
+          quantity: movement.quantity,
+          type: movement.type,
+          reason: movement.reason,
+          createdAt: new Date(movement.created_at),
+        })),
       };
 
     } catch (error) {
@@ -387,7 +374,7 @@ export class InventoryService implements IInventoryService {
     reason?: string
   ): Promise<void> {
     try {
-      await supabase
+      await this.supabase
         .from('inventory_movements')
         .insert({
           product_id: productId,
@@ -396,10 +383,8 @@ export class InventoryService implements IInventoryService {
           reason,
           created_at: new Date().toISOString(),
         });
-
     } catch (error) {
       console.error('Failed to log inventory movement:', error);
-      // Don't throw error as this is just logging
     }
   }
 
@@ -409,8 +394,14 @@ export class InventoryService implements IInventoryService {
     reason: string
   ): Promise<ApiResponse<void>> {
     try {
-      // Get current stock
-      const { data: product, error: fetchError } = await supabase
+      if (newQuantity < 0) {
+        return {
+          success: false,
+          error: 'Stock quantity cannot be negative',
+        };
+      }
+
+      const { data: product, error: fetchError } = await this.supabase
         .from('products')
         .select('stock')
         .eq('id', productId)
@@ -423,19 +414,11 @@ export class InventoryService implements IInventoryService {
         };
       }
 
-      if (newQuantity < 0) {
-        return {
-          success: false,
-          error: 'Stock quantity cannot be negative',
-        };
-      }
-
       const adjustment = newQuantity - product.stock;
 
-      // Update stock to new quantity
-      const { error: updateError } = await supabase
+      const { error: updateError } = await this.supabase
         .from('products')
-        .update({ 
+        .update({
           stock: newQuantity,
           updated_at: new Date().toISOString(),
         })
@@ -448,13 +431,9 @@ export class InventoryService implements IInventoryService {
         };
       }
 
-      // Log the adjustment
       await this.logInventoryMovement(productId, adjustment, 'adjustment', reason);
 
-      return {
-        success: true,
-        data: undefined,
-      };
+      return { success: true, data: undefined };
 
     } catch (error) {
       return {
@@ -466,8 +445,42 @@ export class InventoryService implements IInventoryService {
 
   async completeReservation(reservationId: string): Promise<ApiResponse<void>> {
     try {
-      // Mark reservation as completed (order was finalized)
-      const { error: updateError } = await supabase
+      // Fetch items before marking completed so we can decrement actual stock.
+      // Reservations are soft holds — products.stock is only reduced here at
+      // order finalisation, not at reservation time.
+      const { data: reservationItems, error: fetchError } = await this.supabase
+        .from('stock_reservations')
+        .select('product_id, quantity')
+        .eq('reservation_id', reservationId)
+        .eq('status', 'active');
+
+      if (fetchError) {
+        return {
+          success: false,
+          error: `Failed to fetch reservation: ${fetchError.message}`,
+        };
+      }
+
+      if (!reservationItems || reservationItems.length === 0) {
+        return {
+          success: false,
+          error: `Reservation ${reservationId} not found or already completed`,
+        };
+      }
+
+      // Decrement stock first. If this fails the reservation stays active
+      // and the caller can retry — no silent data inconsistency.
+      for (const item of reservationItems) {
+        const result = await this.updateStock(item.product_id, -item.quantity);
+        if (!result.success) {
+          return {
+            success: false,
+            error: `Stock decrement failed for product ${item.product_id}: ${result.error}`,
+          };
+        }
+      }
+
+      const { error: updateError } = await this.supabase
         .from('stock_reservations')
         .update({
           status: 'completed',
@@ -486,10 +499,7 @@ export class InventoryService implements IInventoryService {
 
       console.log(`Reservation completed: ${reservationId}`);
 
-      return {
-        success: true,
-        data: undefined,
-      };
+      return { success: true, data: undefined };
 
     } catch (error) {
       return {
@@ -501,49 +511,32 @@ export class InventoryService implements IInventoryService {
 
   async cleanupExpiredReservations(): Promise<ApiResponse<{ expiredCount: number }>> {
     try {
-      // Find and expire reservations past their expiration time
-      const { data: expiredReservations, error: selectError } = await supabase
+      // Single UPDATE returning affected rows — avoids the separate SELECT
+      const { data: expired, error: updateError } = await this.supabase
         .from('stock_reservations')
-        .select('id')
+        .update({
+          status: 'expired',
+          updated_at: new Date().toISOString(),
+        })
         .eq('status', 'active')
-        .lt('expires_at', new Date().toISOString());
+        .lt('expires_at', new Date().toISOString())
+        .select('id');
 
-      if (selectError) {
-        console.error('Failed to fetch expired reservations:', selectError);
+      if (updateError) {
+        console.error('Failed to expire reservations:', updateError);
         return {
           success: false,
-          error: `Failed to cleanup expired reservations: ${selectError.message}`,
+          error: `Failed to cleanup expired reservations: ${updateError.message}`,
         };
       }
 
-      const expiredCount = expiredReservations?.length || 0;
+      const expiredCount = expired?.length ?? 0;
 
       if (expiredCount > 0) {
-        // Update status to expired
-        const { error: updateError } = await supabase
-          .from('stock_reservations')
-          .update({
-            status: 'expired',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('status', 'active')
-          .lt('expires_at', new Date().toISOString());
-
-        if (updateError) {
-          console.error('Failed to expire reservations:', updateError);
-          return {
-            success: false,
-            error: `Failed to expire reservations: ${updateError.message}`,
-          };
-        }
-
         console.log(`Expired ${expiredCount} stock reservations`);
       }
 
-      return {
-        success: true,
-        data: { expiredCount },
-      };
+      return { success: true, data: { expiredCount } };
 
     } catch (error) {
       return {
@@ -555,8 +548,7 @@ export class InventoryService implements IInventoryService {
 
   async getActiveReservations(productId: string): Promise<ApiResponse<number>> {
     try {
-      // Get total quantity of active reservations for a product
-      const { data: reservations, error } = await supabase
+      const { data: reservations, error } = await this.supabase
         .from('stock_reservations')
         .select('quantity')
         .eq('product_id', productId)
@@ -571,12 +563,9 @@ export class InventoryService implements IInventoryService {
         };
       }
 
-      const totalReserved = reservations?.reduce((sum, r) => sum + r.quantity, 0) || 0;
+      const totalReserved = reservations?.reduce((sum, r) => sum + r.quantity, 0) ?? 0;
 
-      return {
-        success: true,
-        data: totalReserved,
-      };
+      return { success: true, data: totalReserved };
 
     } catch (error) {
       return {

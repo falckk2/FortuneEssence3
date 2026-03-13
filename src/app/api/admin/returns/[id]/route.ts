@@ -3,14 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { container, TOKENS } from '@/config/di-container';
-import { IReturnService } from '@/interfaces/services';
+import type { IReturnService } from '@/interfaces/services';
+import type { ApiResponse, Return } from '@/types';
 
-function getReturnService() {
-  return container.resolve<IReturnService>(TOKENS.IReturnService);
-}
+const returnService = container.resolve<IReturnService>(TOKENS.IReturnService);
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -22,20 +21,26 @@ export async function GET(
       );
     }
     if (!session.user.isAdmin) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const returnService = getReturnService();
     const { id } = await params;
-
     const result = await returnService.getReturnById(id);
 
-    return NextResponse.json(result, {
-      status: result.success ? 200 : 404,
-    });
+    if (!result.success) {
+      const isNotFound = result.error?.toLowerCase().includes('not found');
+      if (isNotFound) {
+        return NextResponse.json({ success: false, error: 'Return not found' }, { status: 404 });
+      }
+      console.error('Failed to fetch return:', result.error);
+      return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
+    console.error('Failed to fetch return:', error);
     return NextResponse.json(
-      { success: false, error: `Server error: ${error}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -54,13 +59,11 @@ export async function PATCH(
       );
     }
     if (!session.user.isAdmin) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const returnService = getReturnService();
     const { id } = await params;
     const body = await request.json();
-
     const { action, adminNotes, reason } = body;
 
     if (!action) {
@@ -70,7 +73,7 @@ export async function PATCH(
       );
     }
 
-    let result;
+    let result: ApiResponse<Return>;
 
     switch (action) {
       case 'approve':
@@ -106,12 +109,16 @@ export async function PATCH(
         );
     }
 
-    return NextResponse.json(result, {
-      status: result.success ? 200 : 400,
-    });
+    if (!result.success) {
+      console.error('Failed to update return:', result.error);
+      return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
+    console.error('Failed to update return:', error);
     return NextResponse.json(
-      { success: false, error: `Server error: ${error}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

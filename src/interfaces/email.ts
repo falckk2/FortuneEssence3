@@ -29,7 +29,7 @@ export interface IEmailService {
   sendTemplateEmail(
     to: string | string[],
     template: EmailTemplate,
-    data: Record<string, any>
+    data: Record<string, unknown>
   ): Promise<ApiResponse<{ messageId: string }>>;
   sendOrderConfirmation(
     email: string,

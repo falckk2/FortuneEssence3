@@ -1,15 +1,35 @@
 import { NextRequest } from 'next/server';
-import { GET } from '@/app/api/cron/send-abandoned-cart-reminders/route';
 import type { ICartService, IEmailService, IProductService } from '@/interfaces';
-import { container } from 'tsyringe';
 import { mockAbandonedCart, mockCartItems, mockProduct } from '../helpers/testData';
+
+jest.mock('@/lib/supabase', () => ({ supabase: { from: jest.fn() } }));
+jest.mock('@/lib/supabase-server', () => ({ getSupabaseServer: jest.fn(() => ({ from: jest.fn() })) }));
+jest.mock('@/config/di-init', () => ({}));
 
 // Mock the DI container
 jest.mock('tsyringe', () => ({
   container: {
     resolve: jest.fn(),
+    register: jest.fn(),
+  },
+  injectable: () => () => {},
+  inject: () => () => {},
+}));
+
+jest.mock('@/config/di-container', () => ({
+  TOKENS: {
+    ICartService: Symbol.for('ICartService'),
+    IEmailService: Symbol.for('IEmailService'),
+    IProductService: Symbol.for('IProductService'),
+  },
+  container: {
+    resolve: jest.fn(),
+    register: jest.fn(),
   },
 }));
+
+import { GET } from '@/app/api/cron/send-abandoned-cart-reminders/route';
+import { container } from '@/config/di-container';
 
 describe('Abandoned Cart Reminders Cron Job', () => {
   let mockCartService: jest.Mocked<ICartService>;

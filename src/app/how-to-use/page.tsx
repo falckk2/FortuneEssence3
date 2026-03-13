@@ -9,9 +9,10 @@ import {
   ExclamationTriangleIcon,
   HeartIcon,
 } from '@heroicons/react/24/outline';
+import { useLocale } from '@/contexts/LocaleContext';
 
 export default function HowToUsePage() {
-  const locale = 'sv'; // This would come from context in a real app
+  const { locale } = useLocale();
 
   const usageMethods = [
     {

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 
 // Mock tracking data for demonstration
 const mockOrderTracking = {
@@ -76,12 +78,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // orderId lookups require authentication — tracking number lookups are public
+    if (orderId && !trackingNumber) {
+      const session = await getServerSession(authOptions);
+      if (!session?.user?.id) {
+        return NextResponse.json(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+    }
+
     // TODO: Implement database lookup
     /*
     let order;
 
     if (trackingNumber) {
-      // Find order by tracking number
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -114,7 +126,6 @@ export async function GET(request: NextRequest) {
 
       order = data;
     } else if (orderId) {
-      // Find order by order ID (could be internal ID or order number)
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -148,12 +159,9 @@ export async function GET(request: NextRequest) {
       order = data;
     }
 
-    // Fetch tracking history from carrier API or database
     let trackingHistory = [];
 
     if (order.trackingNumber && order.carrier) {
-      // In production, fetch from carrier API
-      // For now, get from database
       const { data: history } = await supabase
         .from('tracking_events')
         .select('*')
@@ -163,7 +171,6 @@ export async function GET(request: NextRequest) {
       trackingHistory = history || [];
     }
 
-    // Format response
     const trackingData = {
       orderId: order.id,
       orderNumber: order.orderNumber,
@@ -182,13 +189,9 @@ export async function GET(request: NextRequest) {
       trackingHistory,
     };
 
-    return NextResponse.json({
-      success: true,
-      data: trackingData
-    });
+    return NextResponse.json({ success: true, data: trackingData });
     */
 
-    // For now, return mock data
     let orderKey: string | null = null;
 
     if (orderId) {
@@ -200,7 +203,7 @@ export async function GET(request: NextRequest) {
     if (orderKey && mockOrderTracking[orderKey as keyof typeof mockOrderTracking]) {
       return NextResponse.json({
         success: true,
-        data: mockOrderTracking[orderKey as keyof typeof mockOrderTracking]
+        data: mockOrderTracking[orderKey as keyof typeof mockOrderTracking],
       });
     }
 
@@ -208,11 +211,10 @@ export async function GET(request: NextRequest) {
       { success: false, error: 'Order not found' },
       { status: 404 }
     );
-
   } catch (error) {
     console.error('Track order error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to track order' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

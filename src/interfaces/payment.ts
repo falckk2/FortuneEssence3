@@ -35,5 +35,4 @@ export interface IPaymentProcessor {
 export interface IPaymentProcessorRegistry {
   register(processor: IPaymentProcessor): void;
   getProcessor(method: string): IPaymentProcessor | undefined;
-  getAllProcessors(): IPaymentProcessor[];
 }

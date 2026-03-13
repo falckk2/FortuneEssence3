@@ -2,7 +2,7 @@
 
 import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { XMarkIcon, TrashIcon, PlusIcon, MinusIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, TrashIcon, PlusIcon, MinusIcon, ShoppingBagIcon } from '@heroicons/react/24/outline';
 import { useCartStore } from '@/stores/cartStore';
 import { Product, BundleSelection } from '@/types';
 import { PriceCalculator } from '@/utils/helpers';
@@ -17,6 +17,7 @@ interface CartSidebarProps {
 }
 
 interface CartItemWithProduct {
+  cartItemId?: string;
   productId: string;
   quantity: number;
   price: number;
@@ -111,8 +112,8 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
     await updateQuantity(productId, newQuantity);
   };
 
-  const handleRemoveItem = async (productId: string) => {
-    await removeItem(productId);
+  const handleRemoveItem = async (productId: string, cartItemId?: string) => {
+    await removeItem(productId, cartItemId);
   };
 
   const handleClearCart = async () => {
@@ -150,7 +151,7 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+          <div className="fixed inset-0 bg-forest-900/60 dark:bg-black/70 transition-opacity" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-hidden">
@@ -166,17 +167,17 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
                 leaveTo="translate-x-full"
               >
                 <Dialog.Panel className="pointer-events-auto w-screen max-w-md">
-                  <div className="flex h-full flex-col overflow-y-scroll bg-white shadow-xl">
+                  <div className="flex h-full flex-col overflow-y-scroll bg-white dark:bg-[#242a28] shadow-xl">
                     {/* Header */}
                     <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
                       <div className="flex items-start justify-between">
-                        <Dialog.Title className="text-lg font-medium text-gray-900">
+                        <Dialog.Title className="text-lg font-medium text-forest-900 dark:text-[#E8EDE8]">
                           {locale === 'sv' ? 'Varukorg' : 'Shopping Cart'}
                         </Dialog.Title>
                         <div className="ml-3 flex h-7 items-center">
                           <button
                             type="button"
-                            className="relative -m-2 p-2 text-gray-400 hover:text-gray-500"
+                            className="relative -m-2 p-2 text-forest-400 dark:text-[#8A9A8A] hover:text-forest-600 dark:hover:text-[#C5D4C5]"
                             onClick={onClose}
                           >
                             <span className="absolute -inset-0.5" />
@@ -192,36 +193,35 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
                             <div className="space-y-4">
                               {[...Array(items.length)].map((_, i) => (
                                 <div key={i} className="animate-pulse flex space-x-4">
-                                  <div className="rounded bg-gray-300 h-20 w-20"></div>
+                                  <div className="rounded bg-cream-200 dark:bg-[#2a3330] h-20 w-20"></div>
                                   <div className="flex-1 space-y-2 py-1">
-                                    <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                                    <div className="h-4 bg-gray-300 rounded w-1/2"></div>
-                                    <div className="h-4 bg-gray-300 rounded w-1/4"></div>
+                                    <div className="h-4 bg-cream-200 dark:bg-[#2a3330] rounded w-3/4"></div>
+                                    <div className="h-4 bg-cream-200 dark:bg-[#2a3330] rounded w-1/2"></div>
+                                    <div className="h-4 bg-cream-200 dark:bg-[#2a3330] rounded w-1/4"></div>
                                   </div>
                                 </div>
                               ))}
                             </div>
                           ) : cartItems.length === 0 ? (
                             <div className="text-center py-12">
-                              <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l-1 12H6L5 9z" />
-                                </svg>
-                              </div>
-                              <h3 className="text-sm font-medium text-gray-900 mb-2">
+                              <ShoppingBagIcon className="mx-auto h-12 w-12 text-forest-400 dark:text-[#6B7B6B] mb-4" />
+                              <h3 className="text-sm font-medium text-forest-900 dark:text-[#E8EDE8] mb-2">
                                 {locale === 'sv' ? 'Din varukorg är tom' : 'Your cart is empty'}
                               </h3>
-                              <p className="text-sm text-gray-500">
+                              <p className="text-sm text-forest-500 dark:text-[#8A9A8A]">
                                 {locale === 'sv' ? 'Lägg till produkter för att fortsätta' : 'Add products to continue'}
                               </p>
                             </div>
                           ) : (
-                            <ul role="list" className="-my-6 divide-y divide-gray-200">
-                              {cartItems.map((item) => (
-                                <li key={item.productId} className="flex py-6">
-                                  <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200 flex items-center justify-center">
-                                    {item.bundleSelection && item.selectedProducts && item.selectedProducts.length > 0 ? (
-                                      <div className="bg-gradient-to-br from-sage-50 to-forest-50 w-full h-full flex items-center justify-center">
+                            <ul role="list" className="-my-6 divide-y divide-cream-200 dark:divide-[#3f4946]">
+                              {cartItems.map((item) => {
+                                const isBundle = !!item.bundleSelection;
+                                const itemKey = item.cartItemId || item.productId;
+                                return (
+                                <li key={itemKey} className="flex py-6">
+                                  <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-cream-200 dark:border-[#3f4946] flex items-center justify-center">
+                                    {isBundle && item.selectedProducts && item.selectedProducts.length > 0 ? (
+                                      <div className="bg-gradient-to-br from-sage-50 to-forest-50 dark:from-[#2a3330] dark:to-[#1e2421] w-full h-full flex items-center justify-center">
                                         <BundleImage quantity={item.selectedProducts.length} size={44} />
                                       </div>
                                     ) : (
@@ -237,12 +237,12 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
 
                                   <div className="ml-4 flex flex-1 flex-col">
                                     <div>
-                                      <div className="flex justify-between text-base font-medium text-gray-900">
+                                      <div className="flex justify-between text-base font-medium text-forest-900 dark:text-[#E8EDE8]">
                                         <h3>
                                           <Link
                                             href={`/products/${item.productId}`}
                                             onClick={onClose}
-                                            className="hover:text-purple-600"
+                                            className="hover:text-sage-700 dark:hover:text-sage-400"
                                           >
                                             {getProductName(item.product)}
                                           </Link>
@@ -251,19 +251,19 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
                                           {PriceCalculator.formatPrice(item.price * item.quantity, locale)}
                                         </p>
                                       </div>
-                                      <p className="mt-1 text-sm text-gray-500">
+                                      <p className="mt-1 text-sm text-forest-500 dark:text-[#8A9A8A]">
                                         {PriceCalculator.formatPrice(item.price, locale)} {locale === 'sv' ? 'st' : 'each'}
                                       </p>
 
                                       {/* Bundle Contents */}
-                                      {item.bundleSelection && item.selectedProducts && item.selectedProducts.length > 0 && (
+                                      {isBundle && item.selectedProducts && item.selectedProducts.length > 0 && (
                                         <div className="mt-2 space-y-1">
-                                          <p className="text-xs font-medium text-sage-700 uppercase tracking-wide">
+                                          <p className="text-xs font-medium text-sage-700 dark:text-sage-400 uppercase tracking-wide">
                                             {locale === 'sv' ? 'Innehåller:' : 'Contains:'}
                                           </p>
                                           <ul className="space-y-1">
                                             {item.selectedProducts.map((selectedProduct, idx) => (
-                                              <li key={`${item.productId}-${selectedProduct.id}-${idx}`} className="flex items-center text-xs text-gray-600">
+                                              <li key={`${itemKey}-${selectedProduct.id}-${idx}`} className="flex items-center text-xs text-forest-600 dark:text-[#C5D4C5]">
                                                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-sage-500 mr-2"></span>
                                                 {locale === 'sv' ? selectedProduct.translations.sv.name : selectedProduct.translations.en.name}
                                               </li>
@@ -273,29 +273,36 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
                                       )}
                                     </div>
                                     <div className="flex flex-1 items-end justify-between text-sm">
-                                      <div className="flex items-center space-x-2">
-                                        <button
-                                          onClick={() => handleQuantityChange(item.productId, item.quantity - 1)}
-                                          disabled={isLoading || item.quantity <= 1}
-                                          className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                          <MinusIcon className="h-4 w-4" />
-                                        </button>
-                                        <span className="font-medium">{item.quantity}</span>
-                                        <button
-                                          onClick={() => handleQuantityChange(item.productId, item.quantity + 1)}
-                                          disabled={isLoading}
-                                          className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                          <PlusIcon className="h-4 w-4" />
-                                        </button>
-                                      </div>
+                                      {isBundle ? (
+                                        /* Bundles: quantity is fixed at 1 per instance, no +/- */
+                                        <span className="text-forest-500 dark:text-[#8A9A8A]">
+                                          {locale === 'sv' ? 'Antal: 1' : 'Qty: 1'}
+                                        </span>
+                                      ) : (
+                                        <div className="flex items-center space-x-2">
+                                          <button
+                                            onClick={() => handleQuantityChange(item.productId, item.quantity - 1)}
+                                            disabled={isLoading || item.quantity <= 1}
+                                            className="flex items-center justify-center w-8 h-8 rounded-full border border-cream-300 dark:border-[#3f4946] hover:bg-cream-50 dark:hover:bg-[#2a3330] disabled:opacity-50 disabled:cursor-not-allowed text-forest-700 dark:text-[#C5D4C5]"
+                                          >
+                                            <MinusIcon className="h-4 w-4" />
+                                          </button>
+                                          <span className="font-medium text-forest-900 dark:text-[#E8EDE8]">{item.quantity}</span>
+                                          <button
+                                            onClick={() => handleQuantityChange(item.productId, item.quantity + 1)}
+                                            disabled={isLoading}
+                                            className="flex items-center justify-center w-8 h-8 rounded-full border border-cream-300 dark:border-[#3f4946] hover:bg-cream-50 dark:hover:bg-[#2a3330] disabled:opacity-50 disabled:cursor-not-allowed text-forest-700 dark:text-[#C5D4C5]"
+                                          >
+                                            <PlusIcon className="h-4 w-4" />
+                                          </button>
+                                        </div>
+                                      )}
 
                                       <button
                                         type="button"
-                                        onClick={() => handleRemoveItem(item.productId)}
+                                        onClick={() => handleRemoveItem(item.productId, item.cartItemId)}
                                         disabled={isLoading}
-                                        className="font-medium text-red-600 hover:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                                        className="font-medium text-red-600 dark:text-red-400 hover:text-red-500 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                                       >
                                         <TrashIcon className="h-4 w-4 mr-1" />
                                         {locale === 'sv' ? 'Ta bort' : 'Remove'}
@@ -303,7 +310,8 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
                                     </div>
                                   </div>
                                 </li>
-                              ))}
+                                );
+                              })}
                             </ul>
                           )}
                         </div>
@@ -312,37 +320,37 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
 
                     {/* Footer */}
                     {cartItems.length > 0 && (
-                      <div className="border-t border-gray-200 px-4 py-6 sm:px-6">
+                      <div className="border-t border-cream-200 dark:border-[#3f4946] px-4 py-6 sm:px-6">
                         <div className="space-y-4">
                           {/* Clear Cart Button */}
                           <button
                             onClick={handleClearCart}
                             disabled={isLoading}
-                            className="text-sm text-gray-500 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-sm text-forest-500 dark:text-[#8A9A8A] hover:text-red-600 dark:hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {locale === 'sv' ? 'Töm varukorg' : 'Clear cart'}
                           </button>
 
                           {/* Subtotal */}
-                          <div className="flex justify-between text-base font-medium text-gray-900">
+                          <div className="flex justify-between text-base font-medium text-forest-900 dark:text-[#E8EDE8]">
                             <p>{locale === 'sv' ? 'Subtotal' : 'Subtotal'}</p>
                             <p>{subtotal}</p>
                           </div>
 
                           {/* Tax */}
-                          <div className="flex justify-between text-sm text-gray-600">
+                          <div className="flex justify-between text-sm text-forest-600 dark:text-[#C5D4C5]">
                             <p>{locale === 'sv' ? 'Moms (25%)' : 'VAT (25%)'}</p>
                             <p>{estimatedTax}</p>
                           </div>
 
                           {/* Total */}
-                          <div className="flex justify-between text-lg font-bold text-gray-900 border-t pt-4">
+                          <div className="flex justify-between text-lg font-bold text-forest-900 dark:text-[#E8EDE8] border-t border-cream-200 dark:border-[#3f4946] pt-4">
                             <p>{locale === 'sv' ? 'Totalt' : 'Total'}</p>
                             <p>{totalWithTax}</p>
                           </div>
 
-                          <p className="text-sm text-gray-500">
-                            {locale === 'sv' 
+                          <p className="text-sm text-forest-500 dark:text-[#8A9A8A]">
+                            {locale === 'sv'
                               ? 'Frakt och leverans beräknas vid kassan.'
                               : 'Shipping and delivery calculated at checkout.'
                             }
@@ -352,18 +360,18 @@ export const CartSidebar = ({ isOpen, onClose, locale = 'sv' }: CartSidebarProps
                             <Link
                               href="/checkout"
                               onClick={onClose}
-                              className="flex w-full items-center justify-center rounded-md border border-transparent bg-purple-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="flex w-full items-center justify-center rounded-md border border-transparent bg-sage-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-sage-700 transition-colors"
                             >
                               {locale === 'sv' ? 'Gå till kassan' : 'Checkout'}
                             </Link>
                           </div>
 
-                          <div className="mt-6 flex justify-center text-center text-sm text-gray-500">
+                          <div className="mt-6 flex justify-center text-center text-sm text-forest-500 dark:text-[#8A9A8A]">
                             <p>
                               {locale === 'sv' ? 'eller ' : 'or '}
                               <button
                                 type="button"
-                                className="font-medium text-purple-600 hover:text-purple-500"
+                                className="font-medium text-sage-700 dark:text-sage-400 hover:text-sage-800 dark:hover:text-sage-300"
                                 onClick={onClose}
                               >
                                 {locale === 'sv' ? 'Fortsätt handla' : 'Continue shopping'}

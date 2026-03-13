@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLocale } from '@/contexts/LocaleContext';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -18,7 +19,7 @@ import toast from 'react-hot-toast';
 export default function WishlistPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const locale = 'sv'; // Would come from context in real app
+  const { locale } = useLocale();
   const { data: session, status } = useSession();
   const router = useRouter();
 
@@ -112,7 +113,7 @@ export default function WishlistPage() {
         price: product.price
       });
       toast.success(locale === 'sv' ? 'Tillagd i varukorgen' : 'Added to cart');
-    } catch (error) {
+    } catch {
       toast.error(locale === 'sv' ? 'Kunde inte lägga till i varukorgen' : 'Failed to add to cart');
     }
   };
@@ -138,7 +139,7 @@ export default function WishlistPage() {
           ? `${inStockProducts.length} produkter tillagda i varukorgen`
           : `${inStockProducts.length} products added to cart`
       );
-    } catch (error) {
+    } catch {
       toast.error(locale === 'sv' ? 'Kunde inte lägga till alla produkter' : 'Failed to add all products');
     }
   };

@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { ArrowRightIcon } from '@heroicons/react/24/outline';
+import { useLocale } from '@/contexts/LocaleContext';
 
 export default function AboutPage() {
-  const locale = 'sv'; // This would come from context in a real app
+  const { locale } = useLocale();
 
   return (
     <div className="min-h-screen">
@@ -12,12 +13,12 @@ export default function AboutPage() {
       <section className="relative overflow-hidden bg-gradient-to-br from-yellow-100 via-purple-50 to-yellow-50 dark:from-[#2a3330] dark:via-[#1a1f1e] dark:to-[#242a28] py-32">
         <div className="container mx-auto px-4 relative">
           <div className="text-center max-w-4xl mx-auto">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-[#E8EDE8] mb-6">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-forest-900 dark:text-[#E8EDE8] mb-6">
               <span className="block bg-gradient-to-r from-yellow-600 via-purple-600 to-yellow-600 dark:from-sage-400 dark:via-sage-300 dark:to-sage-400 bg-clip-text text-transparent">
                 Fortune Essence
               </span>
             </h1>
-            <p className="text-xl text-gray-700 dark:text-[#B8C5B8] mb-8 leading-relaxed">
+            <p className="text-xl text-forest-700 dark:text-[#B8C5B8] mb-8 leading-relaxed">
               {locale === 'sv'
                 ? 'Upptäck vårt sortiment av exklusiva paket och buntar.'
                 : 'Discover our selection of exclusive packages and bundles.'
@@ -25,7 +26,7 @@ export default function AboutPage() {
             </p>
             <Link
               href="/"
-              className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-full text-white bg-gradient-to-r from-purple-600 to-purple-800 dark:from-sage-700 dark:to-sage-800 hover:from-purple-700 hover:to-purple-900 transition-colors duration-200"
+              className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-full text-white bg-gradient-to-r from-sage-600 to-sage-800 dark:from-sage-700 dark:to-sage-800 hover:from-sage-700 hover:to-sage-900 transition-colors duration-200"
             >
               {locale === 'sv' ? 'Se Produkter' : 'Shop Now'}
               <ArrowRightIcon className="ml-2 h-5 w-5" />

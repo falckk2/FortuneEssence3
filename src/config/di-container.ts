@@ -1,17 +1,21 @@
 // Dependency Injection Container
 // Following Dependency Inversion Principle - depend on abstractions, not concretions
+/* eslint-disable @typescript-eslint/no-require-imports */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import 'reflect-metadata';
 import { container } from 'tsyringe';
-import { SupabaseClient } from '@supabase/supabase-js';
+import Stripe from 'stripe';
 import { supabase } from '@/lib/supabase';
 import { getSupabaseServer } from '@/lib/supabase-server';
+import { config } from '@/config';
 
 // Tokens for dependency injection
 export const TOKENS = {
   // Database
   SupabaseClient: Symbol.for('SupabaseClient'),
   SupabaseServerClient: Symbol.for('SupabaseServerClient'),
+  Stripe: Symbol.for('Stripe'),
 
   // Repositories
   IProductRepository: Symbol.for('IProductRepository'),
@@ -66,6 +70,13 @@ export function configureDependencyInjection() {
   // Only available server-side - DI configuration only runs on server
   container.register(TOKENS.SupabaseServerClient, {
     useValue: getSupabaseServer(),
+  });
+
+  // Register Stripe client
+  container.register(TOKENS.Stripe, {
+    useValue: new Stripe(config.payments.stripe.secretKey || 'sk_test_placeholder', {
+      apiVersion: '2025-08-27.basil',
+    }),
   });
 
   // Register Repositories

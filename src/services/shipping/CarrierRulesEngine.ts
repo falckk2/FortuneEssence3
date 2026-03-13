@@ -7,7 +7,7 @@
 
 import { injectable } from 'tsyringe';
 import { CarrierInfo, ShippingRate } from '@/types';
-import { getAllCarriers, getCarriersByWeight, getEcoFriendlyCarriers } from '@/config/carriers';
+import { CARRIERS } from '@/config/carriers';
 
 export interface FilterCriteria {
   weight: number;
@@ -81,7 +81,7 @@ export class CarrierRulesEngine {
     if (zone === 'Norrland') {
       // Filter out same-day carriers for Norrland
       return carriers.filter(carrier =>
-        carrier.code !== 'INSTABEE' // Instabee doesn't deliver to Norrland
+        carrier.code !== CARRIERS.INSTABEE.code // Instabee doesn't deliver to Norrland
       );
     }
 
@@ -92,9 +92,9 @@ export class CarrierRulesEngine {
    * Prioritize premium carriers for high-value orders
    */
   prioritizePremiumCarriers(carriers: CarrierInfo[]): CarrierInfo[] {
-    const premiumCarriers = ['DHL', 'BUDBEE', 'INSTABEE'];
+    const premiumCarriers = [CARRIERS.DHL.code, CARRIERS.BUDBEE.code, CARRIERS.INSTABEE.code];
 
-    return carriers.sort((a, b) => {
+    return [...carriers].sort((a, b) => {
       const aIsPremium = premiumCarriers.includes(a.code);
       const bIsPremium = premiumCarriers.includes(b.code);
 
@@ -108,9 +108,9 @@ export class CarrierRulesEngine {
    * Deprioritize premium carriers (for budget-conscious customers)
    */
   deprioritizePremiumCarriers(carriers: CarrierInfo[]): CarrierInfo[] {
-    const premiumCarriers = ['DHL', 'INSTABEE'];
+    const premiumCarriers = [CARRIERS.DHL.code, CARRIERS.BUDBEE.code, CARRIERS.INSTABEE.code];
 
-    return carriers.sort((a, b) => {
+    return [...carriers].sort((a, b) => {
       const aIsPremium = premiumCarriers.includes(a.code);
       const bIsPremium = premiumCarriers.includes(b.code);
 
@@ -124,7 +124,7 @@ export class CarrierRulesEngine {
    * Prioritize eco-friendly carriers
    */
   prioritizeEcoFriendly(carriers: CarrierInfo[]): CarrierInfo[] {
-    return carriers.sort((a, b) => {
+    return [...carriers].sort((a, b) => {
       const aHasEco = a.services.some(s => s.isEcoFriendly);
       const bHasEco = b.services.some(s => s.isEcoFriendly);
 
@@ -138,9 +138,9 @@ export class CarrierRulesEngine {
    * Sort carriers by delivery speed (fastest first)
    */
   sortBySpeed(carriers: CarrierInfo[]): CarrierInfo[] {
-    return carriers.sort((a, b) => {
-      const aFastest = Math.min(...a.services.map(s => s.estimatedDays));
-      const bFastest = Math.min(...b.services.map(s => s.estimatedDays));
+    return [...carriers].sort((a, b) => {
+      const aFastest = a.services.length > 0 ? Math.min(...a.services.map(s => s.estimatedDays)) : Infinity;
+      const bFastest = b.services.length > 0 ? Math.min(...b.services.map(s => s.estimatedDays)) : Infinity;
       return aFastest - bFastest;
     });
   }
@@ -149,14 +149,14 @@ export class CarrierRulesEngine {
    * Sort shipping rates by price (cheapest first)
    */
   sortByPrice(rates: ShippingRate[]): ShippingRate[] {
-    return rates.sort((a, b) => a.price - b.price);
+    return [...rates].sort((a, b) => a.price - b.price);
   }
 
   /**
    * Sort shipping rates by speed (fastest first)
    */
   sortRatesBySpeed(rates: ShippingRate[]): ShippingRate[] {
-    return rates.sort((a, b) => a.estimatedDays - b.estimatedDays);
+    return [...rates].sort((a, b) => a.estimatedDays - b.estimatedDays);
   }
 
   /**
@@ -195,7 +195,7 @@ export class CarrierRulesEngine {
    */
   private getSwedishZone(postalCode: string): string {
     const code = postalCode.replace(/\s/g, '');
-    const firstTwo = parseInt(code.substring(0, 2));
+    const firstTwo = parseInt(code.substring(0, 2), 10);
 
     // Uppsala region (check first to avoid overlap with Stockholm)
     if (firstTwo === 75) {
@@ -213,7 +213,7 @@ export class CarrierRulesEngine {
     }
 
     // Malmö region
-    if ((firstTwo >= 20 && firstTwo <= 26) || (firstTwo >= 27 && firstTwo <= 28)) {
+    if (firstTwo >= 20 && firstTwo <= 28) {
       return 'Malmö';
     }
 

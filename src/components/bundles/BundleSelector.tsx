@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { PhotoIcon } from '@heroicons/react/24/outline';
 import { Product, BundleConfiguration } from '@/types';
 import { useCartStore } from '@/stores/cartStore';
 import toast from 'react-hot-toast';
@@ -194,23 +195,23 @@ export function BundleSelector({
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-sage-50 to-forest-50 rounded-lg p-6">
-        <h3 className="text-2xl font-serif font-bold text-forest-800 mb-2">
+        <h3 className="text-2xl font-serif font-bold text-forest-800 dark:text-[#E8EDE8] mb-2">
           {locale === 'sv'
             ? `Välj ${bundleConfig.requiredQuantity} oljor`
             : `Choose ${bundleConfig.requiredQuantity} oils`}
         </h3>
         <div className="flex items-baseline gap-3 mb-2">
-          <span className="text-3xl font-bold text-forest-900">
+          <span className="text-3xl font-bold text-forest-900 dark:text-[#E8EDE8]">
             {bundleProduct.price} kr
           </span>
-          <span className="text-lg text-gray-500 line-through">
+          <span className="text-lg text-forest-500 dark:text-[#6B7B6B] line-through">
             {regularPrice} kr
           </span>
           <span className="bg-sage-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
             {locale === 'sv' ? 'Spara' : 'Save'} {savings} kr
           </span>
         </div>
-        <p className="text-gray-600">
+        <p className="text-forest-600 dark:text-[#B8C5B8]">
           {locale === 'sv'
             ? `${bundleConfig.discountPercentage.toFixed(0)}% rabatt mot ordinarie pris`
             : `${bundleConfig.discountPercentage.toFixed(0)}% discount from regular price`}
@@ -218,20 +219,20 @@ export function BundleSelector({
       </div>
 
       {/* Selection Progress */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <div className="bg-white dark:bg-[#242a28] border border-cream-200 dark:border-[#3f4946] rounded-lg p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-forest-700 dark:text-[#C5D4C5]">
             {locale === 'sv' ? 'Valda oljor' : 'Selected oils'}
           </span>
           <span
             className={`text-sm font-bold ${
-              isSelectionComplete ? 'text-sage-600' : 'text-gray-500'
+              isSelectionComplete ? 'text-sage-600' : 'text-forest-500 dark:text-[#6B7B6B]'
             }`}
           >
             {selectedProducts.length} / {bundleConfig.requiredQuantity}
           </span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className="w-full bg-cream-200 dark:bg-[#3f4946] rounded-full h-2">
           <div
             className={`h-2 rounded-full transition-all duration-300 ${
               isSelectionComplete ? 'bg-sage-600' : 'bg-forest-400'
@@ -262,10 +263,10 @@ export function BundleSelector({
                 relative rounded-lg border-2 p-4 transition-all duration-200
                 ${
                   isSelected
-                    ? 'border-sage-600 bg-sage-50 shadow-md'
+                    ? 'border-sage-600 bg-sage-50 dark:bg-[#2a3330] shadow-md'
                     : canSelect
-                      ? 'border-gray-200 hover:border-sage-300 hover:shadow-sm'
-                      : 'border-gray-200 opacity-50'
+                      ? 'border-cream-200 dark:border-[#3f4946] hover:border-sage-300 dark:hover:border-sage-600 hover:shadow-sm'
+                      : 'border-cream-200 dark:border-[#3f4946] opacity-50'
                 }
               `}
             >
@@ -277,7 +278,7 @@ export function BundleSelector({
               )}
 
               {/* Product Image */}
-              <div className="relative w-full aspect-square mb-3 rounded-md overflow-hidden bg-gray-100">
+              <div className="relative w-full aspect-square mb-3 rounded-md overflow-hidden bg-cream-100 dark:bg-[#2a3330]">
                 {product.images && product.images.length > 0 ? (
                   <Image
                     src={product.images[0]}
@@ -286,31 +287,19 @@ export function BundleSelector({
                     className="object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    <svg
-                      className="w-12 h-12"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
+                  <div className="w-full h-full flex items-center justify-center text-forest-400 dark:text-[#6B7B6B]">
+                    <PhotoIcon className="w-12 h-12" />
                   </div>
                 )}
               </div>
 
               {/* Product Name */}
-              <h4 className="text-sm font-medium text-gray-900 mb-1 text-center line-clamp-2">
+              <h4 className="text-sm font-medium text-forest-900 dark:text-[#E8EDE8] mb-1 text-center line-clamp-2">
                 {locale === 'sv' ? product.translations.sv.name : product.translations.en.name}
               </h4>
 
               {/* Product Price */}
-              <p className="text-xs text-gray-500 text-center mb-3">
+              <p className="text-xs text-forest-500 dark:text-[#8A9A8A] text-center mb-3">
                 {product.price} kr
               </p>
 
@@ -319,7 +308,7 @@ export function BundleSelector({
                 {count > 0 && (
                   <button
                     onClick={() => handleProductRemove(product.id)}
-                    className="w-8 h-8 rounded-full bg-white border-2 border-sage-300 text-sage-700 font-bold hover:bg-sage-100 hover:border-sage-600 transition-all"
+                    className="w-8 h-8 rounded-full bg-white dark:bg-[#242a28] border-2 border-sage-300 dark:border-sage-700 text-sage-700 dark:text-sage-400 font-bold hover:bg-sage-100 dark:hover:bg-[#2a3330] hover:border-sage-600 transition-all"
                   >
                     −
                   </button>
@@ -332,7 +321,7 @@ export function BundleSelector({
                     ${
                       canSelect
                         ? 'bg-sage-600 text-white hover:bg-sage-700 shadow-sm hover:shadow-md'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-cream-300 dark:bg-[#3f4946] text-forest-400 dark:text-[#6B7B6B] cursor-not-allowed'
                     }
                   `}
                 >
@@ -353,7 +342,7 @@ export function BundleSelector({
           ${
             isSelectionComplete && !isAddingToCart
               ? 'bg-sage-600 hover:bg-sage-700 text-white shadow-md hover:shadow-lg'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-cream-300 dark:bg-[#3f4946] text-forest-400 dark:text-[#6B7B6B] cursor-not-allowed'
           }
         `}
       >
@@ -368,7 +357,7 @@ export function BundleSelector({
 
       {/* Helper Text */}
       {!isSelectionComplete && selectedProducts.length > 0 && (
-        <p className="text-center text-sm text-gray-600">
+        <p className="text-center text-sm text-forest-600 dark:text-[#B8C5B8]">
           {locale === 'sv'
             ? `Välj ${bundleConfig.requiredQuantity - selectedProducts.length} till ${bundleConfig.requiredQuantity - selectedProducts.length === 1 ? 'olja' : 'oljor'}`
             : `Choose ${bundleConfig.requiredQuantity - selectedProducts.length} more ${bundleConfig.requiredQuantity - selectedProducts.length === 1 ? 'oil' : 'oils'}`}

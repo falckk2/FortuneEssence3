@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { container, TOKENS } from '@/config/di-container';
-import { ITestCheckoutService } from '@/interfaces/test';
+import type { ITestCheckoutService } from '@/interfaces/test';
+
+const testCheckoutService = container.resolve<ITestCheckoutService>(TOKENS.ITestCheckoutService);
 
 /**
  * TEST MODE CHECKOUT API
@@ -58,15 +60,8 @@ export async function POST(request: NextRequest) {
       }, { status: 403 });
     }
 
-    // Resolve the test checkout service from DI container
-    const testCheckoutService = container.resolve<ITestCheckoutService>(
-      TOKENS.ITestCheckoutService
-    );
-
-    // Delegate all business logic to the service
     const result = await testCheckoutService.processTestCheckout(body);
 
-    // Return appropriate HTTP response based on service result
     if (result.success) {
       return NextResponse.json({
         success: true,
@@ -74,16 +69,17 @@ export async function POST(request: NextRequest) {
         data: result.data,
       });
     } else {
-      return NextResponse.json({
-        success: false,
-        error: result.error,
-      }, { status: 400 });
+      console.error('Test checkout - failed to process checkout:', result.error);
+      return NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
+      );
     }
   } catch (error) {
-    console.error('🧪 TEST MODE: Error in checkout route:', error);
-    return NextResponse.json({
-      success: false,
-      error: `Test checkout failed: ${error}`,
-    }, { status: 500 });
+    console.error('Test checkout error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

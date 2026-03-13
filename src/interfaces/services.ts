@@ -4,7 +4,9 @@ import {
   Order,
   Cart,
   CartItem,
+  AbandonedCart,
   PaymentMethod,
+  OrderStatus,
   ShippingRate,
   Address,
   BundleConfiguration,
@@ -13,6 +15,7 @@ import {
   CarrierInfo
 } from '@/types';
 import { BundleValidationResult } from '@/types/bundles';
+
 
 export interface IAuthService {
   signIn(email: string, password: string): Promise<ApiResponse<{ user: Customer; token: string }>>;
@@ -80,7 +83,7 @@ export interface IAbandonedCartService {
     ipAddress?: string,
     userAgent?: string
   ): Promise<ApiResponse<{ abandonedCartId: string; recoveryToken: string }>>;
-  getAbandonedCartsForReminder(hoursAbandoned?: number, maxReminders?: number): Promise<ApiResponse<any[]>>;
+  getAbandonedCartsForReminder(hoursAbandoned?: number, maxReminders?: number): Promise<ApiResponse<AbandonedCart[]>>;
   markCartReminded(abandonedCartId: string): Promise<ApiResponse<void>>;
   markCartRecovered(recoveryToken: string, orderId: string): Promise<ApiResponse<void>>;
   recoverAbandonedCart(recoveryToken: string): Promise<ApiResponse<{
@@ -107,7 +110,7 @@ export interface ICartService extends IAbandonedCartService {
     selectedProductIds: string[],
     quantity?: number
   ): Promise<ApiResponse<Cart>>;
-  removeItem(cartId: string, productId: string): Promise<ApiResponse<Cart>>;
+  removeItem(cartId: string, productId: string, cartItemId?: string): Promise<ApiResponse<Cart>>;
   updateQuantity(cartId: string, productId: string, quantity: number): Promise<ApiResponse<Cart>>;
   clearCart(cartId: string): Promise<ApiResponse<void>>;
   calculateTotal(items: CartItem[]): Promise<number>;
@@ -127,9 +130,9 @@ export interface IOrderService {
   getOrder(id: string): Promise<ApiResponse<Order>>;
   getOrderById(id: string): Promise<ApiResponse<Order>>;
   getUserOrders(userId: string): Promise<ApiResponse<Order[]>>;
-  updateOrderStatus(orderId: string, status: string): Promise<ApiResponse<Order>>;
+  updateOrderStatus(orderId: string, status: OrderStatus, trackingNumber?: string): Promise<ApiResponse<Order>>;
   cancelOrder(orderId: string): Promise<ApiResponse<Order>>;
-  getOrdersByStatus(status: string): Promise<ApiResponse<Order[]>>;
+  getOrdersByStatus(status: OrderStatus): Promise<ApiResponse<Order[]>>;
   getOrderStatistics(customerId?: string): Promise<ApiResponse<{
     total: number;
     pending: number;
@@ -139,7 +142,7 @@ export interface IOrderService {
     cancelled: number;
   }>>;
   getRecentOrders(days: number, limit: number): Promise<ApiResponse<Order[]>>;
-  trackOrder(trackingNumber: string): Promise<ApiResponse<{ order: Order; tracking: any }>>;
+  trackOrder(trackingNumber: string): Promise<ApiResponse<{ order: Order; tracking: TrackingInfo }>>;
 }
 
 export interface CreateOrderData {
@@ -173,6 +176,7 @@ export interface PaymentData {
 export interface PaymentResult {
   paymentId: string;
   status: 'success' | 'succeeded' | 'failed' | 'pending';
+  clientSecret?: string;
   transactionId?: string;
   redirectUrl?: string;
   amount?: number;
@@ -269,6 +273,7 @@ export interface IGDPRService {
   deleteUserData(userId: string): Promise<ApiResponse<void>>;
   updateConsent(userId: string, consentData: ConsentData): Promise<ApiResponse<void>>;
   getConsentStatus(userId: string): Promise<ApiResponse<ConsentData>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   requestDataPortability(userId: string, format: 'json' | 'csv' | 'pdf'): Promise<ApiResponse<any>>;
   getDataProcessingPurposes(): Promise<ApiResponse<Array<{ purpose: string; description: string; legalBasis: string; dataTypes: string[] }>>>;
   getDataRetentionPolicies(): Promise<ApiResponse<Array<{ dataType: string; retentionPeriod: string; purpose: string }>>>;
@@ -279,6 +284,7 @@ export interface UserData {
   personalInfo: Customer;
   orders: Order[];
   preferences: UserPreferences;
+  consent?: ConsentData;
 }
 
 export interface ConsentData {

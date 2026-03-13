@@ -11,6 +11,7 @@ import {
   ArrowRightIcon 
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
+import { useLocale } from '@/contexts/LocaleContext';
 
 export default function SignInPage() {
   const [formData, setFormData] = useState({
@@ -23,7 +24,7 @@ export default function SignInPage() {
 
   const router = useRouter();
   const { signIn } = useAuth();
-  const locale = 'sv'; // This would come from context in a real app
+  const { locale } = useLocale();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,13 +69,13 @@ export default function SignInPage() {
             <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-purple-600 rounded-full flex items-center justify-center">
               <span className="text-white font-bold text-sm">FE</span>
             </div>
-            <span className="text-2xl font-bold text-gray-900 dark:text-[#E8EDE8]">Fortune Essence</span>
+            <span className="text-2xl font-bold text-forest-900 dark:text-[#E8EDE8]">Fortune Essence</span>
           </Link>
           
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-[#E8EDE8] mb-2">
+          <h2 className="text-3xl font-bold text-forest-900 dark:text-[#E8EDE8] mb-2">
             {locale === 'sv' ? 'Logga In' : 'Sign In'}
           </h2>
-          <p className="text-gray-600 dark:text-[#B8C5B8]">
+          <p className="text-forest-600 dark:text-[#B8C5B8]">
             {locale === 'sv'
               ? 'Välkommen tillbaka! Logga in på ditt konto.'
               : 'Welcome back! Sign in to your account.'
@@ -87,12 +88,12 @@ export default function SignInPage() {
           <div className="space-y-4">
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-[#C5D4C5] mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-2">
                 {locale === 'sv' ? 'E-postadress' : 'Email address'}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <EnvelopeIcon className="h-5 w-5 text-gray-400 dark:text-[#6B7B6B]" />
+                  <EnvelopeIcon className="h-5 w-5 text-forest-400 dark:text-[#6B7B6B]" />
                 </div>
                 <input
                   id="email"
@@ -102,7 +103,7 @@ export default function SignInPage() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 dark:border-[#4a5552] rounded-lg bg-white dark:bg-[#2a3330] dark:text-[#E8EDE8] dark:placeholder-[#6B7B6B] focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="block w-full pl-10 pr-3 py-3 border border-cream-300 dark:border-[#4a5552] rounded-lg bg-white dark:bg-[#2a3330] dark:text-[#E8EDE8] dark:placeholder-[#6B7B6B] focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent"
                   placeholder={locale === 'sv' ? 'din@email.se' : 'your@email.com'}
                 />
               </div>
@@ -110,12 +111,12 @@ export default function SignInPage() {
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-[#C5D4C5] mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-2">
                 {locale === 'sv' ? 'Lösenord' : 'Password'}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <LockClosedIcon className="h-5 w-5 text-gray-400 dark:text-[#6B7B6B]" />
+                  <LockClosedIcon className="h-5 w-5 text-forest-400 dark:text-[#6B7B6B]" />
                 </div>
                 <input
                   id="password"
@@ -125,7 +126,7 @@ export default function SignInPage() {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="block w-full pl-10 pr-12 py-3 border border-gray-300 dark:border-[#4a5552] rounded-lg bg-white dark:bg-[#2a3330] dark:text-[#E8EDE8] dark:placeholder-[#6B7B6B] focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="block w-full pl-10 pr-12 py-3 border border-cream-300 dark:border-[#4a5552] rounded-lg bg-white dark:bg-[#2a3330] dark:text-[#E8EDE8] dark:placeholder-[#6B7B6B] focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent"
                   placeholder={locale === 'sv' ? 'Ditt lösenord' : 'Your password'}
                 />
                 <button
@@ -134,9 +135,9 @@ export default function SignInPage() {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400 dark:text-[#6B7B6B] hover:text-gray-600 dark:hover:text-[#B8C5B8]" />
+                    <EyeSlashIcon className="h-5 w-5 text-forest-400 dark:text-[#6B7B6B] hover:text-forest-600 dark:hover:text-[#B8C5B8]" />
                   ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400 dark:text-[#6B7B6B] hover:text-gray-600 dark:hover:text-[#B8C5B8]" />
+                    <EyeIcon className="h-5 w-5 text-forest-400 dark:text-[#6B7B6B] hover:text-forest-600 dark:hover:text-[#B8C5B8]" />
                   )}
                 </button>
               </div>
@@ -157,16 +158,16 @@ export default function SignInPage() {
                 id="remember-me"
                 name="remember-me"
                 type="checkbox"
-                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-[#4a5552] rounded"
+                className="h-4 w-4 text-sage-600 focus:ring-sage-500 border-cream-300 dark:border-[#4a5552] rounded"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-[#C5D4C5]">
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-forest-700 dark:text-[#C5D4C5]">
                 {locale === 'sv' ? 'Kom ihåg mig' : 'Remember me'}
               </label>
             </div>
 
             <Link
               href="/auth/forgot-password"
-              className="text-sm text-purple-600 hover:text-purple-500 transition-colors"
+              className="text-sm text-sage-600 hover:text-sage-500 transition-colors"
             >
               {locale === 'sv' ? 'Glömt lösenord?' : 'Forgot password?'}
             </Link>
@@ -176,7 +177,7 @@ export default function SignInPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-sage-600 to-sage-700 hover:from-sage-700 hover:to-sage-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sage-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           >
             {isLoading ? (
               <>
@@ -193,11 +194,11 @@ export default function SignInPage() {
 
           {/* Sign Up Link */}
           <div className="text-center">
-            <p className="text-sm text-gray-600 dark:text-[#B8C5B8]">
+            <p className="text-sm text-forest-600 dark:text-[#B8C5B8]">
               {locale === 'sv' ? 'Inget konto ännu?' : "Don't have an account?"}{' '}
               <Link
                 href="/auth/signup"
-                className="font-medium text-purple-600 hover:text-purple-500 transition-colors"
+                className="font-medium text-sage-600 hover:text-sage-500 transition-colors"
               >
                 {locale === 'sv' ? 'Skapa konto' : 'Sign up'}
               </Link>

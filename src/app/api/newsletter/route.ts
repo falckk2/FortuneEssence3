@@ -1,39 +1,30 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import crypto from 'crypto';
-import { container } from '@/config/di-container';
-import { TOKENS } from '@/config/di-container';
+import { container, TOKENS } from '@/config/di-container';
 import type { IEmailService } from '@/interfaces/email';
+
+const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, locale = 'sv' } = body;
 
-    // Validate email
-    if (!email || !email.includes('@')) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
       return NextResponse.json(
         { success: false, error: 'Invalid email address' },
         { status: 400 }
       );
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid email format' },
-        { status: 400 }
-      );
-    }
-
-    // Extract metadata for tracking
     const ipAddress = request.headers.get('x-forwarded-for') ||
                       request.headers.get('x-real-ip') ||
                       'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    // Check for existing subscription
     const { data: existingSubscription, error: findError } = await supabase
       .from('newsletter_subscriptions')
       .select('*')
@@ -43,12 +34,11 @@ export async function POST(request: NextRequest) {
     if (findError && findError.code !== 'PGRST116') {
       console.error('Database error checking subscription:', findError);
       return NextResponse.json(
-        { success: false, error: 'Failed to process subscription' },
+        { success: false, error: 'Internal server error' },
         { status: 500 }
       );
     }
 
-    // Handle existing subscriptions
     if (existingSubscription) {
       if (existingSubscription.status === 'active') {
         return NextResponse.json(
@@ -56,14 +46,13 @@ export async function POST(request: NextRequest) {
             success: false,
             error: locale === 'sv'
               ? 'Den här e-postadressen är redan prenumererad på vårt nyhetsbrev'
-              : 'This email is already subscribed to our newsletter'
+              : 'This email is already subscribed to our newsletter',
           },
           { status: 400 }
         );
       }
 
       if (existingSubscription.status === 'unsubscribed') {
-        // Re-subscribe: update status to active
         const verificationToken = crypto.randomBytes(32).toString('hex');
 
         const { error: updateError } = await supabase
@@ -80,20 +69,17 @@ export async function POST(request: NextRequest) {
         if (updateError) {
           console.error('Database error re-subscribing:', updateError);
           return NextResponse.json(
-            { success: false, error: 'Failed to re-subscribe' },
+            { success: false, error: 'Internal server error' },
             { status: 500 }
           );
         }
 
-        // Generate and send welcome email with discount code
         const discountCode = `WELCOME10-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
         try {
-          const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
           await emailService.sendNewsletterWelcome(email, discountCode, locale as 'sv' | 'en');
         } catch (emailError) {
           console.error('Failed to send welcome email:', emailError);
-          // Don't fail the subscription if email fails - they're still subscribed
         }
 
         return NextResponse.json({
@@ -104,16 +90,13 @@ export async function POST(request: NextRequest) {
           data: {
             subscriptionId: existingSubscription.id,
             email,
-            discountCode,
-          }
+          },
         });
       }
 
       if (existingSubscription.status === 'pending') {
-        // Resend verification email
         try {
           const discountCode = `WELCOME10-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
-          const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
           await emailService.sendNewsletterWelcome(email, discountCode, locale as 'sv' | 'en');
         } catch (emailError) {
           console.error('Failed to resend welcome email:', emailError);
@@ -127,19 +110,18 @@ export async function POST(request: NextRequest) {
           data: {
             subscriptionId: existingSubscription.id,
             email,
-          }
+          },
         });
       }
     }
 
-    // Create new subscription
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
     const { data: newSubscription, error: insertError } = await supabase
       .from('newsletter_subscriptions')
       .insert({
         email,
-        status: 'active', // Using active instead of pending for immediate subscription
+        status: 'active',
         verification_token: verificationToken,
         ip_address: ipAddress,
         user_agent: userAgent,
@@ -152,17 +134,14 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       console.error('Database error creating subscription:', insertError);
       return NextResponse.json(
-        { success: false, error: 'Failed to create subscription' },
+        { success: false, error: 'Internal server error' },
         { status: 500 }
       );
     }
 
-    // Generate unique discount code
     const discountCode = `WELCOME10-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
-    // Send welcome email with discount code
     try {
-      const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
       const emailResult = await emailService.sendNewsletterWelcome(
         email,
         discountCode,
@@ -171,15 +150,10 @@ export async function POST(request: NextRequest) {
 
       if (!emailResult.success) {
         console.error('Email service error:', emailResult.error);
-        // Don't fail the subscription - they're still subscribed
       }
     } catch (emailError) {
       console.error('Failed to send welcome email:', emailError);
-      // Continue - subscription is still successful
     }
-
-    // Log successful subscription
-    console.log(`Newsletter subscription created: ${email} (ID: ${newSubscription.id})`);
 
     return NextResponse.json({
       success: true,
@@ -193,19 +167,17 @@ export async function POST(request: NextRequest) {
         message: locale === 'sv'
           ? 'Du har fått 10% rabatt på din första beställning!'
           : 'You received 10% off your first order!',
-      }
+      },
     });
-
   } catch (error) {
     console.error('Newsletter subscription error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to process subscription' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
 
-// Unsubscribe endpoint
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -219,7 +191,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Find subscription
     const { data: subscription, error: findError } = await supabase
       .from('newsletter_subscriptions')
       .select('*')
@@ -233,7 +204,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Verify token matches
     if (subscription.verification_token !== token) {
       return NextResponse.json(
         { success: false, error: 'Invalid unsubscribe token' },
@@ -241,7 +211,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Update subscription status to unsubscribed
     const { error: updateError } = await supabase
       .from('newsletter_subscriptions')
       .update({
@@ -254,14 +223,12 @@ export async function DELETE(request: NextRequest) {
     if (updateError) {
       console.error('Database error unsubscribing:', updateError);
       return NextResponse.json(
-        { success: false, error: 'Failed to unsubscribe' },
+        { success: false, error: 'Internal server error' },
         { status: 500 }
       );
     }
 
-    // Send confirmation email (optional - graceful failure)
     try {
-      const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
       await emailService.sendEmail({
         to: email,
         subject: 'Du har avregistrerats från vårt nyhetsbrev',
@@ -293,20 +260,16 @@ export async function DELETE(request: NextRequest) {
       });
     } catch (emailError) {
       console.error('Failed to send unsubscribe confirmation email:', emailError);
-      // Continue - unsubscribe was still successful
     }
-
-    console.log(`Newsletter unsubscribe successful: ${email}`);
 
     return NextResponse.json({
       success: true,
-      message: 'Successfully unsubscribed from newsletter'
+      message: 'Successfully unsubscribed from newsletter',
     });
-
   } catch (error) {
     console.error('Newsletter unsubscribe error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to unsubscribe' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

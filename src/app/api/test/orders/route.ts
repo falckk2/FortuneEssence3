@@ -12,19 +12,22 @@ import { container, TOKENS } from '@/config/di-container';
  */
 
 export async function GET(request: NextRequest) {
-  // Check if we're in development/test mode
   if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Test endpoints are disabled in production',
-      },
+      { success: false, error: 'Test endpoints are disabled in production' },
       { status: 403 }
     );
   }
 
   try {
     const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     const orderId = searchParams.get('orderId');
@@ -35,19 +38,13 @@ export async function GET(request: NextRequest) {
     switch (action) {
       case 'get-order':
         if (!orderId) {
-          return NextResponse.json({
-            success: false,
-            error: 'Order ID is required',
-          }, { status: 400 });
+          return NextResponse.json({ success: false, error: 'Order ID is required' }, { status: 400 });
         }
         return await getOrderDetails(orderId, orderRepository);
 
       case 'list-user-orders':
         if (!userId) {
-          return NextResponse.json({
-            success: false,
-            error: 'User ID is required',
-          }, { status: 400 });
+          return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 });
         }
         return await listUserOrders(userId, orderRepository);
 
@@ -64,11 +61,11 @@ export async function GET(request: NextRequest) {
         }, { status: 400 });
     }
   } catch (error) {
-    console.error('🧪 TEST MODE: Error in test orders API:', error);
-    return NextResponse.json({
-      success: false,
-      error: `Test orders API failed: ${error}`,
-    }, { status: 500 });
+    console.error('Test orders GET error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -76,19 +73,13 @@ async function getOrderDetails(orderId: string, orderRepository: any) {
   const orderResult = await orderRepository.findById(orderId);
 
   if (!orderResult.success) {
-    return NextResponse.json({
-      success: false,
-      error: `Order not found: ${orderResult.error}`,
-    }, { status: 404 });
+    return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
   }
 
   return NextResponse.json({
     success: true,
     testMode: true,
-    data: {
-      order: orderResult.data,
-      message: '✅ Order retrieved successfully',
-    },
+    data: { order: orderResult.data },
   });
 }
 
@@ -96,10 +87,8 @@ async function listUserOrders(userId: string, orderRepository: any) {
   const ordersResult = await orderRepository.findByCustomerId(userId);
 
   if (!ordersResult.success) {
-    return NextResponse.json({
-      success: false,
-      error: `Failed to get user orders: ${ordersResult.error}`,
-    }, { status: 400 });
+    console.error('Test orders - failed to list user orders:', ordersResult.error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 
   const orders = ordersResult.data || [];
@@ -119,25 +108,19 @@ async function listUserOrders(userId: string, orderRepository: any) {
         createdAt: order.createdAt,
         items: order.items,
       })),
-      message: `✅ Found ${orders.length} orders for user ${userId}`,
     },
   });
 }
 
 async function listAllTestOrders(orderRepository: any) {
-  // Get recent orders (last 30 days)
   const ordersResult = await orderRepository.getRecentOrders(30, 100);
 
   if (!ordersResult.success) {
-    return NextResponse.json({
-      success: false,
-      error: `Failed to get orders: ${ordersResult.error}`,
-    }, { status: 400 });
+    console.error('Test orders - failed to list all orders:', ordersResult.error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 
   const orders = ordersResult.data || [];
-
-  // Filter for test orders (payment method contains '_test')
   const testOrders = orders.filter((order: any) =>
     order.paymentMethod?.includes('_test') || order.paymentId?.includes('test_payment')
   );
@@ -158,7 +141,6 @@ async function listAllTestOrders(orderRepository: any) {
         trackingNumber: order.trackingNumber,
         createdAt: order.createdAt,
       })),
-      message: `✅ Found ${testOrders.length} test orders`,
     },
   });
 }
@@ -167,10 +149,8 @@ async function getOrderStatistics(userId: string | undefined, orderRepository: a
   const statsResult = await orderRepository.getOrderStatistics(userId);
 
   if (!statsResult.success) {
-    return NextResponse.json({
-      success: false,
-      error: `Failed to get statistics: ${statsResult.error}`,
-    }, { status: 400 });
+    console.error('Test orders - failed to get statistics:', statsResult.error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 
   return NextResponse.json({
@@ -179,39 +159,39 @@ async function getOrderStatistics(userId: string | undefined, orderRepository: a
     data: {
       userId: userId || 'all',
       statistics: statsResult.data,
-      message: '✅ Statistics retrieved successfully',
     },
   });
 }
 
 export async function DELETE(request: NextRequest) {
-  // Check if we're in development/test mode
   if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Test endpoints are disabled in production',
-      },
+      { success: false, error: 'Test endpoints are disabled in production' },
       { status: 403 }
     );
   }
 
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
-
     const orderRepository = container.resolve<any>(TOKENS.IOrderRepository);
 
     switch (action) {
-      case 'delete-order':
+      case 'delete-order': {
         const orderId = searchParams.get('orderId');
         if (!orderId) {
-          return NextResponse.json({
-            success: false,
-            error: 'Order ID is required',
-          }, { status: 400 });
+          return NextResponse.json({ success: false, error: 'Order ID is required' }, { status: 400 });
         }
         return await deleteOrder(orderId, orderRepository);
+      }
 
       case 'cleanup-test-orders':
         return await cleanupTestOrders(orderRepository);
@@ -223,52 +203,38 @@ export async function DELETE(request: NextRequest) {
         }, { status: 400 });
     }
   } catch (error) {
-    console.error('🧪 TEST MODE: Error deleting test orders:', error);
-    return NextResponse.json({
-      success: false,
-      error: `Failed to delete orders: ${error}`,
-    }, { status: 500 });
+    console.error('Test orders DELETE error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
 async function deleteOrder(orderId: string, orderRepository: any) {
-  console.log(`🧪 TEST MODE: Deleting order ${orderId}`);
-
   const deleteResult = await orderRepository.delete(orderId);
 
   if (!deleteResult.success) {
-    return NextResponse.json({
-      success: false,
-      error: `Failed to delete order: ${deleteResult.error}`,
-    }, { status: 400 });
+    console.error('Test orders - failed to delete order:', deleteResult.error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 
   return NextResponse.json({
     success: true,
     testMode: true,
-    data: {
-      orderId,
-      message: `✅ Order ${orderId} deleted successfully`,
-    },
+    data: { orderId },
   });
 }
 
 async function cleanupTestOrders(orderRepository: any) {
-  console.log(`🧪 TEST MODE: Cleaning up all test orders`);
-
-  // Get all recent orders
   const ordersResult = await orderRepository.getRecentOrders(30, 1000);
 
   if (!ordersResult.success) {
-    return NextResponse.json({
-      success: false,
-      error: `Failed to get orders: ${ordersResult.error}`,
-    }, { status: 400 });
+    console.error('Test orders - failed to get orders for cleanup:', ordersResult.error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 
   const orders = ordersResult.data || [];
-
-  // Filter for test orders
   const testOrders = orders.filter((order: any) =>
     order.paymentMethod?.includes('_test') || order.paymentId?.includes('test_payment')
   );
@@ -281,7 +247,7 @@ async function cleanupTestOrders(orderRepository: any) {
     if (deleteResult.success) {
       deletedOrders.push(order.id);
     } else {
-      failedDeletions.push({ orderId: order.id, error: deleteResult.error });
+      failedDeletions.push({ orderId: order.id });
     }
   }
 
@@ -294,7 +260,6 @@ async function cleanupTestOrders(orderRepository: any) {
       failed: failedDeletions.length,
       deletedOrderIds: deletedOrders,
       failedDeletions,
-      message: `✅ Cleaned up ${deletedOrders.length} test orders`,
     },
   });
 }

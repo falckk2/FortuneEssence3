@@ -1,7 +1,9 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { container } from '@/config/di-container';
-import { TOKENS } from '@/config/di-container';
+import { container, TOKENS } from '@/config/di-container';
 import type { IInventoryService } from '@/interfaces';
+
+const inventoryService = container.resolve<IInventoryService>(TOKENS.IInventoryService);
 
 /**
  * Cron job endpoint to clean up expired stock reservations
@@ -17,25 +19,18 @@ import type { IInventoryService } from '@/interfaces';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret to prevent unauthorized access
-    const authHeader = request.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
+    const authHeader = request.headers.get('authorization');
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const inventoryService = container.resolve<IInventoryService>(TOKENS.IInventoryService);
     const result = await inventoryService.cleanupExpiredReservations();
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: 500 }
-      );
+      console.error('Cleanup reservations cron failed:', result.error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -44,12 +39,8 @@ export async function GET(request: NextRequest) {
       expiredCount: result.data?.expiredCount || 0,
       timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
     console.error('Cron job failed:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

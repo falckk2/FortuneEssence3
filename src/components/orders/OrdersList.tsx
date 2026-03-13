@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { OrderCard } from './OrderCard';
 import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 
@@ -112,8 +113,8 @@ export function OrdersList({ locale = 'sv' }: OrdersListProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-        <span className="ml-3 text-gray-600">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sage-600 dark:border-sage-400"></div>
+        <span className="ml-3 text-forest-600 dark:text-[#C5D4C5]">
           {locale === 'sv' ? 'Laddar beställningar...' : 'Loading orders...'}
         </span>
       </div>
@@ -123,12 +124,12 @@ export function OrdersList({ locale = 'sv' }: OrdersListProps) {
   if (error) {
     return (
       <div className="text-center py-12">
-        <div className="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-lg inline-block">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-6 py-4 rounded-lg inline-block">
           {error}
         </div>
         <button
           onClick={fetchOrders}
-          className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          className="mt-4 px-4 py-2 bg-sage-600 text-white rounded-lg hover:bg-sage-700 transition-colors"
         >
           {locale === 'sv' ? 'Försök igen' : 'Try again'}
         </button>
@@ -139,22 +140,21 @@ export function OrdersList({ locale = 'sv' }: OrdersListProps) {
   if (orders.length === 0) {
     return (
       <div className="text-center py-12">
-        <ClipboardDocumentListIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <ClipboardDocumentListIcon className="w-16 h-16 text-[#8A9A8A] dark:text-[#6B7B6B] mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-forest-900 dark:text-[#E8EDE8] mb-2">
           {locale === 'sv' ? 'Inga beställningar än' : 'No orders yet'}
         </h3>
-        <p className="text-gray-600 mb-6">
-          {locale === 'sv' 
+        <p className="text-forest-600 dark:text-[#C5D4C5] mb-6">
+          {locale === 'sv'
             ? 'När du gör din första beställning kommer den att visas här.'
-            : 'When you make your first order, it will appear here.'
-          }
+            : 'When you make your first order, it will appear here.'}
         </p>
-        <a
+        <Link
           href="/products"
-          className="inline-flex items-center px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+          className="inline-flex items-center px-6 py-3 bg-sage-600 text-white font-medium rounded-lg hover:bg-sage-700 transition-colors"
         >
           {locale === 'sv' ? 'Börja handla' : 'Start shopping'}
-        </a>
+        </Link>
       </div>
     );
   }
@@ -162,7 +162,7 @@ export function OrdersList({ locale = 'sv' }: OrdersListProps) {
   return (
     <div className="space-y-6">
       {/* Filter Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-cream-200 dark:border-[#3f4946]">
         <nav className="-mb-px flex space-x-8">
           {[
             { key: 'all', label: locale === 'sv' ? 'Alla' : 'All', count: counts.all },
@@ -177,14 +177,16 @@ export function OrdersList({ locale = 'sv' }: OrdersListProps) {
               onClick={() => setFilter(tab.key)}
               className={`${
                 filter === tab.key
-                  ? 'border-purple-500 text-purple-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-sage-600 dark:border-sage-400 text-sage-700 dark:text-sage-400'
+                  : 'border-transparent text-forest-500 dark:text-[#8A9A8A] hover:text-forest-700 dark:hover:text-[#C5D4C5] hover:border-cream-400'
               } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
             >
               {tab.label}
               {tab.count > 0 && (
                 <span className={`${
-                  filter === tab.key ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-900'
+                  filter === tab.key
+                    ? 'bg-sage-600/10 dark:bg-sage-400/20 text-sage-700 dark:text-sage-400'
+                    : 'bg-cream-100 dark:bg-[#2a3330] text-forest-600 dark:text-[#C5D4C5]'
                 } ml-2 py-0.5 px-2 rounded-full text-xs`}>
                   {tab.count}
                 </span>
@@ -197,11 +199,10 @@ export function OrdersList({ locale = 'sv' }: OrdersListProps) {
       {/* Orders List */}
       {filteredOrders.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-600">
-            {locale === 'sv' 
+          <p className="text-forest-600 dark:text-[#C5D4C5]">
+            {locale === 'sv'
               ? `Inga beställningar med status "${filter === 'all' ? 'alla' : filter}".`
-              : `No orders with status "${filter}".`
-            }
+              : `No orders with status "${filter}".`}
           </p>
         </div>
       ) : (
@@ -220,7 +221,7 @@ export function OrdersList({ locale = 'sv' }: OrdersListProps) {
       {/* Load More (if needed for pagination) */}
       {filteredOrders.length >= 20 && (
         <div className="text-center pt-6">
-          <button className="px-6 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors">
+          <button className="px-6 py-2 border border-cream-300 dark:border-[#4a5552] text-forest-600 dark:text-[#C5D4C5] font-medium rounded-lg hover:bg-cream-100 dark:hover:bg-[#2a3330] transition-colors">
             {locale === 'sv' ? 'Ladda fler beställningar' : 'Load more orders'}
           </button>
         </div>

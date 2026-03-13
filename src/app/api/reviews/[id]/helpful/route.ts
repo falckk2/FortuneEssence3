@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 interface RouteParams {
   params: Promise<{
@@ -7,11 +7,11 @@ interface RouteParams {
 }
 
 export async function POST(
-  request: NextRequest,
+  _request: Request,
   { params }: RouteParams
 ) {
   try {
-    const { id } = await params;
+    await params;
 
     // TODO: Implement in production
     /*
@@ -75,7 +75,6 @@ export async function POST(
     });
     */
 
-    console.log(`Would mark review ${id} as helpful`);
 
     return NextResponse.json({
       success: true,
@@ -85,7 +84,7 @@ export async function POST(
   } catch (error) {
     console.error('Mark review as helpful error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to mark review as helpful' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

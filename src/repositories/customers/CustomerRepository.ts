@@ -272,6 +272,39 @@ export class CustomerRepository implements ICustomerRepository {
     }
   }
 
+  async changePassword(id: string, currentPassword: string, newPassword: string): Promise<ApiResponse<void>> {
+    try {
+      const { data, error } = await supabase
+        .from(this.tableName)
+        .select('password_hash')
+        .eq('id', id)
+        .single();
+
+      if (error || !data) {
+        return { success: false, error: 'User not found' };
+      }
+
+      const isValid = await bcrypt.compare(currentPassword, data.password_hash);
+      if (!isValid) {
+        return { success: false, error: 'Current password is incorrect' };
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+      const { error: updateError } = await supabase
+        .from(this.tableName)
+        .update({ password_hash: hashedPassword })
+        .eq('id', id);
+
+      if (updateError) {
+        return { success: false, error: 'Failed to update password' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: `Failed to change password: ${error}` };
+    }
+  }
+
   async verifyPassword(email: string, password: string): Promise<ApiResponse<Customer>> {
     try {
       const { data, error } = await supabase

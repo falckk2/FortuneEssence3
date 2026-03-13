@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Product } from '@/types';
 import { BundleImage } from './BundleImage';
+import { TagIcon, CheckIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 
 interface BundleCardProps {
   product: Product;
@@ -47,7 +48,7 @@ export function BundleCard({
         </h3>
 
         {/* Description */}
-        <p className="text-sm text-gray-600 dark:text-[#B8C5B8] mb-4 line-clamp-2">
+        <p className="text-sm text-forest-600 dark:text-[#B8C5B8] mb-4 line-clamp-2">
           {locale === 'sv' ? product.translations.sv.description : product.translations.en.description}
         </p>
 
@@ -56,84 +57,36 @@ export function BundleCard({
           <span className="text-3xl font-bold text-forest-900 dark:text-[#E8EDE8]">
             {product.price} kr
           </span>
-          <span className="text-lg text-gray-500 dark:text-[#6B7B6B] line-through">
+          <span className="text-lg text-forest-500 dark:text-[#6B7B6B] line-through">
             {regularPrice} kr
           </span>
         </div>
 
         {/* Discount Badge */}
-        <div className="inline-flex items-center gap-2 bg-sage-100 text-sage-800 px-3 py-1 rounded-full text-sm font-semibold mb-4">
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
-            />
-          </svg>
+        <div className="inline-flex items-center gap-2 bg-sage-100 dark:bg-[#2a3330] text-sage-800 dark:text-sage-400 px-3 py-1 rounded-full text-sm font-semibold mb-4">
+          <TagIcon className="w-4 h-4" />
           {discountPercentage.toFixed(0)}%{' '}
           {locale === 'sv' ? 'rabatt' : 'off'}
         </div>
 
         {/* Features */}
         <div className="space-y-2 mb-4">
-          <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-[#C5D4C5]">
-            <svg
-              className="w-5 h-5 text-sage-600 flex-shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+          <div className="flex items-center gap-2 text-sm text-forest-700 dark:text-[#C5D4C5]">
+            <CheckIcon className="w-5 h-5 text-sage-600 flex-shrink-0" />
             <span>
               {requiredQuantity}x {locale === 'sv' ? 'Lavendel Eterisk Olja' : 'Lavender Essential Oil'}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-[#C5D4C5]">
-            <svg
-              className="w-5 h-5 text-sage-600 flex-shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+          <div className="flex items-center gap-2 text-sm text-forest-700 dark:text-[#C5D4C5]">
+            <CheckIcon className="w-5 h-5 text-sage-600 flex-shrink-0" />
             <span>
               {locale === 'sv'
                 ? '10ml vardera, premium kvalitet'
                 : '10ml each, premium quality'}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-[#C5D4C5]">
-            <svg
-              className="w-5 h-5 text-sage-600 flex-shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+          <div className="flex items-center gap-2 text-sm text-forest-700 dark:text-[#C5D4C5]">
+            <CheckIcon className="w-5 h-5 text-sage-600 flex-shrink-0" />
             <span>
               {locale === 'sv'
                 ? 'Spara mer ju fler du köper'
@@ -143,23 +96,11 @@ export function BundleCard({
         </div>
 
         {/* CTA */}
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-[#3f4946]">
-          <span className="text-sm font-medium text-sage-700">
+        <div className="flex items-center justify-between pt-4 border-t border-cream-200 dark:border-[#3f4946]">
+          <span className="text-sm font-medium text-sage-700 dark:text-sage-400">
             {locale === 'sv' ? 'Bygg din egen' : 'Build your own'}
           </span>
-          <svg
-            className="w-5 h-5 text-sage-600 group-hover:translate-x-1 transition-transform"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
+          <ArrowRightIcon className="w-5 h-5 text-sage-600 group-hover:translate-x-1 transition-transform" />
         </div>
       </div>
     </Link>

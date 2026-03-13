@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import { useLocale } from '@/contexts/LocaleContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { LockClosedIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
@@ -17,7 +18,7 @@ function ResetPasswordContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isValidToken, setIsValidToken] = useState(true);
-  const locale = 'sv'; // Would come from context in real app
+  const { locale } = useLocale();
 
   useEffect(() => {
     if (!token) {
@@ -89,7 +90,7 @@ function ResetPasswordContent() {
         );
         router.push('/auth/signin');
       } else {
-        toast.error(data.error || (locale === 'sv' ? 'Något gick fel' : 'Something went wrong'));
+        toast.error(locale === 'sv' ? 'Något gick fel' : 'Something went wrong');
       }
     } catch (error) {
       toast.error(locale === 'sv' ? 'Kunde inte återställa lösenordet' : 'Failed to reset password');

@@ -354,8 +354,8 @@ export const FREE_SHIPPING_THRESHOLD = 500;
 export const SENDER_ADDRESS = {
   firstName: process.env.COMPANY_NAME || 'Fortune Essence',
   lastName: process.env.COMPANY_LEGAL_SUFFIX || 'AB',
-  street: process.env.COMPANY_STREET || 'Kungsgatan 12',
-  city: process.env.COMPANY_CITY || 'Stockholm',
+  street: process.env.COMPANY_STREET || 'Lärlingsgatan 1',
+  city: process.env.COMPANY_CITY || 'Göteborg',
   postalCode: process.env.COMPANY_POSTAL_CODE || '11143',
   country: process.env.COMPANY_COUNTRY || 'Sweden',
 };

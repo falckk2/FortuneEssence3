@@ -1,8 +1,13 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase-server';
-import { container } from '@/config/di-container';
-import { TOKENS } from '@/config/di-container';
+import { container, TOKENS } from '@/config/di-container';
 import type { IEmailService } from '@/interfaces/email';
+import { config } from '@/config';
+
+const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
 
 // Rate limiting helper (in-memory, for production use Redis or similar)
 const contactRequests = new Map<string, number[]>();
@@ -12,51 +17,30 @@ const MAX_REQUESTS_PER_WINDOW = 5;
 function detectSpam(message: string): boolean {
   const lowerMessage = message.toLowerCase();
 
-  // Check for excessive URLs (more than 3)
   const urlPattern = /(https?:\/\/[^\s]+)/gi;
   const urls = lowerMessage.match(urlPattern) || [];
-  if (urls.length > 3) {
-    return true;
-  }
+  if (urls.length > 3) return true;
 
-  // Check if message is mostly uppercase (more than 70%)
   const uppercaseCount = (message.match(/[A-Z]/g) || []).length;
   const letterCount = (message.match(/[a-zA-Z]/g) || []).length;
-  if (letterCount > 20 && uppercaseCount / letterCount > 0.7) {
-    return true;
-  }
+  if (letterCount > 20 && uppercaseCount / letterCount > 0.7) return true;
 
-  // Common spam keywords
   const spamKeywords = [
     'viagra', 'cialis', 'pharmacy', 'casino', 'lottery', 'winner',
     'inheritance', 'nigerian prince', 'click here', 'buy now',
     'limited time', 'act now', 'congratulations', 'free money',
     'work from home', 'make money fast', 'crypto', 'bitcoin investment',
-    'forex trading', 'binary options', 'mlm', 'network marketing'
+    'forex trading', 'binary options', 'mlm', 'network marketing',
   ];
+  if (spamKeywords.filter(k => lowerMessage.includes(k)).length >= 2) return true;
 
-  const keywordMatches = spamKeywords.filter(keyword =>
-    lowerMessage.includes(keyword)
-  );
-
-  // If 2 or more spam keywords found, likely spam
-  if (keywordMatches.length >= 2) {
-    return true;
-  }
-
-  // Check for excessive repetition (same word repeated 5+ times)
   const words = lowerMessage.split(/\s+/);
   const wordCounts = new Map<string, number>();
   words.forEach(word => {
-    if (word.length > 3) {
-      wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
-    }
+    if (word.length > 3) wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
   });
-
   for (const count of wordCounts.values()) {
-    if (count >= 5) {
-      return true;
-    }
+    if (count >= 5) return true;
   }
 
   return false;
@@ -65,13 +49,9 @@ function detectSpam(message: string): boolean {
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const requests = contactRequests.get(ip) || [];
-
-  // Remove old requests outside the window
   const recentRequests = requests.filter(time => now - time < RATE_LIMIT_WINDOW);
 
-  if (recentRequests.length >= MAX_REQUESTS_PER_WINDOW) {
-    return false;
-  }
+  if (recentRequests.length >= MAX_REQUESTS_PER_WINDOW) return false;
 
   recentRequests.push(now);
   contactRequests.set(ip, recentRequests);
@@ -80,7 +60,6 @@ function checkRateLimit(ip: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limiting
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     if (!checkRateLimit(ip)) {
       return NextResponse.json(
@@ -92,7 +71,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, email, phone, subject, message } = body;
 
-    // Validation
     if (!name || name.trim().length < 2) {
       return NextResponse.json(
         { success: false, error: 'Name must be at least 2 characters' },
@@ -100,17 +78,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!email || !email.includes('@')) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
       return NextResponse.json(
         { success: false, error: 'Invalid email address' },
-        { status: 400 }
-      );
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid email format' },
         { status: 400 }
       );
     }
@@ -129,7 +100,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Sanitize inputs (basic)
     const sanitizedData = {
       name: name.trim(),
       email: email.trim().toLowerCase(),
@@ -140,11 +110,9 @@ export async function POST(request: NextRequest) {
       ip,
     };
 
-    // Basic spam detection
     const isSpam = detectSpam(sanitizedData.message);
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    // Save to database
     const supabase = getSupabaseServer();
     const { data: contactSubmission, error: dbError } = await supabase
       .from('contact_form_submissions')
@@ -164,14 +132,11 @@ export async function POST(request: NextRequest) {
     if (dbError) {
       console.error('Database error saving contact submission:', dbError);
       return NextResponse.json(
-        { success: false, error: `Failed to save contact submission: ${dbError.message || dbError.code || JSON.stringify(dbError)}` },
+        { success: false, error: 'Internal server error' },
         { status: 500 }
       );
     }
 
-    console.log('Contact form submission saved to database:', contactSubmission.id);
-
-    // If marked as spam, log and return success but don't send emails
     if (isSpam) {
       console.warn('Spam submission detected and marked:', {
         id: contactSubmission.id,
@@ -180,21 +145,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Thank you for your message! We will get back to you within 24 hours.',
-        data: {
-          submissionId: contactSubmission.id,
-        }
+        data: { submissionId: contactSubmission.id },
       });
     }
 
-    // Get EmailService from DI container
-    const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
-
-    // Send notification to support team
     try {
       const adminUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/admin/support/${contactSubmission.id}`;
 
       await emailService.sendEmail({
-        to: 'support@fortuneessence.se',
+        to: config.email.supportEmail,
         subject: `New Contact Form: ${sanitizedData.subject}`,
         html: `
           <!DOCTYPE html>
@@ -217,33 +176,14 @@ export async function POST(request: NextRequest) {
                 <h2>New Contact Form Submission</h2>
               </div>
               <div class="content">
-                <div class="field">
-                  <span class="label">Submission ID:</span> ${contactSubmission.id}
-                </div>
-                <div class="field">
-                  <span class="label">Name:</span> ${sanitizedData.name}
-                </div>
-                <div class="field">
-                  <span class="label">Email:</span> ${sanitizedData.email}
-                </div>
-                ${sanitizedData.phone ? `
-                  <div class="field">
-                    <span class="label">Phone:</span> ${sanitizedData.phone}
-                  </div>
-                ` : ''}
-                <div class="field">
-                  <span class="label">Subject:</span> ${sanitizedData.subject}
-                </div>
-                <div class="field">
-                  <span class="label">Message:</span><br>
-                  ${sanitizedData.message.replace(/\n/g, '<br>')}
-                </div>
-                <div class="field">
-                  <span class="label">IP Address:</span> ${ip}
-                </div>
-                <div class="field">
-                  <span class="label">Submitted At:</span> ${sanitizedData.submittedAt}
-                </div>
+                <div class="field"><span class="label">Submission ID:</span> ${contactSubmission.id}</div>
+                <div class="field"><span class="label">Name:</span> ${sanitizedData.name}</div>
+                <div class="field"><span class="label">Email:</span> ${sanitizedData.email}</div>
+                ${sanitizedData.phone ? `<div class="field"><span class="label">Phone:</span> ${sanitizedData.phone}</div>` : ''}
+                <div class="field"><span class="label">Subject:</span> ${sanitizedData.subject}</div>
+                <div class="field"><span class="label">Message:</span><br>${sanitizedData.message.replace(/\n/g, '<br>')}</div>
+                <div class="field"><span class="label">IP Address:</span> ${ip}</div>
+                <div class="field"><span class="label">Submitted At:</span> ${sanitizedData.submittedAt}</div>
                 <a href="${adminUrl}" class="button">View in Admin Panel</a>
               </div>
             </div>
@@ -252,14 +192,10 @@ export async function POST(request: NextRequest) {
         `,
         text: `New Contact Form Submission\n\nID: ${contactSubmission.id}\nName: ${sanitizedData.name}\nEmail: ${sanitizedData.email}\nPhone: ${sanitizedData.phone || 'N/A'}\nSubject: ${sanitizedData.subject}\nMessage:\n${sanitizedData.message}\n\nIP: ${ip}\nSubmitted: ${sanitizedData.submittedAt}`,
       });
-
-      console.log('Support team notification email sent');
     } catch (emailError) {
       console.error('Failed to send support team notification:', emailError);
-      // Don't fail the request if email fails
     }
 
-    // Send auto-reply confirmation to customer
     try {
       const locale = request.headers.get('accept-language')?.startsWith('sv') ? 'sv' : 'en';
       await emailService.sendContactFormConfirmation(
@@ -267,68 +203,65 @@ export async function POST(request: NextRequest) {
         sanitizedData.name,
         locale as 'sv' | 'en'
       );
-
-      console.log('Customer confirmation email sent');
     } catch (emailError) {
       console.error('Failed to send customer confirmation:', emailError);
-      // Don't fail the request if email fails
     }
 
     return NextResponse.json({
       success: true,
       message: 'Thank you for your message! We will get back to you within 24 hours.',
-      data: {
-        submissionId: contactSubmission.id,
-      }
+      data: { submissionId: contactSubmission.id },
     });
-
   } catch (error) {
     console.error('Contact form error:', error);
-    const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { success: false, error: `Failed to process contact form: ${message}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
 
-// Optional: GET endpoint to retrieve contact submissions (admin only)
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Add authentication check here
-    // const session = await getServerSession();
-    // if (!session || !session.user.isAdmin) {
-    //   return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    // }
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!session.user?.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'all';
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const limitParam = parseInt(searchParams.get('limit') || '50');
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 50;
 
-    // TODO: Fetch from database
-    /*
-    const submissions = await getContactSubmissions({
-      status: status === 'all' ? undefined : status,
-      limit,
-      orderBy: { submittedAt: 'desc' }
-    });
+    const supabase = getSupabaseServer();
+    let query = supabase
+      .from('contact_form_submissions')
+      .select()
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-    return NextResponse.json({
-      success: true,
-      data: submissions
-    });
-    */
+    if (status !== 'all') {
+      query = query.eq('status', status);
+    }
 
-    return NextResponse.json({
-      success: true,
-      data: [],
-      message: 'Contact submissions endpoint (requires database implementation)'
-    });
+    const { data, error } = await query;
 
+    if (error) {
+      console.error('Failed to fetch contact submissions:', error);
+      return NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error('Get contact submissions error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch submissions' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

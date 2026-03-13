@@ -18,7 +18,7 @@ export class SwishPaymentProcessor implements IPaymentProcessor {
     try {
       // TODO: Integrate with actual Swish API
       // This is a placeholder implementation
-      const mockPaymentId = `swish_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const mockPaymentId = `swish_${crypto.randomUUID()}`;
 
       // Simulate Swish payment
       await this.simulateSwishPayment(paymentData);
@@ -41,21 +41,12 @@ export class SwishPaymentProcessor implements IPaymentProcessor {
   }
 
   async verify(paymentId: string): Promise<ApiResponse<boolean>> {
-    try {
-      // TODO: Verify with actual Swish API
-      // For now, simulate verification
-      const isVerified = paymentId.startsWith('swish_');
-
-      return {
-        success: true,
-        data: isVerified,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Swish verification failed: ${error}`,
-      };
-    }
+    // TODO: Verify with actual Swish API
+    // For now, simulate verification by checking the paymentId prefix
+    return {
+      success: true,
+      data: paymentId.startsWith('swish_'),
+    };
   }
 
   private async simulateSwishPayment(paymentData: PaymentData): Promise<void> {

@@ -32,22 +32,12 @@ export class ProductRecommendationService implements IProductRecommendationServi
 
       const product = productResult.data;
 
-      // Find products in the same category
-      const categoryResult = await this.productRepository.findByCategory(product.category);
-
-      if (!categoryResult.success) {
-        return categoryResult;
-      }
-
-      // Filter out the current product and limit results
-      const recommendations = categoryResult.data!
-        .filter(p => p.id !== productId)
-        .slice(0, limit);
-
-      return {
-        success: true,
-        data: recommendations,
-      };
+      return await this.productRepository.findAll({
+        category: product.category,
+        excludeId: productId,
+        limit,
+        inStock: true,
+      });
     } catch (error) {
       return {
         success: false,
@@ -68,28 +58,16 @@ export class ProductRecommendationService implements IProductRecommendationServi
       }
 
       const product = productResult.data;
-
-      // Find products in the same category and similar price range
-      const categoryResult = await this.productRepository.findByCategory(product.category);
-
-      if (!categoryResult.success) {
-        return categoryResult;
-      }
-
-      // Find products within 20% of the price
       const priceRange = product.price * 0.2;
-      const similarProducts = categoryResult.data!
-        .filter(p =>
-          p.id !== productId &&
-          p.price >= product.price - priceRange &&
-          p.price <= product.price + priceRange
-        )
-        .slice(0, limit);
 
-      return {
-        success: true,
-        data: similarProducts,
-      };
+      return await this.productRepository.findAll({
+        category: product.category,
+        excludeId: productId,
+        minPrice: Math.max(0, product.price - priceRange),
+        maxPrice: product.price + priceRange,
+        limit,
+        inStock: true,
+      });
     } catch (error) {
       return {
         success: false,
@@ -100,9 +78,14 @@ export class ProductRecommendationService implements IProductRecommendationServi
 
   async getTrendingProducts(limit: number = 8): Promise<ApiResponse<Product[]>> {
     try {
-      // For now, return featured products
-      // In the future, this could be based on purchase history, views, etc.
-      return await this.productRepository.findFeatured(limit);
+      const featuredResult = await this.productRepository.findFeatured(limit);
+
+      if (featuredResult.success && featuredResult.data && featuredResult.data.length > 0) {
+        return featuredResult;
+      }
+
+      // Fall back to in-stock products if no featured products are configured
+      return await this.productRepository.findAll({ limit, inStock: true });
     } catch (error) {
       return {
         success: false,

@@ -14,6 +14,7 @@ import {
   CheckIcon 
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
+import { useLocale } from '@/contexts/LocaleContext';
 
 export default function SignUpPage() {
   const [formData, setFormData] = useState({
@@ -33,7 +34,7 @@ export default function SignUpPage() {
 
   const router = useRouter();
   const { signUp, signIn } = useAuth();
-  const locale = 'sv'; // This would come from context in a real app
+  const { locale } = useLocale();
 
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
@@ -92,9 +93,9 @@ export default function SignUpPage() {
 
       if (!signUpResult.success) {
         setErrors({
-          submit: signUpResult.error || (locale === 'sv'
+          submit: locale === 'sv'
             ? 'Det gick inte att skapa kontot. Försök igen.'
-            : 'Failed to create account. Please try again.')
+            : 'Failed to create account. Please try again.'
         });
         return;
       }
@@ -146,13 +147,13 @@ export default function SignUpPage() {
             <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-purple-600 rounded-full flex items-center justify-center">
               <span className="text-white font-bold text-sm">FE</span>
             </div>
-            <span className="text-2xl font-bold text-gray-900">Fortune Essence</span>
+            <span className="text-2xl font-bold text-forest-900">Fortune Essence</span>
           </Link>
           
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          <h2 className="text-3xl font-bold text-forest-900 mb-2">
             {locale === 'sv' ? 'Skapa Konto' : 'Create Account'}
           </h2>
-          <p className="text-gray-600">
+          <p className="text-forest-600">
             {locale === 'sv' 
               ? 'Gå med i vår community och upptäck naturens kraft.'
               : 'Join our community and discover the power of nature.'
@@ -166,12 +167,12 @@ export default function SignUpPage() {
             {/* Name Fields */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="firstName" className="block text-sm font-medium text-forest-700 mb-2">
                   {locale === 'sv' ? 'Förnamn' : 'First name'} *
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <UserIcon className="h-5 w-5 text-gray-400" />
+                    <UserIcon className="h-5 w-5 text-forest-400" />
                   </div>
                   <input
                     id="firstName"
@@ -180,8 +181,8 @@ export default function SignUpPage() {
                     required
                     value={formData.firstName}
                     onChange={handleChange}
-                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      errors.firstName ? 'border-red-300' : 'border-gray-300'
+                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent ${
+                      errors.firstName ? 'border-red-300' : 'border-cream-300'
                     }`}
                     placeholder={locale === 'sv' ? 'Anna' : 'John'}
                   />
@@ -192,7 +193,7 @@ export default function SignUpPage() {
               </div>
 
               <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="lastName" className="block text-sm font-medium text-forest-700 mb-2">
                   {locale === 'sv' ? 'Efternamn' : 'Last name'} *
                 </label>
                 <input
@@ -202,8 +203,8 @@ export default function SignUpPage() {
                   required
                   value={formData.lastName}
                   onChange={handleChange}
-                  className={`block w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    errors.lastName ? 'border-red-300' : 'border-gray-300'
+                  className={`block w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent ${
+                    errors.lastName ? 'border-red-300' : 'border-cream-300'
                   }`}
                   placeholder={locale === 'sv' ? 'Larsson' : 'Doe'}
                 />
@@ -215,12 +216,12 @@ export default function SignUpPage() {
 
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-forest-700 mb-2">
                 {locale === 'sv' ? 'E-postadress' : 'Email address'} *
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <EnvelopeIcon className="h-5 w-5 text-gray-400" />
+                  <EnvelopeIcon className="h-5 w-5 text-forest-400" />
                 </div>
                 <input
                   id="email"
@@ -230,8 +231,8 @@ export default function SignUpPage() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    errors.email ? 'border-red-300' : 'border-gray-300'
+                  className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent ${
+                    errors.email ? 'border-red-300' : 'border-cream-300'
                   }`}
                   placeholder={locale === 'sv' ? 'anna@email.se' : 'john@email.com'}
                 />
@@ -243,12 +244,12 @@ export default function SignUpPage() {
 
             {/* Phone Field */}
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="phone" className="block text-sm font-medium text-forest-700 mb-2">
                 {locale === 'sv' ? 'Telefonnummer' : 'Phone number'} ({locale === 'sv' ? 'valfritt' : 'optional'})
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <PhoneIcon className="h-5 w-5 text-gray-400" />
+                  <PhoneIcon className="h-5 w-5 text-forest-400" />
                 </div>
                 <input
                   id="phone"
@@ -256,7 +257,7 @@ export default function SignUpPage() {
                   type="tel"
                   value={formData.phone}
                   onChange={handleChange}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="block w-full pl-10 pr-3 py-3 border border-cream-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent"
                   placeholder="+46 70 123 45 67"
                 />
               </div>
@@ -264,12 +265,12 @@ export default function SignUpPage() {
 
             {/* Password Fields */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-forest-700 mb-2">
                 {locale === 'sv' ? 'Lösenord' : 'Password'} *
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <LockClosedIcon className="h-5 w-5 text-gray-400" />
+                  <LockClosedIcon className="h-5 w-5 text-forest-400" />
                 </div>
                 <input
                   id="password"
@@ -278,8 +279,8 @@ export default function SignUpPage() {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    errors.password ? 'border-red-300' : 'border-gray-300'
+                  className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent ${
+                    errors.password ? 'border-red-300' : 'border-cream-300'
                   }`}
                   placeholder={locale === 'sv' ? 'Minst 8 tecken' : 'At least 8 characters'}
                 />
@@ -289,9 +290,9 @@ export default function SignUpPage() {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <EyeSlashIcon className="h-5 w-5 text-forest-400 hover:text-forest-600" />
                   ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <EyeIcon className="h-5 w-5 text-forest-400 hover:text-forest-600" />
                   )}
                 </button>
               </div>
@@ -301,12 +302,12 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-forest-700 mb-2">
                 {locale === 'sv' ? 'Bekräfta lösenord' : 'Confirm password'} *
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <LockClosedIcon className="h-5 w-5 text-gray-400" />
+                  <LockClosedIcon className="h-5 w-5 text-forest-400" />
                 </div>
                 <input
                   id="confirmPassword"
@@ -315,8 +316,8 @@ export default function SignUpPage() {
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    errors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                  className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent ${
+                    errors.confirmPassword ? 'border-red-300' : 'border-cream-300'
                   }`}
                   placeholder={locale === 'sv' ? 'Upprepa lösenordet' : 'Repeat password'}
                 />
@@ -326,9 +327,9 @@ export default function SignUpPage() {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <EyeSlashIcon className="h-5 w-5 text-forest-400 hover:text-forest-600" />
                   ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <EyeIcon className="h-5 w-5 text-forest-400 hover:text-forest-600" />
                   )}
                 </button>
               </div>
@@ -348,17 +349,17 @@ export default function SignUpPage() {
                   type="checkbox"
                   checked={formData.acceptTerms}
                   onChange={handleChange}
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-sage-600 focus:ring-sage-500 border-cream-300 rounded"
                 />
               </div>
               <div className="ml-3 text-sm">
-                <label htmlFor="acceptTerms" className="text-gray-700">
+                <label htmlFor="acceptTerms" className="text-forest-700">
                   {locale === 'sv' ? 'Jag accepterar ' : 'I accept the '}
-                  <Link href="/terms" className="text-purple-600 hover:text-purple-500">
+                  <Link href="/terms" className="text-sage-600 hover:text-sage-500">
                     {locale === 'sv' ? 'användarvillkoren' : 'terms of service'}
                   </Link>
                   {locale === 'sv' ? ' och ' : ' and '}
-                  <Link href="/privacy" className="text-purple-600 hover:text-purple-500">
+                  <Link href="/privacy" className="text-sage-600 hover:text-sage-500">
                     {locale === 'sv' ? 'integritetspolicyn' : 'privacy policy'}
                   </Link>
                   *
@@ -377,11 +378,11 @@ export default function SignUpPage() {
                   type="checkbox"
                   checked={formData.newsletter}
                   onChange={handleChange}
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-sage-600 focus:ring-sage-500 border-cream-300 rounded"
                 />
               </div>
               <div className="ml-3 text-sm">
-                <label htmlFor="newsletter" className="text-gray-700">
+                <label htmlFor="newsletter" className="text-forest-700">
                   {locale === 'sv' 
                     ? 'Jag vill få nyhetsbrev och specialerbjudanden (kan avmälas när som helst)'
                     : 'I want to receive newsletters and special offers (can unsubscribe anytime)'
@@ -402,7 +403,7 @@ export default function SignUpPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sage-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           >
             {isLoading ? (
               <>
@@ -419,11 +420,11 @@ export default function SignUpPage() {
 
           {/* Sign In Link */}
           <div className="text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-forest-600">
               {locale === 'sv' ? 'Har du redan ett konto?' : 'Already have an account?'}{' '}
               <Link
                 href="/auth/signin"
-                className="font-medium text-purple-600 hover:text-purple-500 transition-colors"
+                className="font-medium text-sage-600 hover:text-sage-500 transition-colors"
               >
                 {locale === 'sv' ? 'Logga in' : 'Sign in'}
               </Link>

@@ -18,7 +18,7 @@ export class KlarnaPaymentProcessor implements IPaymentProcessor {
     try {
       // TODO: Integrate with actual Klarna API
       // This is a placeholder implementation
-      const mockPaymentId = `klarna_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const mockPaymentId = `klarna_${crypto.randomUUID()}`;
 
       // Simulate Klarna payment
       await this.simulateKlarnaPayment(paymentData);
@@ -41,21 +41,12 @@ export class KlarnaPaymentProcessor implements IPaymentProcessor {
   }
 
   async verify(paymentId: string): Promise<ApiResponse<boolean>> {
-    try {
-      // TODO: Verify with actual Klarna API
-      // For now, simulate verification
-      const isVerified = paymentId.startsWith('klarna_');
-
-      return {
-        success: true,
-        data: isVerified,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Klarna verification failed: ${error}`,
-      };
-    }
+    // TODO: Verify with actual Klarna API
+    // For now, simulate verification by checking the paymentId prefix
+    return {
+      success: true,
+      data: paymentId.startsWith('klarna_'),
+    };
   }
 
   private async simulateKlarnaPayment(paymentData: PaymentData): Promise<void> {

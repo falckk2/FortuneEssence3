@@ -1,6 +1,6 @@
 import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { IAuthService } from '@/interfaces';
+import type { IAuthService } from '@/interfaces';
 import { container, TOKENS } from '@/config/di-container';
 import { signUpSchema } from '@/utils/validation';
 
@@ -27,25 +27,22 @@ export async function POST(request: NextRequest) {
     // Create the customer account
     const result = await authService.signUp(signUpData);
 
-    if (!result.success) {
+    if (!result.success || !result.data) {
+      console.error('Sign up service error:', result.error);
       return NextResponse.json(
-        {
-          success: false,
-          error: result.error,
-        },
-        { status: 400 }
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
       );
     }
 
-    // Return success response (don't include sensitive data)
     return NextResponse.json(
       {
         success: true,
         data: {
-          id: result.data!.id,
-          email: result.data!.email,
-          firstName: result.data!.firstName,
-          lastName: result.data!.lastName,
+          id: result.data.id,
+          email: result.data.email,
+          firstName: result.data.firstName,
+          lastName: result.data.lastName,
         },
       },
       { status: 201 }

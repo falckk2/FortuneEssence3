@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 
 // Mock reviews data for demonstration
 // In production, this would be stored in the database
@@ -45,7 +47,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get('productId');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const limitParam = parseInt(searchParams.get('limit') || '50');
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 50;
 
     if (!productId) {
       return NextResponse.json(
@@ -110,7 +113,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Get reviews error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch reviews' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -118,14 +121,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // TODO: Add authentication check here
-    // const session = await getServerSession();
-    // if (!session || !session.user) {
-    //   return NextResponse.json(
-    //     { success: false, error: 'You must be logged in to submit a review' },
-    //     { status: 401 }
-    //   );
-    // }
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
 
     const body = await request.json();
     const { productId, rating, title, comment } = body;
@@ -243,8 +245,6 @@ export async function POST(request: NextRequest) {
     });
     */
 
-    console.log('Would create review:', { productId, rating, title, comment });
-
     return NextResponse.json({
       success: true,
       message: 'Review submitted successfully (requires database implementation)',
@@ -263,7 +263,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Create review error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to submit review' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

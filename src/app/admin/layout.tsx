@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -15,7 +15,20 @@ import {
   ArrowUturnLeftIcon,
   ArchiveBoxIcon,
   SwatchIcon,
+  Bars3Icon,
 } from '@heroicons/react/24/outline';
+
+const navigation = [
+  { name: 'Översikt', href: '/admin', icon: HomeIcon, exact: true },
+  { name: 'Produkter', href: '/admin/products', icon: CubeIcon },
+  { name: 'Lager', href: '/admin/inventory', icon: ArchiveBoxIcon },
+  { name: 'Paket', href: '/admin/bundles', icon: SwatchIcon },
+  { name: 'Beställningar', href: '/admin/orders', icon: ShoppingBagIcon },
+  { name: 'Returer', href: '/admin/returns', icon: ArrowUturnLeftIcon },
+  { name: 'Kunder', href: '/admin/customers', icon: UserGroupIcon },
+  { name: 'Analys', href: '/admin/analytics', icon: ChartBarIcon },
+  { name: 'Inställningar', href: '/admin/settings', icon: Cog6ToothIcon },
+];
 
 export default function AdminLayout({
   children,
@@ -23,8 +36,23 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isAuthenticated, isAdmin, isLoading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    if (localStorage.getItem('adminSidebarOpen') === 'false') {
+      setIsSidebarOpen(false);
+    }
+  }, []);
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(prev => {
+      const next = !prev;
+      localStorage.setItem('adminSidebarOpen', String(next));
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || !isAdmin)) {
@@ -34,7 +62,7 @@ export default function AdminLayout({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-cream-50 flex items-center justify-center">
+      <div className="min-h-screen bg-cream-50 dark:bg-[#1a1f1e] flex items-center justify-center">
         <div className="w-16 h-16 border-4 border-sage-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -44,20 +72,13 @@ export default function AdminLayout({
     return null;
   }
 
-  const navigation = [
-    { name: 'Dashboard', href: '/admin', icon: HomeIcon },
-    { name: 'Products', href: '/admin/products', icon: CubeIcon },
-    { name: 'Inventory', href: '/admin/inventory', icon: ArchiveBoxIcon },
-    { name: 'Bundles', href: '/admin/bundles', icon: SwatchIcon },
-    { name: 'Orders', href: '/admin/orders', icon: ShoppingBagIcon },
-    { name: 'Returns', href: '/admin/returns', icon: ArrowUturnLeftIcon },
-    { name: 'Customers', href: '/admin/customers', icon: UserGroupIcon },
-    { name: 'Analytics', href: '/admin/analytics', icon: ChartBarIcon },
-    { name: 'Settings', href: '/admin/settings', icon: Cog6ToothIcon },
-  ];
+  const isActive = (href: string, exact?: boolean) => {
+    if (exact) return pathname === href;
+    return pathname === href || pathname.startsWith(href + '/');
+  };
 
   return (
-    <div className="min-h-screen bg-cream-50">
+    <div className="min-h-screen bg-cream-50 dark:bg-[#1a1f1e]">
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-64 bg-forest-900 transform transition-transform duration-300 ${
@@ -73,16 +94,21 @@ export default function AdminLayout({
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
               const Icon = item.icon;
+              const active = isActive(item.href, item.exact);
               return (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-forest-300 hover:bg-forest-800 hover:text-white transition-all group"
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                    active
+                      ? 'bg-sage-600 text-white'
+                      : 'text-forest-300 hover:bg-forest-800 hover:text-white'
+                  }`}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-5 w-5 shrink-0" />
                   <span className="font-medium">{item.name}</span>
                 </Link>
               );
@@ -95,8 +121,8 @@ export default function AdminLayout({
               href="/"
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-forest-300 hover:bg-forest-800 hover:text-white transition-all"
             >
-              <ArrowLeftIcon className="h-5 w-5" />
-              <span className="font-medium">Back to Store</span>
+              <ArrowLeftIcon className="h-5 w-5 shrink-0" />
+              <span className="font-medium">Tillbaka till butiken</span>
             </Link>
           </div>
         </div>
@@ -105,19 +131,18 @@ export default function AdminLayout({
       {/* Main Content */}
       <div className={`transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
         {/* Header */}
-        <header className="bg-white border-b border-cream-200 h-16 flex items-center justify-between px-6">
+        <header className="bg-white dark:bg-[#242a28] border-b border-cream-200 dark:border-[#3f4946] h-16 flex items-center justify-between px-6">
           <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 rounded-lg hover:bg-cream-100 transition-colors"
+            onClick={toggleSidebar}
+            className="p-2 rounded-lg hover:bg-cream-100 dark:hover:bg-[#2a3330] transition-colors"
+            aria-label="Växla sidopanel"
           >
-            <svg className="w-6 h-6 text-forest-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <Bars3Icon className="w-6 h-6 text-forest-700 dark:text-[#C5D4C5]" />
           </button>
 
           <div className="flex items-center gap-4">
-            <span className="text-sm text-forest-600">
-              Welcome, <span className="font-semibold">{user?.firstName || 'Admin'}</span>
+            <span className="text-sm text-forest-600 dark:text-[#8A9A8A]">
+              Välkommen, <span className="font-semibold text-forest-800 dark:text-[#E8EDE8]">{user?.firstName || 'Admin'}</span>
             </span>
           </div>
         </header>

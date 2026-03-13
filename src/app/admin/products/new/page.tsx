@@ -100,80 +100,85 @@ export default function NewProductPage() {
       <div className="flex items-center gap-4">
         <Link
           href="/admin/products"
-          className="p-2 rounded-lg hover:bg-cream-100 transition-colors text-forest-600"
+          className="p-2 rounded-lg hover:bg-cream-100 dark:hover:bg-[#2a3330] transition-colors text-forest-600 dark:text-[#C5D4C5]"
         >
           <ArrowLeftIcon className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-3xl font-serif font-bold text-forest-800">New Product</h1>
-          <p className="text-forest-600 mt-1">Add a new product to your catalog</p>
+          <h1 className="text-3xl font-serif font-bold text-forest-800 dark:text-[#E8EDE8]">New Product</h1>
+          <p className="text-forest-600 dark:text-[#C5D4C5] mt-1">Add a new product to your catalog</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Swedish */}
-        <div className="bg-white rounded-2xl shadow-soft p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-forest-800">Swedish (Svenska)</h2>
+        <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8]">Swedish (Svenska)</h2>
           <div>
-            <label className="block text-sm font-medium text-forest-700 mb-1">Name (SV) *</label>
+            <label htmlFor="nameSv" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Name (SV) *</label>
             <input
+              id="nameSv"
               name="nameSv"
               value={form.nameSv}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
               placeholder="Produktnamn på svenska"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-forest-700 mb-1">Description (SV) *</label>
+            <label htmlFor="descriptionSv" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Description (SV) *</label>
             <textarea
+              id="descriptionSv"
               name="descriptionSv"
               value={form.descriptionSv}
               onChange={handleChange}
               required
               rows={3}
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none resize-none"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none resize-none"
               placeholder="Produktbeskrivning på svenska"
             />
           </div>
         </div>
 
         {/* English */}
-        <div className="bg-white rounded-2xl shadow-soft p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-forest-800">English</h2>
+        <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8]">English</h2>
           <div>
-            <label className="block text-sm font-medium text-forest-700 mb-1">Name (EN) *</label>
+            <label htmlFor="nameEn" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Name (EN) *</label>
             <input
+              id="nameEn"
               name="nameEn"
               value={form.nameEn}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
               placeholder="Product name in English"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-forest-700 mb-1">Description (EN) *</label>
+            <label htmlFor="descriptionEn" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Description (EN) *</label>
             <textarea
+              id="descriptionEn"
               name="descriptionEn"
               value={form.descriptionEn}
               onChange={handleChange}
               required
               rows={3}
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none resize-none"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none resize-none"
               placeholder="Product description in English"
             />
           </div>
         </div>
 
         {/* Pricing & Catalog */}
-        <div className="bg-white rounded-2xl shadow-soft p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-forest-800">Pricing & Catalog</h2>
+        <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8]">Pricing & Catalog</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Price (kr) *</label>
+              <label htmlFor="price" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Price (kr) *</label>
               <input
+                id="price"
                 name="price"
                 type="number"
                 min="0"
@@ -181,30 +186,32 @@ export default function NewProductPage() {
                 value={form.price}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
                 placeholder="89.00"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">SKU *</label>
+              <label htmlFor="sku" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">SKU *</label>
               <input
+                id="sku"
                 name="sku"
                 value={form.sku}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
                 placeholder="LAV-001"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Category *</label>
+              <label htmlFor="category" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Category *</label>
               <select
+                id="category"
                 name="category"
                 value={form.category}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
               >
                 {CATEGORIES.map(c => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -212,74 +219,76 @@ export default function NewProductPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Initial Stock</label>
+              <label htmlFor="stock" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Initial Stock</label>
               <input
+                id="stock"
                 name="stock"
                 type="number"
                 min="0"
                 value={form.stock}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
               />
             </div>
           </div>
         </div>
 
         {/* Physical */}
-        <div className="bg-white rounded-2xl shadow-soft p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-forest-800">Physical Details</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Weight (g)</label>
-              <input
-                name="weight"
-                type="number"
-                min="0"
-                value={form.weight}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
-                placeholder="30"
-              />
-            </div>
-            <div />
+        <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8]">Physical Details</h2>
+          <div>
+            <label htmlFor="weight" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Weight (g)</label>
+            <input
+              id="weight"
+              name="weight"
+              type="number"
+              min="0"
+              value={form.weight}
+              onChange={handleChange}
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
+              placeholder="30"
+            />
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Length (cm)</label>
+              <label htmlFor="length" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Length (cm)</label>
               <input
+                id="length"
                 name="length"
                 type="number"
                 min="0"
                 step="0.1"
                 value={form.length}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
                 placeholder="3"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Width (cm)</label>
+              <label htmlFor="width" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Width (cm)</label>
               <input
+                id="width"
                 name="width"
                 type="number"
                 min="0"
                 step="0.1"
                 value={form.width}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
                 placeholder="3"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Height (cm)</label>
+              <label htmlFor="height" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Height (cm)</label>
               <input
+                id="height"
                 name="height"
                 type="number"
                 min="0"
                 step="0.1"
                 value={form.height}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
                 placeholder="8"
               />
             </div>
@@ -287,18 +296,19 @@ export default function NewProductPage() {
         </div>
 
         {/* Images & Status */}
-        <div className="bg-white rounded-2xl shadow-soft p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-forest-800">Images & Status</h2>
+        <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8]">Images & Status</h2>
           <div>
-            <label className="block text-sm font-medium text-forest-700 mb-1">
+            <label htmlFor="images" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">
               Image URLs (one per line)
             </label>
             <textarea
+              id="images"
               name="images"
               value={form.images}
               onChange={handleChange}
               rows={3}
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none resize-none font-mono text-sm"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none resize-none font-mono text-sm"
               placeholder="/images/products/product.png"
             />
           </div>
@@ -311,7 +321,7 @@ export default function NewProductPage() {
               onChange={handleChange}
               className="w-5 h-5 rounded border-cream-300 text-sage-600 focus:ring-sage-500"
             />
-            <label htmlFor="isActive" className="text-sm font-medium text-forest-700">
+            <label htmlFor="isActive" className="text-sm font-medium text-forest-700 dark:text-[#C5D4C5]">
               Active (visible in store)
             </label>
           </div>
@@ -321,7 +331,7 @@ export default function NewProductPage() {
         <div className="flex items-center justify-end gap-4">
           <Link
             href="/admin/products"
-            className="px-6 py-3 rounded-full border-2 border-cream-300 text-forest-700 font-semibold hover:bg-cream-100 transition-all"
+            className="px-6 py-3 rounded-full border-2 border-cream-300 dark:border-[#3f4946] text-forest-700 dark:text-[#C5D4C5] font-semibold hover:bg-cream-100 dark:hover:bg-[#2a3330] transition-all"
           >
             Cancel
           </Link>

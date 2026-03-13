@@ -1,16 +1,37 @@
 import { NextRequest } from 'next/server';
-import { GET, POST } from '@/app/api/cart/recover/route';
 import type { ICartService } from '@/interfaces';
-import { TOKENS } from '@/config/di-container';
-import { container } from 'tsyringe';
 import { mockCartItems } from '../helpers/testData';
 
-// Mock the DI container
+// Mock supabase before any imports that use it
+jest.mock('@/lib/supabase', () => ({ supabase: { from: jest.fn() } }));
+jest.mock('@/lib/supabase-server', () => ({ getSupabaseServer: jest.fn(() => ({ from: jest.fn() })) }));
+
+// Mock DI init to prevent actual container setup
+jest.mock('@/config/di-init', () => ({}));
+
+// Mock the DI container - service proxy object is created lazily on first resolve call
 jest.mock('tsyringe', () => ({
   container: {
     resolve: jest.fn(),
+    register: jest.fn(),
+  },
+  injectable: () => () => {},
+  inject: () => () => {},
+}));
+
+// Mock di-container to expose TOKENS and a mocked container
+jest.mock('@/config/di-container', () => ({
+  TOKENS: {
+    ICartService: Symbol.for('ICartService'),
+  },
+  container: {
+    resolve: jest.fn(),
+    register: jest.fn(),
   },
 }));
+
+import { GET, POST } from '@/app/api/cart/recover/route';
+import { container } from '@/config/di-container';
 
 describe('Cart Recovery API Endpoint', () => {
   let mockCartService: jest.Mocked<ICartService>;

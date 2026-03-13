@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeftIcon, TrashIcon } from '@heroicons/react/24/outline';
@@ -22,6 +22,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   const [form, setForm] = useState({
     nameSv: '',
@@ -40,11 +41,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     isActive: true,
   });
 
-  useEffect(() => {
-    fetchProduct();
-  }, [id]);
-
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     try {
       const res = await fetch(`/api/products/${id}`);
       const data = await res.json();
@@ -76,7 +73,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, router]);
+
+  useEffect(() => {
+    fetchProduct();
+  }, [fetchProduct]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -137,7 +138,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this product? It will be hidden from the store.')) return;
+    setDeleteConfirm(false);
     setDeleting(true);
 
     try {
@@ -171,19 +172,19 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         <div className="flex items-center gap-4">
           <Link
             href="/admin/products"
-            className="p-2 rounded-lg hover:bg-cream-100 transition-colors text-forest-600"
+            className="p-2 rounded-lg hover:bg-cream-100 dark:hover:bg-[#2a3330] transition-colors text-forest-600 dark:text-[#C5D4C5]"
           >
             <ArrowLeftIcon className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-3xl font-serif font-bold text-forest-800">Edit Product</h1>
-            <p className="text-forest-600 mt-1">Update product details</p>
+            <h1 className="text-3xl font-serif font-bold text-forest-800 dark:text-[#E8EDE8]">Edit Product</h1>
+            <p className="text-forest-600 dark:text-[#C5D4C5] mt-1">Update product details</p>
           </div>
         </div>
         <button
-          onClick={handleDelete}
+          onClick={() => setDeleteConfirm(true)}
           disabled={deleting}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 border-red-200 text-red-600 font-medium hover:bg-red-50 transition-all disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50"
         >
           <TrashIcon className="h-4 w-4" />
           {deleting ? 'Deleting...' : 'Delete'}
@@ -192,64 +193,69 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Swedish */}
-        <div className="bg-white rounded-2xl shadow-soft p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-forest-800">Swedish (Svenska)</h2>
+        <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8]">Swedish (Svenska)</h2>
           <div>
-            <label className="block text-sm font-medium text-forest-700 mb-1">Name (SV) *</label>
+            <label htmlFor="nameSv" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Name (SV) *</label>
             <input
+              id="nameSv"
               name="nameSv"
               value={form.nameSv}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-forest-700 mb-1">Description (SV) *</label>
+            <label htmlFor="descriptionSv" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Description (SV) *</label>
             <textarea
+              id="descriptionSv"
               name="descriptionSv"
               value={form.descriptionSv}
               onChange={handleChange}
               required
               rows={3}
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none resize-none"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none resize-none"
             />
           </div>
         </div>
 
         {/* English */}
-        <div className="bg-white rounded-2xl shadow-soft p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-forest-800">English</h2>
+        <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8]">English</h2>
           <div>
-            <label className="block text-sm font-medium text-forest-700 mb-1">Name (EN) *</label>
+            <label htmlFor="nameEn" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Name (EN) *</label>
             <input
+              id="nameEn"
               name="nameEn"
               value={form.nameEn}
               onChange={handleChange}
               required
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-forest-700 mb-1">Description (EN) *</label>
+            <label htmlFor="descriptionEn" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Description (EN) *</label>
             <textarea
+              id="descriptionEn"
               name="descriptionEn"
               value={form.descriptionEn}
               onChange={handleChange}
               required
               rows={3}
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none resize-none"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none resize-none"
             />
           </div>
         </div>
 
         {/* Pricing & Catalog */}
-        <div className="bg-white rounded-2xl shadow-soft p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-forest-800">Pricing & Catalog</h2>
+        <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8]">Pricing & Catalog</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Price (kr) *</label>
+              <label htmlFor="price" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Price (kr) *</label>
               <input
+                id="price"
                 name="price"
                 type="number"
                 min="0"
@@ -257,28 +263,30 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                 value={form.price}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">SKU *</label>
+              <label htmlFor="sku" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">SKU *</label>
               <input
+                id="sku"
                 name="sku"
                 value={form.sku}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Category *</label>
+              <label htmlFor="category" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Category *</label>
               <select
+                id="category"
                 name="category"
                 value={form.category}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
               >
                 {CATEGORIES.map(c => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -286,86 +294,92 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Stock</label>
+              <label htmlFor="stock" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Stock</label>
               <input
+                id="stock"
                 name="stock"
                 type="number"
                 min="0"
                 value={form.stock}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
               />
             </div>
           </div>
         </div>
 
         {/* Physical */}
-        <div className="bg-white rounded-2xl shadow-soft p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-forest-800">Physical Details</h2>
+        <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8]">Physical Details</h2>
           <div>
-            <label className="block text-sm font-medium text-forest-700 mb-1">Weight (g)</label>
+            <label htmlFor="weight" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Weight (g)</label>
             <input
+              id="weight"
               name="weight"
               type="number"
               min="0"
               value={form.weight}
               onChange={handleChange}
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
             />
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Length (cm)</label>
+              <label htmlFor="length" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Length (cm)</label>
               <input
+                id="length"
                 name="length"
                 type="number"
                 min="0"
                 step="0.1"
                 value={form.length}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Width (cm)</label>
+              <label htmlFor="width" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Width (cm)</label>
               <input
+                id="width"
                 name="width"
                 type="number"
                 min="0"
                 step="0.1"
                 value={form.width}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-forest-700 mb-1">Height (cm)</label>
+              <label htmlFor="height" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Height (cm)</label>
               <input
+                id="height"
                 name="height"
                 type="number"
                 min="0"
                 step="0.1"
                 value={form.height}
                 onChange={handleChange}
-                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
               />
             </div>
           </div>
         </div>
 
         {/* Images & Status */}
-        <div className="bg-white rounded-2xl shadow-soft p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-forest-800">Images & Status</h2>
+        <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8]">Images & Status</h2>
           <div>
-            <label className="block text-sm font-medium text-forest-700 mb-1">
+            <label htmlFor="images" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">
               Image URLs (one per line)
             </label>
             <textarea
+              id="images"
               name="images"
               value={form.images}
               onChange={handleChange}
               rows={3}
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none resize-none font-mono text-sm"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none resize-none font-mono text-sm"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -377,7 +391,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
               onChange={handleChange}
               className="w-5 h-5 rounded border-cream-300 text-sage-600 focus:ring-sage-500"
             />
-            <label htmlFor="isActive" className="text-sm font-medium text-forest-700">
+            <label htmlFor="isActive" className="text-sm font-medium text-forest-700 dark:text-[#C5D4C5]">
               Active (visible in store)
             </label>
           </div>
@@ -387,7 +401,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         <div className="flex items-center justify-end gap-4">
           <Link
             href="/admin/products"
-            className="px-6 py-3 rounded-full border-2 border-cream-300 text-forest-700 font-semibold hover:bg-cream-100 transition-all"
+            className="px-6 py-3 rounded-full border-2 border-cream-300 dark:border-[#3f4946] text-forest-700 dark:text-[#C5D4C5] font-semibold hover:bg-cream-100 dark:hover:bg-[#2a3330] transition-all"
           >
             Cancel
           </Link>
@@ -400,6 +414,32 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
           </button>
         </div>
       </form>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-[#242a28] rounded-xl p-6 max-w-sm mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8] mb-2">Delete product?</h3>
+            <p className="text-forest-600 dark:text-[#C5D4C5] text-sm mb-6">
+              Are you sure you want to delete this product? It will be hidden from the store.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setDeleteConfirm(false)}
+                className="flex-1 px-4 py-2 border border-cream-300 dark:border-[#3f4946] text-forest-700 dark:text-[#C5D4C5] font-medium rounded-lg hover:bg-cream-50 dark:hover:bg-[#2a3330] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

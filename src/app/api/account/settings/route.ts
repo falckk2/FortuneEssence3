@@ -1,9 +1,8 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { CustomerRepository } from '@/repositories/customers/CustomerRepository';
-import bcrypt from 'bcryptjs';
-import { supabase } from '@/lib/supabase';
 
 const customerRepository = new CustomerRepository();
 
@@ -12,7 +11,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
 
     const result = await customerRepository.findById(session.user.id);
@@ -20,7 +19,6 @@ export async function GET() {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
-    const { id, createdAt, updatedAt, ...safeData } = result.data;
     return NextResponse.json({
       success: true,
       data: {
@@ -49,7 +47,7 @@ export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -59,7 +57,6 @@ export async function PUT(request: NextRequest) {
       return handlePasswordChange(session.user.id, body);
     }
 
-    // Update profile
     const { firstName, lastName, phone, marketingOptIn, address } = body;
 
     if (!firstName?.trim() || !lastName?.trim()) {
@@ -84,7 +81,8 @@ export async function PUT(request: NextRequest) {
     });
 
     if (!result.success) {
-      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+      console.error('Failed to update profile:', result.error);
+      return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
@@ -111,30 +109,17 @@ async function handlePasswordChange(userId: string, body: { currentPassword: str
     );
   }
 
-  // Verify current password
-  const { data: userData, error: fetchError } = await supabase
-    .from('customers')
-    .select('password_hash')
-    .eq('id', userId)
-    .single();
+  const result = await customerRepository.changePassword(userId, currentPassword, newPassword);
 
-  if (fetchError || !userData) {
-    return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
-  }
-
-  const isValid = await bcrypt.compare(currentPassword, userData.password_hash);
-  if (!isValid) {
-    return NextResponse.json({ success: false, error: 'Current password is incorrect' }, { status: 400 });
-  }
-
-  const hashedPassword = await bcrypt.hash(newPassword, 12);
-  const { error: updateError } = await supabase
-    .from('customers')
-    .update({ password_hash: hashedPassword })
-    .eq('id', userId);
-
-  if (updateError) {
-    return NextResponse.json({ success: false, error: 'Failed to update password' }, { status: 500 });
+  if (!result.success) {
+    if (result.error === 'User not found') {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+    }
+    if (result.error === 'Current password is incorrect') {
+      return NextResponse.json({ success: false, error: 'Current password is incorrect' }, { status: 400 });
+    }
+    console.error('Failed to change password:', result.error);
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 
   return NextResponse.json({ success: true });

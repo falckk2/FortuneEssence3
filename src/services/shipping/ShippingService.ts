@@ -32,7 +32,9 @@ export class ShippingService implements IShippingService {
       }
 
       // Filter rates based on weight capacity
-      const availableRates = result.data!.filter(rate => rate.maxWeight >= weight);
+      const availableRates = result.data!.filter(rate =>
+        weight >= (rate.minWeight || 0) && weight <= rate.maxWeight
+      );
 
       return {
         success: true,
@@ -112,7 +114,7 @@ export class ShippingService implements IShippingService {
       estimatedDelivery.setDate(estimatedDelivery.getDate() + rate.estimatedDays);
 
       const shipment: Shipment = {
-        id: `shipment_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+        id: crypto.randomUUID(),
         orderId,
         trackingNumber,
         carrier: this.getCarrierFromRate(rate.name),
@@ -173,17 +175,14 @@ export class ShippingService implements IShippingService {
 
   private async calculateTotalWeight(items: CartItem[]): Promise<number> {
     try {
-      let totalWeight = 0;
+      const productIds = [...new Set(items.map(item => item.productId))];
+      const productsResult = await this.productRepository.findByIds(productIds);
+      const productMap = new Map((productsResult.data ?? []).map(p => [p.id, p]));
 
-      for (const item of items) {
-        const productResult = await this.productRepository.findById(item.productId);
-        
-        if (productResult.success && productResult.data) {
-          totalWeight += productResult.data.weight * item.quantity;
-        }
-      }
-
-      return totalWeight;
+      return items.reduce((total, item) => {
+        const product = productMap.get(item.productId);
+        return total + (product ? product.weight * item.quantity : 0);
+      }, 0);
     } catch (error) {
       console.error('Failed to calculate total weight:', error);
       return 0;
@@ -205,8 +204,8 @@ export class ShippingService implements IShippingService {
   private generateTrackingNumber(shippingMethod: string): string {
     const prefix = this.getTrackingPrefix(shippingMethod);
     const timestamp = Date.now().toString().slice(-6);
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
+    const randomBytes = crypto.getRandomValues(new Uint8Array(4));
+    const random = Array.from(randomBytes, b => b.toString(36)).join('').substring(0, 6).toUpperCase();
     return `${prefix}${timestamp}${random}`;
   }
 
@@ -237,18 +236,10 @@ export class ShippingService implements IShippingService {
   }
 
   private getCarrierFromTrackingNumber(trackingNumber: string): string {
-    const prefix = trackingNumber.substring(0, 2);
-
-    switch (prefix) {
-      case 'PN':
-        return 'PostNord';
-      case 'DHL':
-        return 'DHL';
-      case 'EX':
-        return 'Express';
-      default:
-        return 'Standard';
-    }
+    if (trackingNumber.startsWith('DHL')) return 'DHL';
+    if (trackingNumber.startsWith('PN')) return 'PostNord';
+    if (trackingNumber.startsWith('EX')) return 'Express';
+    return 'Standard';
   }
 
   /**
@@ -511,7 +502,6 @@ export class ShippingService implements IShippingService {
         return {
           success: true,
           data: { valid: false },
-          error: 'Incomplete address information',
         };
       }
 
@@ -522,7 +512,6 @@ export class ShippingService implements IShippingService {
           return {
             success: true,
             data: { valid: false },
-            error: 'Invalid Swedish postal code format',
           };
         }
       }
@@ -552,13 +541,17 @@ export class ShippingService implements IShippingService {
       const ratesResult = await this.getShippingRates(country, totalWeight);
       
       if (!ratesResult.success) {
-        return ratesResult as any;
+        return { success: false, error: ratesResult.error };
       }
 
       const options = ratesResult.data!;
-      
+
+      if (options.length === 0) {
+        return { success: false, error: 'No shipping options available for this country and weight' };
+      }
+
       // Find recommended option (usually the most economical)
-      const recommended = options.reduce((prev, current) => 
+      const recommended = options.reduce((prev, current) =>
         prev.price < current.price ? prev : current
       );
 
@@ -650,7 +643,7 @@ export class ShippingService implements IShippingService {
   }
 
   private getSwedishZoneDetails(postalCode: string): { zone: string; additionalDays: number } {
-    const code = parseInt(postalCode.replace(/\s/g, ''));
+    const code = parseInt(postalCode.replace(/\s/g, ''), 10);
     let zone = 'Övriga Sverige';
     let additionalDays = 1;
 
@@ -685,54 +678,107 @@ export class ShippingService implements IShippingService {
       const month = deliveryDate.getMonth() + 1;
       const day = deliveryDate.getDate();
 
-      // Swedish holidays that affect delivery
-      const holidays = [
-        { month: 1, day: 1, name: 'Nyårsdagen' },
-        { month: 1, day: 6, name: 'Trettondedag jul' },
-        { month: 5, day: 1, name: 'Första maj' },
-        { month: 6, day: 6, name: 'Sveriges nationaldag' },
-        { month: 12, day: 24, name: 'Julafton' },
-        { month: 12, day: 25, name: 'Juldagen' },
-        { month: 12, day: 26, name: 'Annandag jul' },
-      ];
-
-      const holiday = holidays.find(h => h.month === month && h.day === day);
-      let adjustedDate = new Date(deliveryDate);
-
-      if (holiday) {
-        // Move to next business day
-        adjustedDate.setDate(adjustedDate.getDate() + 1);
-        
-        // Skip weekends
-        while (adjustedDate.getDay() === 0 || adjustedDate.getDay() === 6) {
-          adjustedDate.setDate(adjustedDate.getDate() + 1);
-        }
-
-        // Calculate delay in days
-        const delayDays = Math.ceil((adjustedDate.getTime() - deliveryDate.getTime()) / (1000 * 60 * 60 * 24));
-
-        return {
-          success: true,
-          data: {
-            isHoliday: true,
-            estimatedDelay: delayDays,
-          },
-        };
+      const isHoliday = this.isSwedishHoliday(year, month, day);
+      if (!isHoliday) {
+        return { success: true, data: { isHoliday: false, estimatedDelay: 0 } };
       }
 
-      return {
-        success: true,
-        data: {
-          isHoliday: false,
-          estimatedDelay: 0,
-        },
-      };
+      // Move to next business day
+      const adjustedDate = new Date(deliveryDate);
+      adjustedDate.setDate(adjustedDate.getDate() + 1);
+      while (adjustedDate.getDay() === 0 || adjustedDate.getDay() === 6 ||
+             this.isSwedishHoliday(adjustedDate.getFullYear(), adjustedDate.getMonth() + 1, adjustedDate.getDate())) {
+        adjustedDate.setDate(adjustedDate.getDate() + 1);
+      }
+
+      const delayDays = Math.ceil((adjustedDate.getTime() - deliveryDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      return { success: true, data: { isHoliday: true, estimatedDelay: delayDays } };
     } catch (error) {
-      return {
-        success: false,
-        error: `Failed to check holiday impact: ${error}`,
-      };
+      return { success: false, error: `Failed to check holiday impact: ${error}` };
     }
+  }
+
+  /** Returns true if the given date is a Swedish public holiday. */
+  private isSwedishHoliday(year: number, month: number, day: number): boolean {
+    // Fixed-date holidays
+    const fixed = [
+      [1, 1],   // Nyårsdagen
+      [1, 6],   // Trettondedag jul
+      [5, 1],   // Första maj
+      [6, 6],   // Sveriges nationaldag
+      [12, 24], // Julafton
+      [12, 25], // Juldagen
+      [12, 26], // Annandag jul
+      [12, 31], // Nyårsafton
+    ];
+    if (fixed.some(([m, d]) => m === month && d === day)) return true;
+
+    // Variable-date holidays derived from Easter
+    const easter = this.getEasterDate(year);
+    const variable = [
+      this.addDays(easter, -2),  // Långfredagen (Good Friday)
+      easter,                     // Påskdagen (Easter Sunday)
+      this.addDays(easter, 1),   // Annandag påsk (Easter Monday)
+      this.addDays(easter, 39),  // Kristi himmelsfärdsdag (Ascension Day)
+      this.addDays(easter, 49),  // Pingstdagen (Whit Sunday)
+    ];
+    if (variable.some(d => d.getMonth() + 1 === month && d.getDate() === day)) return true;
+
+    // Midsommarafton: Friday between June 19–25
+    // Midsommardagen: Saturday between June 20–26
+    const midsommarDay = this.getMidsommarDate(year);
+    const midsommarEve = this.addDays(midsommarDay, -1);
+    if ([midsommarEve, midsommarDay].some(d => d.getMonth() + 1 === month && d.getDate() === day)) return true;
+
+    // Alla helgons dag: Saturday between Oct 31 – Nov 6
+    const allSaints = this.getAllSaintsDate(year);
+    if (allSaints.getMonth() + 1 === month && allSaints.getDate() === day) return true;
+
+    return false;
+  }
+
+  /** Calculates Easter Sunday for a given year (Gregorian). */
+  private getEasterDate(year: number): Date {
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31);
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day);
+  }
+
+  /** Midsommardagen: the Saturday between June 20–26. */
+  private getMidsommarDate(year: number): Date {
+    for (let day = 20; day <= 26; day++) {
+      const d = new Date(year, 5, day);
+      if (d.getDay() === 6) return d;
+    }
+    return new Date(year, 5, 20);
+  }
+
+  /** Alla helgons dag: the Saturday between Oct 31 – Nov 6. */
+  private getAllSaintsDate(year: number): Date {
+    for (let i = 0; i <= 6; i++) {
+      const d = new Date(year, 9, 31 + i);
+      if (d.getDay() === 6) return d;
+    }
+    return new Date(year, 9, 31);
+  }
+
+  private addDays(date: Date, days: number): Date {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
   }
 
   async calculateSwedishShippingWithZones(
@@ -758,7 +804,6 @@ export class ShippingService implements IShippingService {
 
       // Get detailed zone info for shipping calculation
       const zoneInfo = this.getSwedishZoneDetails(postalCode);
-      const totalWeight = await this.calculateTotalWeight(items);
 
       // Get base shipping rate for Sweden
       const baseRateResult = await this.calculateShipping(items, 'Sweden');
@@ -889,7 +934,14 @@ export class ShippingService implements IShippingService {
     };
   }>> {
     try {
-      const standardResult = await this.calculateShipping(items, country);
+      // Calculate weight once and reuse for both rate lookup and carbon calculation
+      const totalWeight = await this.calculateTotalWeight(items);
+
+      if (totalWeight === 0) {
+        return { success: false, error: 'Unable to calculate shipping weight' };
+      }
+
+      const standardResult = await this.shippingRepository.calculateShipping(totalWeight, country);
       if (!standardResult.success) {
         return {
           success: false,
@@ -898,7 +950,6 @@ export class ShippingService implements IShippingService {
       }
 
       const standardRate = standardResult.data!;
-      const totalWeight = await this.calculateTotalWeight(items);
 
       // Calculate carbon footprint (simplified calculation)
       const carbonKg = totalWeight * 0.5; // Estimated 0.5kg CO2 per kg shipped
@@ -983,9 +1034,14 @@ export class ShippingService implements IShippingService {
         }));
       }
 
+      // Use per-country threshold from DB, fall back to global constant
+      const thresholdResult = await this.getFreeShippingThreshold(country);
+      const freeShippingThreshold = thresholdResult.success && thresholdResult.data != null
+        ? thresholdResult.data
+        : FREE_SHIPPING_THRESHOLD;
+
       // Check for free shipping
-      const isFreeShipping = cartTotal >= FREE_SHIPPING_THRESHOLD;
-      if (isFreeShipping) {
+      if (cartTotal >= freeShippingThreshold) {
         availableRates = availableRates.map(rate => ({
           ...rate,
           price: 0,
@@ -996,7 +1052,10 @@ export class ShippingService implements IShippingService {
       // Sort by price (cheapest first)
       const sortedRates = this.carrierRulesEngine.sortByPrice([...availableRates]);
 
-      // Get recommended option
+      if (sortedRates.length === 0) {
+        return { success: false, error: 'No shipping options available for this destination and weight' };
+      }
+
       const recommended = this.carrierRulesEngine.getRecommendedRate(sortedRates, criteria) || sortedRates[0];
 
       return {
@@ -1004,7 +1063,7 @@ export class ShippingService implements IShippingService {
         data: {
           options: sortedRates,
           recommended,
-          freeShippingThreshold: FREE_SHIPPING_THRESHOLD,
+          freeShippingThreshold,
         },
       };
     } catch (error) {
@@ -1100,7 +1159,8 @@ export class ShippingService implements IShippingService {
   private generateCarrierTrackingNumber(carrierCode: string): string {
     const prefix = getTrackingPrefix(carrierCode);
     const timestamp = Date.now().toString(36).toUpperCase();
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const randomBytes = crypto.getRandomValues(new Uint8Array(4));
+    const random = Array.from(randomBytes, b => b.toString(36)).join('').substring(0, 6).toUpperCase();
     const checksum = this.calculateChecksum(`${prefix}${timestamp}${random}`);
 
     return `${prefix}${timestamp}${random}${checksum}`;

@@ -65,6 +65,7 @@ export interface BundleSelection {
 }
 
 export interface CartItem {
+  cartItemId?: string;
   productId: string;
   quantity: number;
   price: number;

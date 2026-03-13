@@ -1,6 +1,6 @@
 import { injectable, inject } from 'tsyringe';
 import type { ICartService, ICartRepository, IProductRepository, IAbandonedCartRepository, IBundleService } from '@/interfaces';
-import type { Cart, CartItem, ApiResponse } from '@/types';
+import type { Cart, CartItem, AbandonedCart, ApiResponse } from '@/types';
 import { TOKENS } from '@/config/di-container';
 import { PriceCalculator } from '@/utils/helpers';
 import { cartItemSchema } from '@/utils/validation';
@@ -79,9 +79,7 @@ export class CartService implements ICartService {
       }
 
       // Get current cart
-      const cartResult = await this.cartRepository.findById ? 
-        await this.cartRepository.findById(cartId) : 
-        { success: false, error: 'Cart not found' };
+      const cartResult = await this.cartRepository.findById(cartId);
 
       if (!cartResult.success) {
         return {
@@ -91,12 +89,17 @@ export class CartService implements ICartService {
       }
 
       const cart = cartResult.data!;
-      const existingItemIndex = cart.items.findIndex(cartItem => cartItem.productId === item.productId);
+
+      // Bundle items are always added as separate line items (each has unique selection)
+      const isBundle = !!item.bundleSelection;
+      const existingItemIndex = isBundle
+        ? -1
+        : cart.items.findIndex(cartItem => cartItem.productId === item.productId && !cartItem.bundleSelection);
 
       let updatedItems: CartItem[];
 
       if (existingItemIndex >= 0) {
-        // Update existing item
+        // Update existing regular item
         const existingItem = cart.items[existingItemIndex];
         const newQuantity = existingItem.quantity + item.quantity;
 
@@ -107,15 +110,16 @@ export class CartService implements ICartService {
           };
         }
 
-        updatedItems = cart.items.map((cartItem, index) => 
-          index === existingItemIndex 
-            ? { ...cartItem, quantity: newQuantity }
+        updatedItems = cart.items.map((cartItem, index) =>
+          index === existingItemIndex
+            ? { ...cartItem, quantity: newQuantity, price: product.price }
             : cartItem
         );
       } else {
-        // Add new item with current product price
+        // Add new item with current product price and a unique cartItemId
         const newItem: CartItem = {
           ...item,
+          cartItemId: crypto.randomUUID(),
           price: product.price,
         };
         updatedItems = [...cart.items, newItem];
@@ -139,12 +143,10 @@ export class CartService implements ICartService {
     }
   }
 
-  async removeItem(cartId: string, productId: string): Promise<ApiResponse<Cart>> {
+  async removeItem(cartId: string, productId: string, cartItemId?: string): Promise<ApiResponse<Cart>> {
     try {
       // Get current cart
-      const cartResult = await this.cartRepository.findById ? 
-        await this.cartRepository.findById(cartId) : 
-        { success: false, error: 'Cart not found' };
+      const cartResult = await this.cartRepository.findById(cartId);
 
       if (!cartResult.success) {
         return {
@@ -154,7 +156,10 @@ export class CartService implements ICartService {
       }
 
       const cart = cartResult.data!;
-      const updatedItems = cart.items.filter(item => item.productId !== productId);
+      // If cartItemId is provided (bundle), remove only that specific instance
+      const updatedItems = cartItemId
+        ? cart.items.filter(item => item.cartItemId !== cartItemId)
+        : cart.items.filter(item => item.productId !== productId);
       const newTotal = await this.calculateTotal(updatedItems);
 
       // Update cart
@@ -204,9 +209,7 @@ export class CartService implements ICartService {
       }
 
       // Get current cart
-      const cartResult = await this.cartRepository.findById ? 
-        await this.cartRepository.findById(cartId) : 
-        { success: false, error: 'Cart not found' };
+      const cartResult = await this.cartRepository.findById(cartId);
 
       if (!cartResult.success) {
         return {
@@ -265,13 +268,8 @@ export class CartService implements ICartService {
   }
 
   async calculateTotal(items: CartItem[]): Promise<number> {
-    try {
-      const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
-      return Math.round(subtotal * 100) / 100; // Round to 2 decimal places
-    } catch (error) {
-      console.error('Failed to calculate total:', error);
-      return 0;
-    }
+    const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
+    return Math.round(subtotal * 100) / 100; // Round to 2 decimal places
   }
 
   // Additional business logic methods
@@ -288,6 +286,11 @@ export class CartService implements ICartService {
       const cart = cartResult.data!;
       const issues: string[] = [];
 
+      // Batch-fetch all products in one query
+      const productIds = [...new Set(cart.items.map(item => item.productId))];
+      const productsResult = await this.productRepository.findByIds(productIds);
+      const productMap = new Map((productsResult.data ?? []).map(p => [p.id, p]));
+
       for (const item of cart.items) {
         // Validate bundle items if this is a bundle
         if (item.bundleSelection) {
@@ -303,15 +306,12 @@ export class CartService implements ICartService {
           }
         }
 
-        // Validate the product itself
-        const productResult = await this.productRepository.findById(item.productId);
+        const product = productMap.get(item.productId);
 
-        if (!productResult.success || !productResult.data) {
+        if (!product) {
           issues.push(`Product ${item.productId} not found`);
           continue;
         }
-
-        const product = productResult.data;
 
         if (!product.isActive) {
           issues.push(`Product "${product.name}" is no longer available`);
@@ -322,7 +322,7 @@ export class CartService implements ICartService {
         }
 
         // Check if price has changed significantly (more than 5%)
-        const priceDifference = Math.abs(product.price - item.price) / item.price;
+        const priceDifference = item.price > 0 ? Math.abs(product.price - item.price) / item.price : 0;
         if (priceDifference > 0.05) {
           issues.push(`Product "${product.name}" price has changed from ${item.price} to ${product.price} SEK`);
         }
@@ -351,21 +351,16 @@ export class CartService implements ICartService {
       }
 
       const cart = cartResult.data!;
-      const updatedItems: CartItem[] = [];
 
-      for (const item of cart.items) {
-        const productResult = await this.productRepository.findById(item.productId);
-        
-        if (productResult.success && productResult.data) {
-          updatedItems.push({
-            ...item,
-            price: productResult.data.price,
-          });
-        } else {
-          // Keep item if we can't verify the product (avoid data loss)
-          updatedItems.push(item);
-        }
-      }
+      // Batch-fetch all products in one query
+      const productIds = [...new Set(cart.items.map(item => item.productId))];
+      const productsResult = await this.productRepository.findByIds(productIds);
+      const productMap = new Map((productsResult.data ?? []).map(p => [p.id, p]));
+
+      const updatedItems: CartItem[] = cart.items.map(item => {
+        const product = productMap.get(item.productId);
+        return product ? { ...item, price: product.price } : item;
+      });
 
       const newTotal = await this.calculateTotal(updatedItems);
 
@@ -415,14 +410,15 @@ export class CartService implements ICartService {
       const subtotal = cart.total;
       const estimatedTax = PriceCalculator.calculateVAT(subtotal);
 
-      // Calculate total weight for shipping
-      let totalWeight = 0;
-      for (const item of cart.items) {
-        const productResult = await this.productRepository.findById(item.productId);
-        if (productResult.success && productResult.data) {
-          totalWeight += productResult.data.weight * item.quantity;
-        }
-      }
+      // Calculate total weight for shipping — batch-fetch all products
+      const weightProductIds = [...new Set(cart.items.map(item => item.productId))];
+      const weightProductsResult = await this.productRepository.findByIds(weightProductIds);
+      const weightProductMap = new Map((weightProductsResult.data ?? []).map(p => [p.id, p]));
+
+      const totalWeight = cart.items.reduce((sum, item) => {
+        const product = weightProductMap.get(item.productId);
+        return sum + (product ? product.weight * item.quantity : 0);
+      }, 0);
 
       return {
         success: true,
@@ -442,12 +438,7 @@ export class CartService implements ICartService {
   }
 
   private async getCartById(cartId: string): Promise<ApiResponse<Cart>> {
-    // This is a helper method - in a real implementation, the repository would have this method
-    // For now, we'll simulate it
-    return {
-      success: false,
-      error: 'Method not implemented',
-    };
+    return this.cartRepository.findById(cartId);
   }
 
   // Abandoned Cart Recovery Methods
@@ -462,7 +453,7 @@ export class CartService implements ICartService {
   ): Promise<ApiResponse<{ abandonedCartId: string; recoveryToken: string }>> {
     try {
       // Get cart details
-      const cartResult = await this.getCart(customerId, sessionId);
+      const cartResult = await this.getCartById(cartId);
       if (!cartResult.success || !cartResult.data) {
         return {
           success: false,
@@ -496,6 +487,7 @@ export class CartService implements ICartService {
           items: cart.items,
           subtotal,
           total: cart.total,
+          recoveryToken,
           abandonedAt: new Date(),
         });
 
@@ -555,16 +547,14 @@ export class CartService implements ICartService {
     }
   }
 
-  async getAbandonedCartsForReminder(hoursAbandoned: number = 1, maxReminders: number = 3): Promise<ApiResponse<any[]>> {
+  async getAbandonedCartsForReminder(hoursAbandoned: number = 1, maxReminders: number = 3): Promise<ApiResponse<AbandonedCart[]>> {
     return this.abandonedCartRepository.findForReminder(hoursAbandoned, maxReminders);
   }
 
   async markCartReminded(abandonedCartId: string): Promise<ApiResponse<void>> {
     try {
-      // Note: The repository method now handles getting the current count and incrementing it
-      // We pass the ID and the repository will fetch the current count, increment it, and update
-      // To do this properly, we need to first get the cart to know the current reminder count
-      const cartResult = await this.abandonedCartRepository.findByCartId(abandonedCartId);
+      // Fetch current count so we can pass the incremented value to markReminded
+      const cartResult = await this.abandonedCartRepository.findById(abandonedCartId);
 
       if (!cartResult.success || !cartResult.data) {
         return {

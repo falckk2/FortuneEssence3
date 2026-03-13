@@ -37,6 +37,7 @@ describe('CartService - Abandoned Cart Methods', () => {
     mockAbandonedCartRepository = {
       create: jest.fn(),
       update: jest.fn(),
+      findById: jest.fn(),
       findByCartId: jest.fn(),
       findByRecoveryToken: jest.fn(),
       findForReminder: jest.fn(),
@@ -65,7 +66,7 @@ describe('CartService - Abandoned Cart Methods', () => {
   describe('trackAbandonedCart', () => {
     it('should create new abandoned cart when cart has items', async () => {
       // Arrange
-      mockCartRepository.findByUserId.mockResolvedValue({
+      mockCartRepository.findById.mockResolvedValue({
         success: true,
         data: mockCart,
       });
@@ -95,7 +96,7 @@ describe('CartService - Abandoned Cart Methods', () => {
       expect(result.data?.abandonedCartId).toBe(mockAbandonedCart.id);
       expect(result.data?.recoveryToken).toBeDefined();
 
-      expect(mockCartRepository.findByUserId).toHaveBeenCalledWith('user-456');
+      expect(mockCartRepository.findById).toHaveBeenCalledWith('cart-123');
       expect(mockAbandonedCartRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           cartId: 'cart-123',
@@ -110,7 +111,7 @@ describe('CartService - Abandoned Cart Methods', () => {
 
     it('should update existing abandoned cart', async () => {
       // Arrange
-      mockCartRepository.findByUserId.mockResolvedValue({
+      mockCartRepository.findById.mockResolvedValue({
         success: true,
         data: mockCart,
       });
@@ -145,7 +146,7 @@ describe('CartService - Abandoned Cart Methods', () => {
 
     it('should return error when cart not found', async () => {
       // Arrange
-      mockCartRepository.findByUserId.mockResolvedValue({
+      mockCartRepository.findById.mockResolvedValue({
         success: false,
         error: 'Cart not found',
       });
@@ -165,7 +166,7 @@ describe('CartService - Abandoned Cart Methods', () => {
 
     it('should return error when cart is empty', async () => {
       // Arrange
-      mockCartRepository.findByUserId.mockResolvedValue({
+      mockCartRepository.findById.mockResolvedValue({
         success: true,
         data: { ...mockCart, items: [] },
       });
@@ -185,7 +186,7 @@ describe('CartService - Abandoned Cart Methods', () => {
 
     it('should generate unique recovery token', async () => {
       // Arrange
-      mockCartRepository.findByUserId.mockResolvedValue({
+      mockCartRepository.findById.mockResolvedValue({
         success: true,
         data: mockCart,
       });
@@ -254,7 +255,7 @@ describe('CartService - Abandoned Cart Methods', () => {
   describe('markCartReminded', () => {
     it('should increment reminder count and mark as reminded', async () => {
       // Arrange
-      mockAbandonedCartRepository.findByCartId.mockResolvedValue({
+      mockAbandonedCartRepository.findById.mockResolvedValue({
         success: true,
         data: mockAbandonedCart,
       });
@@ -277,7 +278,7 @@ describe('CartService - Abandoned Cart Methods', () => {
     it('should handle multiple reminders', async () => {
       // Arrange
       const remindedCart = { ...mockAbandonedCart, reminderCount: 2 };
-      mockAbandonedCartRepository.findByCartId.mockResolvedValue({
+      mockAbandonedCartRepository.findById.mockResolvedValue({
         success: true,
         data: remindedCart,
       });
@@ -298,7 +299,7 @@ describe('CartService - Abandoned Cart Methods', () => {
 
     it('should return error when cart not found', async () => {
       // Arrange
-      mockAbandonedCartRepository.findByCartId.mockResolvedValue({
+      mockAbandonedCartRepository.findById.mockResolvedValue({
         success: false,
         error: 'Cart not found',
       });

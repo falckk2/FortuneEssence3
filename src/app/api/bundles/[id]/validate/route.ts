@@ -1,8 +1,9 @@
 import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { container } from 'tsyringe';
-import { TOKENS } from '@/config/di-container';
+import { container, TOKENS } from '@/config/di-container';
 import type { IBundleService } from '@/interfaces';
+
+const bundleService = container.resolve<IBundleService>(TOKENS.IBundleService);
 
 // POST /api/bundles/[id]/validate - Validate bundle selection before adding to cart
 export async function POST(
@@ -10,7 +11,6 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const bundleService = container.resolve<IBundleService>(TOKENS.IBundleService);
     const body = await request.json();
     const { selectedProductIds, quantities } = body;
 
@@ -29,9 +29,10 @@ export async function POST(
     );
 
     if (!result.success) {
+      console.error('Bundle validation service error:', result.error);
       return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 400 }
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
       );
     }
 

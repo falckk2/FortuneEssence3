@@ -18,7 +18,7 @@ export class StripePaymentProcessor implements IPaymentProcessor {
   constructor() {
     const stripeKey = config.payments.stripe.secretKey || 'sk_test_placeholder';
 
-    if (!config.payments.stripe.secretKey && typeof window === 'undefined' && process.env.NODE_ENV !== 'production') {
+    if (!config.payments.stripe.secretKey && typeof window === 'undefined') {
       console.warn('Warning: Stripe secret key is not configured');
     }
 
@@ -50,7 +50,8 @@ export class StripePaymentProcessor implements IPaymentProcessor {
         success: true,
         data: {
           paymentId: paymentIntent.id,
-          status: 'succeeded',
+          status: paymentIntent.status === 'succeeded' ? 'succeeded' : paymentIntent.status === 'requires_payment_method' ? 'failed' : 'pending',
+          clientSecret: paymentIntent.client_secret ?? undefined,
           amount: paymentData.amount,
           currency: paymentData.currency,
         },

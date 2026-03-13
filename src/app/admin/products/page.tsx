@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Product } from '@/types';
@@ -15,42 +15,76 @@ import {
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 
+const formatPrice = (amount: number) =>
+  new Intl.NumberFormat('sv-SE', { style: 'currency', currency: 'SEK' }).format(amount);
+
+const getCategoryColor = (category: string) => {
+  const colors: Record<string, string> = {
+    'essential-oils': 'bg-sage-100 text-sage-700 border-sage-200 dark:bg-[#2a3330] dark:text-sage-400 dark:border-[#3f4946]',
+    'carrier-oils': 'bg-terracotta-100 text-terracotta-700 border-terracotta-200 dark:bg-[#2a3330] dark:text-terracotta-400 dark:border-[#3f4946]',
+    'diffusers': 'bg-cream-300 text-forest-700 border-cream-400 dark:bg-[#2a3330] dark:text-[#C5D4C5] dark:border-[#3f4946]',
+    'accessories': 'bg-forest-100 text-forest-700 border-forest-200 dark:bg-[#2a3330] dark:text-[#C5D4C5] dark:border-[#3f4946]',
+    'gift-sets': 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-800',
+  };
+  return colors[category] || 'bg-cream-200 text-forest-700 border-cream-300 dark:bg-[#2a3330] dark:text-[#C5D4C5] dark:border-[#3f4946]';
+};
+
+const getCategoryName = (category: string) => {
+  const names: Record<string, string> = {
+    'essential-oils': 'Essential Oils',
+    'carrier-oils': 'Carrier Oils',
+    'diffusers': 'Diffusers',
+    'accessories': 'Accessories',
+    'gift-sets': 'Gift Sets',
+  };
+  return names[category] || category;
+};
+
+const getStockStatus = (stock: number) => {
+  if (stock === 0) {
+    return { label: 'Out of Stock', color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700' };
+  } else if (stock <= 5) {
+    return { label: `Low Stock (${stock})`, color: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700' };
+  }
+  return { label: `In Stock (${stock})`, color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700' };
+};
+
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [stockFilter, setStockFilter] = useState('all');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  useEffect(() => {
-    filterProducts();
-  }, [products, searchQuery, categoryFilter, stockFilter]);
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       const response = await fetch('/api/products');
       const data = await response.json();
       if (data.success) {
         setProducts(data.data);
+      } else {
+        setError(true);
+        toast.error('Failed to load products');
       }
-    } catch (error) {
-      console.error('Failed to fetch products:', error);
+    } catch {
+      setError(true);
       toast.error('Failed to load products');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const filterProducts = () => {
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  const filteredProducts = useMemo(() => {
     let filtered = [...products];
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(product =>
@@ -60,12 +94,10 @@ export default function AdminProductsPage() {
       );
     }
 
-    // Category filter
     if (categoryFilter !== 'all') {
       filtered = filtered.filter(product => product.category === categoryFilter);
     }
 
-    // Stock filter
     if (stockFilter === 'in-stock') {
       filtered = filtered.filter(product => product.stock > 5);
     } else if (stockFilter === 'low-stock') {
@@ -74,12 +106,11 @@ export default function AdminProductsPage() {
       filtered = filtered.filter(product => product.stock === 0);
     }
 
-    setFilteredProducts(filtered);
-  };
+    return filtered;
+  }, [products, searchQuery, categoryFilter, stockFilter]);
 
   const handleToggleActive = async (productId: string, currentStatus: boolean) => {
     try {
-      // In production, this would call the API to toggle product active status
       const response = await fetch(`/api/products/${productId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -87,70 +118,34 @@ export default function AdminProductsPage() {
       });
 
       if (response.ok) {
-        setProducts(products.map(p =>
+        setProducts(prev => prev.map(p =>
           p.id === productId ? { ...p, isActive: !currentStatus } : p
         ));
-        toast.success(
-          !currentStatus ? 'Product activated' : 'Product deactivated'
-        );
+        toast.success(!currentStatus ? 'Product activated' : 'Product deactivated');
       } else {
         toast.error('Failed to update product');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to update product');
     }
   };
 
-  const handleDeleteProduct = async (productId: string, productName: string) => {
-    if (!confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)) {
-      return;
-    }
-
+  const handleDeleteProduct = async (productId: string) => {
+    setDeleteConfirm(null);
     try {
       const response = await fetch(`/api/products/${productId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
-        setProducts(products.filter(p => p.id !== productId));
+        setProducts(prev => prev.filter(p => p.id !== productId));
         toast.success('Product deleted successfully');
       } else {
         toast.error('Failed to delete product');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete product');
     }
-  };
-
-  const getCategoryColor = (category: string) => {
-    const colors: { [key: string]: string } = {
-      'essential-oils': 'bg-sage-100 text-sage-700 border-sage-200',
-      'carrier-oils': 'bg-terracotta-100 text-terracotta-700 border-terracotta-200',
-      'diffusers': 'bg-cream-300 text-forest-700 border-cream-400',
-      'accessories': 'bg-forest-100 text-forest-700 border-forest-200',
-      'gift-sets': 'bg-rose-100 text-rose-700 border-rose-200',
-    };
-    return colors[category] || 'bg-cream-200 text-forest-700 border-cream-300';
-  };
-
-  const getCategoryName = (category: string) => {
-    const names: { [key: string]: string } = {
-      'essential-oils': 'Essential Oils',
-      'carrier-oils': 'Carrier Oils',
-      'diffusers': 'Diffusers',
-      'accessories': 'Accessories',
-      'gift-sets': 'Gift Sets',
-    };
-    return names[category] || category;
-  };
-
-  const getStockStatus = (stock: number) => {
-    if (stock === 0) {
-      return { label: 'Out of Stock', color: 'bg-red-100 text-red-800 border-red-200' };
-    } else if (stock <= 5) {
-      return { label: `Low Stock (${stock})`, color: 'bg-yellow-100 text-yellow-800 border-yellow-200' };
-    }
-    return { label: `In Stock (${stock})`, color: 'bg-green-100 text-green-800 border-green-200' };
   };
 
   if (loading) {
@@ -161,13 +156,27 @@ export default function AdminProductsPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-red-600 dark:text-red-400">Failed to load products</p>
+        <button
+          onClick={fetchProducts}
+          className="px-4 py-2 bg-sage-600 text-white rounded-lg hover:bg-sage-700 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-forest-800">Products</h1>
-          <p className="text-forest-600 mt-1">Manage your product catalog</p>
+          <h1 className="text-3xl font-serif font-bold text-forest-800 dark:text-[#E8EDE8]">Products</h1>
+          <p className="text-forest-600 dark:text-[#C5D4C5] mt-1">Manage your product catalog</p>
         </div>
         <Link
           href="/admin/products/new"
@@ -179,18 +188,18 @@ export default function AdminProductsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-soft p-6">
+      <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft p-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {/* Search */}
           <div className="md:col-span-2">
             <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-forest-400" />
+              <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-forest-400 dark:text-[#6B7B6B]" />
               <input
                 type="text"
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none transition-colors"
+                className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] placeholder-forest-400 dark:placeholder-[#6B7B6B] focus:border-sage-600 focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -200,7 +209,7 @@ export default function AdminProductsPage() {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none transition-colors"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none transition-colors"
             >
               <option value="all">All Categories</option>
               <option value="essential-oils">Essential Oils</option>
@@ -216,7 +225,7 @@ export default function AdminProductsPage() {
             <select
               value={stockFilter}
               onChange={(e) => setStockFilter(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none transition-colors"
+              className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none transition-colors"
             >
               <option value="all">All Stock Levels</option>
               <option value="in-stock">In Stock</option>
@@ -226,46 +235,46 @@ export default function AdminProductsPage() {
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-4 text-sm text-forest-600">
-          <span>Showing {filteredProducts.length} of {products.length} products</span>
+        <div className="mt-4 text-sm text-forest-600 dark:text-[#8A9A8A]">
+          Showing {filteredProducts.length} of {products.length} products
         </div>
       </div>
 
       {/* Products Table */}
-      <div className="bg-white rounded-2xl shadow-soft overflow-hidden">
+      <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft overflow-hidden">
         {filteredProducts.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-cream-50 border-b border-cream-200">
+              <thead className="bg-cream-50 dark:bg-[#1a1f1e] border-b border-cream-200 dark:border-[#3f4946]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">
                     Product
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">
                     Price
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">
                     Stock
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-cream-200">
+              <tbody className="bg-white dark:bg-[#242a28] divide-y divide-cream-200 dark:divide-[#3f4946]">
                 {filteredProducts.map((product) => {
                   const stockStatus = getStockStatus(product.stock);
                   return (
-                    <tr key={product.id} className="hover:bg-cream-50 transition-colors">
+                    <tr key={product.id} className="hover:bg-cream-50 dark:hover:bg-[#2a3330] transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
-                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-cream-100 flex-shrink-0">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-cream-100 dark:bg-[#2a3330] flex-shrink-0">
                             {product.images && product.images.length > 0 ? (
                               <Image
                                 src={product.images[0]}
@@ -276,18 +285,18 @@ export default function AdminProductsPage() {
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
-                                <PhotoIcon className="h-8 w-8 text-forest-300" />
+                                <PhotoIcon className="h-8 w-8 text-forest-300 dark:text-[#6B7B6B]" />
                               </div>
                             )}
                           </div>
                           <div>
                             <Link
                               href={`/products/${product.id}`}
-                              className="font-medium text-forest-800 hover:text-sage-700 transition-colors"
+                              className="font-medium text-forest-800 dark:text-[#E8EDE8] hover:text-sage-700 dark:hover:text-sage-400 transition-colors"
                             >
                               {product.translations.sv.name}
                             </Link>
-                            <p className="text-sm text-forest-600">SKU: {product.sku}</p>
+                            <p className="text-sm text-forest-600 dark:text-[#8A9A8A]">SKU: {product.sku}</p>
                           </div>
                         </div>
                       </td>
@@ -296,8 +305,8 @@ export default function AdminProductsPage() {
                           {getCategoryName(product.category)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap font-medium text-forest-800">
-                        {product.price} kr
+                      <td className="px-6 py-4 whitespace-nowrap font-medium text-forest-800 dark:text-[#E8EDE8]">
+                        {formatPrice(product.price)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${stockStatus.color}`}>
@@ -309,8 +318,8 @@ export default function AdminProductsPage() {
                           onClick={() => handleToggleActive(product.id, product.isActive)}
                           className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                             product.isActive
-                              ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200'
-                              : 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200'
+                              ? 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700 dark:hover:bg-green-900/50'
+                              : 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-200 dark:bg-[#343c39] dark:text-[#8A9A8A] dark:border-[#4a5552] dark:hover:bg-[#3f4946]'
                           }`}
                         >
                           {product.isActive ? (
@@ -330,14 +339,14 @@ export default function AdminProductsPage() {
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/admin/products/${product.id}`}
-                            className="p-2 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
+                            className="p-2 rounded-lg hover:bg-sage-50 dark:hover:bg-[#2a3330] text-sage-700 dark:text-sage-400 transition-colors"
                             title="Edit"
                           >
                             <PencilIcon className="h-5 w-5" />
                           </Link>
                           <button
-                            onClick={() => handleDeleteProduct(product.id, product.translations.sv.name)}
-                            className="p-2 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+                            onClick={() => setDeleteConfirm({ id: product.id, name: product.translations.sv.name })}
+                            className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors"
                             title="Delete"
                           >
                             <TrashIcon className="h-5 w-5" />
@@ -351,8 +360,8 @@ export default function AdminProductsPage() {
             </table>
           </div>
         ) : (
-          <div className="p-12 text-center text-forest-600">
-            <PhotoIcon className="h-12 w-12 mx-auto mb-4 text-forest-400" />
+          <div className="p-12 text-center text-forest-600 dark:text-[#C5D4C5]">
+            <PhotoIcon className="h-12 w-12 mx-auto mb-4 text-forest-400 dark:text-[#6B7B6B]" />
             <p className="mb-4">No products found</p>
             <Link
               href="/admin/products/new"
@@ -364,6 +373,33 @@ export default function AdminProductsPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-[#242a28] rounded-xl p-6 max-w-sm mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8] mb-2">Delete product?</h3>
+            <p className="text-forest-600 dark:text-[#C5D4C5] text-sm mb-6">
+              Are you sure you want to delete{' '}
+              <span className="font-medium">{deleteConfirm.name}</span>? This action cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleDeleteProduct(deleteConfirm.id)}
+                className="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                className="flex-1 px-4 py-2 border border-cream-300 dark:border-[#3f4946] text-forest-700 dark:text-[#C5D4C5] font-medium rounded-lg hover:bg-cream-50 dark:hover:bg-[#2a3330] transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -61,9 +61,11 @@ describe('ProductService', () => {
     mockProductRepository = {
       findAll: jest.fn(),
       findById: jest.fn(),
+      findByIds: jest.fn(),
       findByCategory: jest.fn(),
       findFeatured: jest.fn(),
       findBySku: jest.fn(),
+      findBySkus: jest.fn(),
       getCategories: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -365,7 +367,7 @@ describe('ProductService', () => {
       expect(result.success).toBe(true);
       expect(result.data).toBeDefined();
       // Should exclude the current product
-      expect(result.data?.some(p => p.id === 'prod-1')).toBe(false);
+      expect(result.data?.some((p: Product) => p.id === 'prod-1')).toBe(false);
       expect(mockProductRepository.findByCategory).toHaveBeenCalledWith('essential-oils');
     });
 

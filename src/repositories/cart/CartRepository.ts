@@ -234,11 +234,15 @@ export class CartRepository implements ICartRepository {
         const userCart = userCartResult.data!;
         const mergedItems = [...userCart.items];
 
-        // Add items from guest cart, combining quantities for same products
+        // Add items from guest cart, combining quantities for same regular products
+        // Bundle items are never merged — each has a unique selection
         guestCart.items.forEach(guestItem => {
-          const existingItemIndex = mergedItems.findIndex(
-            item => item.productId === guestItem.productId
-          );
+          const isBundle = !!guestItem.bundleSelection;
+          const existingItemIndex = isBundle
+            ? -1
+            : mergedItems.findIndex(
+                item => item.productId === guestItem.productId && !item.bundleSelection
+              );
 
           if (existingItemIndex >= 0) {
             mergedItems[existingItemIndex].quantity += guestItem.quantity;

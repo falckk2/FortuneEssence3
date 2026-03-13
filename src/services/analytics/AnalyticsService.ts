@@ -14,32 +14,28 @@ export class AnalyticsService implements IAnalyticsService {
       const now = new Date();
       const { startDate, previousStartDate } = this.getDateRange(range, now);
 
-      // Fetch current period data
-      const [ordersResult, orderItemsResult, newCustomersResult, totalCustomersResult] = await Promise.all([
+      // Fetch current and previous period data in a single parallel batch
+      const [ordersResult, orderItemsResult, newCustomersResult, totalCustomersResult, prevOrdersResult, prevCustomersResult] = await Promise.all([
         this.analyticsRepository.getOrdersInRange(startDate, now),
         this.analyticsRepository.getOrderItemsInRange(startDate, now),
         this.analyticsRepository.getCustomerCountInRange(startDate, now),
         this.analyticsRepository.getTotalCustomerCount(),
-      ]);
-
-      // Fetch previous period for change calculation
-      const [prevOrdersResult, prevCustomersResult] = await Promise.all([
         this.analyticsRepository.getOrdersInRange(previousStartDate, startDate),
         this.analyticsRepository.getCustomerCountInRange(previousStartDate, startDate),
       ]);
 
-      const orders = ordersResult.data || [];
-      const prevOrders = prevOrdersResult.data || [];
-      const orderItems = orderItemsResult.data || [];
-      const newCustomers = newCustomersResult.data || 0;
-      const totalCustomers = totalCustomersResult.data || 0;
-      const prevNewCustomers = prevCustomersResult.data || 0;
+      const orders = ordersResult.data ?? [];
+      const prevOrders = prevOrdersResult.data ?? [];
+      const orderItems = orderItemsResult.data ?? [];
+      const newCustomers = newCustomersResult.data ?? 0;
+      const totalCustomers = totalCustomersResult.data ?? 0;
+      const prevNewCustomers = prevCustomersResult.data ?? 0;
 
       // Revenue metrics
-      const revenue = this.calculateRevenueMetrics(orders, prevOrders, now);
+      const revenue = this.calculateRevenueMetrics(orders, prevOrders, now, range);
 
       // Order metrics
-      const orderMetrics = this.calculateOrderMetrics(orders, prevOrders, now);
+      const orderMetrics = this.calculateOrderMetrics(orders, prevOrders, now, range);
 
       // Customer metrics
       const returningCustomerIds = this.getReturningCustomerIds(orders);
@@ -86,19 +82,19 @@ export class AnalyticsService implements IAnalyticsService {
         previousStartDate.setDate(now.getDate() - 14);
         break;
       case 'month':
-        startDate.setMonth(now.getMonth() - 1);
-        previousStartDate.setMonth(now.getMonth() - 2);
+        startDate.setDate(now.getDate() - 30);
+        previousStartDate.setDate(now.getDate() - 60);
         break;
       case 'year':
-        startDate.setFullYear(now.getFullYear() - 1);
-        previousStartDate.setFullYear(now.getFullYear() - 2);
+        startDate.setDate(now.getDate() - 365);
+        previousStartDate.setDate(now.getDate() - 730);
         break;
     }
 
     return { startDate, previousStartDate };
   }
 
-  private calculateRevenueMetrics(orders: Order[], prevOrders: Order[], now: Date) {
+  private calculateRevenueMetrics(orders: Order[], prevOrders: Order[], now: Date, range: AnalyticsRange) {
     const total = orders.reduce((sum, o) => sum + o.total, 0);
     const prevTotal = prevOrders.reduce((sum, o) => sum + o.total, 0);
 
@@ -108,17 +104,20 @@ export class AnalyticsService implements IAnalyticsService {
       .filter(o => new Date(o.createdAt) >= todayStart)
       .reduce((sum, o) => sum + o.total, 0);
 
+    // thisWeek is only a meaningful sub-window when range is month or year;
+    // for week range the fetched orders already cover exactly this window.
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - 7);
-    const thisWeek = orders
-      .filter(o => new Date(o.createdAt) >= weekStart)
-      .reduce((sum, o) => sum + o.total, 0);
+    const thisWeek = range !== 'week'
+      ? orders.filter(o => new Date(o.createdAt) >= weekStart).reduce((sum, o) => sum + o.total, 0)
+      : total;
 
+    // thisMonth is only a meaningful sub-window when range is year.
     const monthStart = new Date(now);
-    monthStart.setMonth(now.getMonth() - 1);
-    const thisMonth = orders
-      .filter(o => new Date(o.createdAt) >= monthStart)
-      .reduce((sum, o) => sum + o.total, 0);
+    monthStart.setDate(now.getDate() - 30);
+    const thisMonth = range === 'year'
+      ? orders.filter(o => new Date(o.createdAt) >= monthStart).reduce((sum, o) => sum + o.total, 0)
+      : total;
 
     return {
       total: Math.round(total * 100) / 100,
@@ -129,18 +128,22 @@ export class AnalyticsService implements IAnalyticsService {
     };
   }
 
-  private calculateOrderMetrics(orders: Order[], prevOrders: Order[], now: Date) {
+  private calculateOrderMetrics(orders: Order[], prevOrders: Order[], now: Date, range: AnalyticsRange) {
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
     const todayOrders = orders.filter(o => new Date(o.createdAt) >= todayStart).length;
 
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - 7);
-    const weekOrders = orders.filter(o => new Date(o.createdAt) >= weekStart).length;
+    const weekOrders = range !== 'week'
+      ? orders.filter(o => new Date(o.createdAt) >= weekStart).length
+      : orders.length;
 
     const monthStart = new Date(now);
-    monthStart.setMonth(now.getMonth() - 1);
-    const monthOrders = orders.filter(o => new Date(o.createdAt) >= monthStart).length;
+    monthStart.setDate(now.getDate() - 30);
+    const monthOrders = range === 'year'
+      ? orders.filter(o => new Date(o.createdAt) >= monthStart).length
+      : orders.length;
 
     return {
       total: orders.length,
@@ -154,6 +157,7 @@ export class AnalyticsService implements IAnalyticsService {
   private getReturningCustomerIds(orders: Order[]): Set<string> {
     const customerOrderCounts = new Map<string, number>();
     for (const order of orders) {
+      if (!order.customerId) continue; // skip guest orders — null keys would collapse all guests into one
       customerOrderCounts.set(order.customerId, (customerOrderCounts.get(order.customerId) || 0) + 1);
     }
     const returning = new Set<string>();

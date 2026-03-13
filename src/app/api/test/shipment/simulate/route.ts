@@ -1,7 +1,9 @@
 import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import { container, TOKENS } from '@/config/di-container';
-import { IShipmentSimulationService } from '@/interfaces/test';
+import type { IShipmentSimulationService } from '@/interfaces/test';
 
 /**
  * SHIPMENT SIMULATION API
@@ -17,36 +19,35 @@ import { IShipmentSimulationService } from '@/interfaces/test';
  * Use this to test order tracking, status updates, and notifications.
  */
 
+const shipmentSimulationService = container.resolve<IShipmentSimulationService>(
+  TOKENS.IShipmentSimulationService
+);
+const orderRepository = container.resolve<any>(TOKENS.IOrderRepository);
+
 export async function POST(request: NextRequest) {
-  // Check if we're in development/test mode
   if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Test endpoints are disabled in production',
-      },
+      { success: false, error: 'Test endpoints are disabled in production' },
       { status: 403 }
     );
   }
 
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { orderId, action, status } = body;
 
-    // Validate required parameters
     if (!orderId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Order ID is required',
-      }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Order ID is required' }, { status: 400 });
     }
 
-    // Resolve the shipment simulation service from DI container
-    const shipmentSimulationService = container.resolve<IShipmentSimulationService>(
-      TOKENS.IShipmentSimulationService
-    );
-
-    // Delegate to appropriate service method based on action
     let result;
 
     switch (action) {
@@ -79,36 +80,29 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
     }
 
-    // Return appropriate HTTP response based on service result
-    if (result.success) {
-      return NextResponse.json({
-        success: true,
-        testMode: true,
-        data: result.data,
-      });
-    } else {
-      return NextResponse.json({
-        success: false,
-        error: result.error,
-      }, { status: result.error?.includes('not found') ? 404 : 400 });
+    if (!result.success) {
+      const isNotFound = result.error?.toLowerCase().includes('not found');
+      if (isNotFound) {
+        return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
+      }
+      console.error('Shipment simulation - failed to process action:', result.error);
+      return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
     }
+
+    return NextResponse.json({ success: true, testMode: true, data: result.data });
   } catch (error) {
-    console.error('🧪 TEST MODE: Shipment simulation error:', error);
-    return NextResponse.json({
-      success: false,
-      error: `Shipment simulation failed: ${error}`,
-    }, { status: 500 });
+    console.error('Shipment simulation POST error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET(request: NextRequest) {
-  // Check if we're in development/test mode
   if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Test endpoints are disabled in production',
-      },
+      { success: false, error: 'Test endpoints are disabled in production' },
       { status: 403 }
     );
   }
@@ -117,24 +111,25 @@ export async function GET(request: NextRequest) {
   const orderId = searchParams.get('orderId');
 
   if (!orderId) {
-    return NextResponse.json({
-      success: false,
-      error: 'Order ID is required',
-    }, { status: 400 });
+    return NextResponse.json({ success: false, error: 'Order ID is required' }, { status: 400 });
   }
 
   try {
-    const orderRepository = container.resolve<any>(TOKENS.IOrderRepository);
-    const orderResult = await orderRepository.findById(orderId);
-
-    if (!orderResult.success) {
-      return NextResponse.json({
-        success: false,
-        error: `Order not found: ${orderResult.error}`,
-      }, { status: 404 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const order = orderResult.data!;
+    const orderResult = await orderRepository.findById(orderId);
+
+    if (!orderResult.success || !orderResult.data) {
+      return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
+    }
+
+    const order = orderResult.data;
 
     return NextResponse.json({
       success: true,
@@ -146,9 +141,10 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    return NextResponse.json({
-      success: false,
-      error: `Failed to get order status: ${error}`,
-    }, { status: 500 });
+    console.error('Shipment simulation GET error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

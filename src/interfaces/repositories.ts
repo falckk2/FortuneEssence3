@@ -17,8 +17,10 @@ import {
 export interface IProductRepository {
   findAll(params?: ProductSearchParams): Promise<ApiResponse<Product[]>>;
   findById(id: string): Promise<ApiResponse<Product>>;
+  findByIds(ids: string[]): Promise<ApiResponse<Product[]>>;
   findByCategory(category: string): Promise<ApiResponse<Product[]>>;
   findBySku(sku: string): Promise<ApiResponse<Product>>;
+  findBySkus(skus: string[]): Promise<ApiResponse<Product[]>>;
   findFeatured(limit?: number): Promise<ApiResponse<Product[]>>;
   getCategories(): Promise<ApiResponse<Array<{ category: string; count: number }>>>;
   create(product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Product>>;
@@ -33,6 +35,10 @@ export interface ProductSearchParams {
   inStock?: boolean;
   search?: string;
   locale?: string;
+  sortBy?: 'name' | 'price' | 'created';
+  sortOrder?: 'asc' | 'desc';
+  limit?: number;
+  excludeId?: string;
 }
 
 export interface IBundleRepository {
@@ -47,7 +53,9 @@ export interface ICustomerRepository {
   findById(id: string): Promise<ApiResponse<Customer>>;
   findByEmail(email: string): Promise<ApiResponse<Customer>>;
   create(customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Customer>>;
+  createWithPassword(customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>, password: string): Promise<ApiResponse<Customer>>;
   update(id: string, customer: Partial<Customer>): Promise<ApiResponse<Customer>>;
+  changePassword(id: string, currentPassword: string, newPassword: string): Promise<ApiResponse<void>>;
   delete(id: string): Promise<ApiResponse<void>>;
 }
 
@@ -158,6 +166,7 @@ export interface IAnalyticsRepository {
 export interface IAbandonedCartRepository {
   create(data: AbandonedCartCreateData): Promise<ApiResponse<AbandonedCart>>;
   update(id: string, data: Partial<AbandonedCart>): Promise<ApiResponse<AbandonedCart>>;
+  findById(id: string): Promise<ApiResponse<AbandonedCart>>;
   findByCartId(cartId: string, status?: string): Promise<ApiResponse<AbandonedCart>>;
   findByRecoveryToken(token: string): Promise<ApiResponse<AbandonedCart>>;
   findForReminder(hoursAbandoned: number, maxReminders: number): Promise<ApiResponse<AbandonedCart[]>>;

@@ -1,12 +1,7 @@
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useState, useCallback } from 'react';
 import { Customer, ApiResponse } from '@/types';
-import { AuthService } from '@/services/auth/AuthService';
-import { EmailService } from '@/services/email/EmailService';
 import { SignUpData } from '@/interfaces';
-
-const emailService = new EmailService();
-const authService = new AuthService(emailService);
 
 export interface UseAuthResult {
   user: Customer | null;
@@ -56,8 +51,15 @@ export const useAuth = (): UseAuthResult => {
   const handleSignUp = useCallback(async (data: SignUpData): Promise<ApiResponse<Customer>> => {
     setIsLoading(true);
     try {
-      const result = await authService.signUp(data);
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
       return result;
+    } catch (error) {
+      return { success: false, error: `Sign up failed: ${error}` };
     } finally {
       setIsLoading(false);
     }
@@ -75,8 +77,15 @@ export const useAuth = (): UseAuthResult => {
   const handleResetPassword = useCallback(async (email: string): Promise<ApiResponse<void>> => {
     setIsLoading(true);
     try {
-      const result = await authService.resetPassword(email);
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const result = await response.json();
       return result;
+    } catch (error) {
+      return { success: false, error: `Password reset failed: ${error}` };
     } finally {
       setIsLoading(false);
     }

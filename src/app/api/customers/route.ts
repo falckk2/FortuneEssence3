@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 
 // Mock customer data for demonstration
 // In production, this would fetch from the database
@@ -124,16 +126,19 @@ const mockCustomers = [
 
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Add authentication check here
-    // const session = await getServerSession();
-    // if (!session || !session.user.isAdmin) {
-    //   return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    // }
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!session.user?.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const search = searchParams.get('search');
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const limitParam = parseInt(searchParams.get('limit') || '100');
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 100;
 
     // TODO: Fetch from database
     /*
@@ -163,7 +168,6 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    // Calculate totals from orders
     const customersWithStats = customers.map(customer => ({
       ...customer,
       totalOrders: customer.orders.length,
@@ -175,13 +179,9 @@ export async function GET(request: NextRequest) {
         : null,
     }));
 
-    return NextResponse.json({
-      success: true,
-      data: customersWithStats
-    });
+    return NextResponse.json({ success: true, data: customersWithStats });
     */
 
-    // For now, return mock data
     let filteredCustomers = [...mockCustomers];
 
     if (status && status !== 'all') {
@@ -199,15 +199,11 @@ export async function GET(request: NextRequest) {
 
     filteredCustomers = filteredCustomers.slice(0, limit);
 
-    return NextResponse.json({
-      success: true,
-      data: filteredCustomers
-    });
-
+    return NextResponse.json({ success: true, data: filteredCustomers });
   } catch (error) {
     console.error('Get customers error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch customers' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -216,16 +212,17 @@ export async function GET(request: NextRequest) {
 // Create new customer (usually handled by registration)
 export async function POST(request: NextRequest) {
   try {
-    // TODO: Add authentication check here
-    // const session = await getServerSession();
-    // if (!session || !session.user.isAdmin) {
-    //   return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    // }
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!session.user?.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
 
     const body = await request.json();
     const { name, email, phone, newsletter } = body;
 
-    // Validation
     if (!name || name.trim().length < 2) {
       return NextResponse.json(
         { success: false, error: 'Name must be at least 2 characters' },
@@ -271,13 +268,8 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({
-      success: true,
-      data: newCustomer
-    });
+    return NextResponse.json({ success: true, data: newCustomer });
     */
-
-    console.log('Would create customer:', { name, email, phone, newsletter });
 
     return NextResponse.json({
       success: true,
@@ -290,13 +282,12 @@ export async function POST(request: NextRequest) {
         newsletter: newsletter || false,
         status: 'active',
         createdAt: new Date().toISOString(),
-      }
+      },
     });
-
   } catch (error) {
     console.error('Create customer error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to create customer' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

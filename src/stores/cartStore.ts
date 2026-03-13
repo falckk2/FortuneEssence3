@@ -8,8 +8,8 @@ interface CartStore {
   isLoading: boolean;
   addItem: (item: CartItem) => Promise<void>;
   addBundle: (bundleProductId: string, selectedProductIds: string[], quantity?: number) => Promise<void>;
-  removeItem: (productId: string) => Promise<void>;
-  updateQuantity: (productId: string, quantity: number) => Promise<void>;
+  removeItem: (productId: string, cartItemId?: string) => Promise<void>;
+  updateQuantity: (productId: string, quantity: number, cartItemId?: string) => Promise<void>;
   clearCart: () => Promise<void>;
   refreshCart: () => Promise<void>;
   getItemCount: () => number;
@@ -62,7 +62,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
     }
   },
 
-  removeItem: async (productId: string) => {
+  removeItem: async (productId: string, cartItemId?: string) => {
     set({ isLoading: true });
 
     try {
@@ -77,6 +77,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
         body: JSON.stringify({
           action: 'remove',
           productId,
+          ...(cartItemId && { cartItemId }),
         }),
       });
 
@@ -96,9 +97,9 @@ export const useCartStore = create<CartStore>()((set, get) => ({
     }
   },
 
-  updateQuantity: async (productId: string, quantity: number) => {
+  updateQuantity: async (productId: string, quantity: number, cartItemId?: string) => {
     if (quantity <= 0) {
-      return get().removeItem(productId);
+      return get().removeItem(productId, cartItemId);
     }
 
     set({ isLoading: true });

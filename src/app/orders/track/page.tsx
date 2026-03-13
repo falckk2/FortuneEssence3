@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocale } from '@/contexts/LocaleContext';
 import Link from 'next/link';
 import { ArrowLeftIcon, TruckIcon, ArchiveBoxIcon, ClockIcon } from '@heroicons/react/24/outline';
 
@@ -9,7 +10,7 @@ export default function TrackOrderPage() {
   const [orderData, setOrderData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const locale = 'sv'; // This would come from context in a real app
+  const { locale } = useLocale();
 
   const getTrackingUrl = (carrier: string, trackingNumber: string) => {
     const lowerCarrier = carrier?.toLowerCase() || '';
@@ -44,17 +45,18 @@ export default function TrackOrderPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to find order');
+        setError(locale === 'sv' ? 'Beställningen hittades inte. Kontrollera ordernumret och försök igen.' : 'Order not found. Please check the order number and try again.');
+        return;
       }
 
       if (data.success) {
         setOrderData(data.data);
       } else {
-        setError(data.error || 'Order not found');
+        setError(locale === 'sv' ? 'Beställningen hittades inte. Kontrollera ordernumret och försök igen.' : 'Order not found. Please check the order number and try again.');
       }
 
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to find order');
+    } catch {
+      setError(locale === 'sv' ? 'Något gick fel. Försök igen.' : 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -81,7 +83,7 @@ export default function TrackOrderPage() {
       case 'förbereds för transport':
         return 'text-yellow-600 bg-yellow-100';
       default:
-        return 'text-gray-600 bg-gray-100';
+        return 'text-forest-600 bg-cream-100';
     }
   };
 
@@ -98,22 +100,22 @@ export default function TrackOrderPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-12">
+    <div className="min-h-screen bg-gradient-to-b from-cream-50 to-white py-12">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
           <Link 
             href="/"
-            className="inline-flex items-center text-purple-600 hover:text-purple-700 mb-4"
+            className="inline-flex items-center text-sage-600 hover:text-sage-700 mb-4"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
             {locale === 'sv' ? 'Tillbaka till start' : 'Back to home'}
           </Link>
           
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-3xl font-bold text-forest-900">
             {locale === 'sv' ? 'Spåra din beställning' : 'Track your order'}
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-forest-600 mt-2">
             {locale === 'sv'
               ? 'Ange ditt ordernummer för att se spårningsinformation'
               : 'Enter your order number to see tracking information'
@@ -126,7 +128,7 @@ export default function TrackOrderPage() {
           <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
             <form onSubmit={handleTrack} className="space-y-6">
               <div>
-                <label htmlFor="orderNumber" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="orderNumber" className="block text-sm font-medium text-forest-700 mb-2">
                   {locale === 'sv' ? 'Ordernummer' : 'Order number'}
                 </label>
                 <input
@@ -135,10 +137,10 @@ export default function TrackOrderPage() {
                   value={orderNumber}
                   onChange={(e) => setOrderNumber(e.target.value)}
                   placeholder={locale === 'sv' ? 'Ange ordernummer' : 'Enter order number'}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-lg"
+                  className="w-full px-4 py-3 border border-cream-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sage-500 focus:border-transparent text-lg"
                   required
                 />
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-sm text-forest-500 mt-2">
                   {locale === 'sv'
                     ? 'Du hittar ordernumret i orderbekräftelsen som skickades till din e-post'
                     : 'You can find the order number in the order confirmation sent to your email'
@@ -155,7 +157,7 @@ export default function TrackOrderPage() {
               <button
                 type="submit"
                 disabled={loading || !orderNumber.trim()}
-                className="w-full bg-purple-600 text-white font-medium py-3 px-6 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full bg-sage-600 text-white font-medium py-3 px-6 rounded-lg hover:bg-sage-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading
                   ? (locale === 'sv' ? 'Söker...' : 'Searching...')
@@ -169,15 +171,15 @@ export default function TrackOrderPage() {
           {orderData && (
             <div className="bg-white rounded-xl shadow-lg p-8">
               <div className="mb-6">
-                <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+                <h2 className="text-2xl font-semibold text-forest-900 mb-4">
                   {locale === 'sv' ? 'Beställningsinformation' : 'Order information'}
                 </h2>
 
                 {/* Current Status */}
-                <div className="bg-gradient-to-r from-purple-50 to-yellow-50 rounded-lg p-6 mb-6">
+                <div className="bg-gradient-to-r from-sage-50 to-yellow-50 rounded-lg p-6 mb-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      <h3 className="text-lg font-semibold text-forest-900 mb-2">
                         {locale === 'sv' ? 'Aktuell status' : 'Current status'}
                       </h3>
                       <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(orderData.status)}`}>
@@ -189,36 +191,36 @@ export default function TrackOrderPage() {
                 </div>
 
                 {/* Order Details */}
-                <div className="border-t border-gray-200 pt-6 mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <div className="border-t border-cream-200 pt-6 mb-6">
+                  <h3 className="text-lg font-semibold text-forest-900 mb-4">
                     {locale === 'sv' ? 'Orderdetaljer' : 'Order details'}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-forest-500">
                         {locale === 'sv' ? 'Ordernummer' : 'Order number'}
                       </p>
-                      <p className="font-medium text-gray-900">#{orderData.id}</p>
+                      <p className="font-medium text-forest-900">#{orderData.id}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-forest-500">
                         {locale === 'sv' ? 'Orderdatum' : 'Order date'}
                       </p>
-                      <p className="font-medium text-gray-900">
+                      <p className="font-medium text-forest-900">
                         {formatDate(orderData.createdAt)}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-forest-500">
                         {locale === 'sv' ? 'Totalt' : 'Total'}
                       </p>
-                      <p className="font-medium text-gray-900">{orderData.total} SEK</p>
+                      <p className="font-medium text-forest-900">{orderData.total} SEK</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-forest-500">
                         {locale === 'sv' ? 'Fraktfirma' : 'Carrier'}
                       </p>
-                      <p className="font-medium text-gray-900">
+                      <p className="font-medium text-forest-900">
                         {orderData.carrier || 'PostNord'}
                       </p>
                     </div>
@@ -227,22 +229,22 @@ export default function TrackOrderPage() {
 
                 {/* Tracking Information */}
                 {orderData.trackingNumber ? (
-                  <div className="border-t border-gray-200 pt-6 mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  <div className="border-t border-cream-200 pt-6 mb-6">
+                    <h3 className="text-lg font-semibold text-forest-900 mb-4">
                       {locale === 'sv' ? 'Spårningsinformation' : 'Tracking information'}
                     </h3>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                      <p className="text-sm text-gray-600 mb-2">
+                      <p className="text-sm text-forest-600 mb-2">
                         {locale === 'sv' ? 'Spårningsnummer:' : 'Tracking number:'}
                       </p>
-                      <p className="font-mono font-semibold text-gray-900 text-lg mb-4">
+                      <p className="font-mono font-semibold text-forest-900 text-lg mb-4">
                         {orderData.trackingNumber}
                       </p>
                       <a
                         href={getTrackingUrl(orderData.carrier || 'PostNord', orderData.trackingNumber)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                        className="inline-flex items-center px-6 py-3 bg-sage-600 text-white font-medium rounded-lg hover:bg-sage-700 transition-colors"
                       >
                         <TruckIcon className="w-5 h-5 mr-2" />
                         {locale === 'sv' ? 'Spåra paket på ' : 'Track package on '}
@@ -251,7 +253,7 @@ export default function TrackOrderPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="border-t border-gray-200 pt-6 mb-6">
+                  <div className="border-t border-cream-200 pt-6 mb-6">
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <p className="text-yellow-800">
                         {locale === 'sv'
@@ -266,17 +268,17 @@ export default function TrackOrderPage() {
               </div>
 
               {/* Actions */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-cream-200">
                 <Link
                   href="/account/orders"
-                  className="flex-1 text-center px-6 py-3 border border-purple-600 text-purple-600 font-medium rounded-lg hover:bg-purple-50 transition-colors"
+                  className="flex-1 text-center px-6 py-3 border border-sage-600 text-sage-600 font-medium rounded-lg hover:bg-sage-50 transition-colors"
                 >
                   {locale === 'sv' ? 'Visa alla beställningar' : 'View all orders'}
                 </Link>
                 
                 <Link
                   href="/contact"
-                  className="flex-1 text-center px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                  className="flex-1 text-center px-6 py-3 bg-sage-600 text-white font-medium rounded-lg hover:bg-sage-700 transition-colors"
                 >
                   {locale === 'sv' ? 'Kontakta kundservice' : 'Contact support'}
                 </Link>

@@ -57,31 +57,31 @@ export class LabelGenerationService {
         senderAddress: SENDER_ADDRESS,
         recipientAddress: order.shippingAddress,
         packageWeight: await this.calculateOrderWeight(order),
-        serviceName: order.carrier || carrier.services[0].name,
+        // order.carrier holds the carrier code (e.g. 'POSTNORD'), not a service
+        // name — use the first service name from config as the display value.
+        serviceName: carrier.services[0].name,
         orderNumber: order.id,
       };
 
-      // Generate barcode
-      const barcodeData = await this.generateBarcode(trackingNumber);
-
-      // Generate QR code
-      const qrCodeData = await this.generateQRCode(trackingNumber, carrier.code);
+      // Generate barcode and QR code as raw PNG buffers
+      const barcodeBuffer = await this.generateBarcode(trackingNumber);
+      const qrCodeBuffer = await this.generateQRCode(trackingNumber, carrier.code);
 
       // Generate PDF
-      const pdfBytes = await this.generatePDF(labelData, barcodeData, qrCodeData);
+      const pdfBytes = await this.generatePDF(labelData, barcodeBuffer, qrCodeBuffer);
 
       // Save PDF to file system
       const labelFileName = `${order.id}.pdf`;
       const labelUrl = await this.savePDF(labelFileName, pdfBytes);
 
       const shippingLabel: ShippingLabel = {
-        id: '', // Will be set by repository
+        id: crypto.randomUUID(),
         orderId: order.id,
         trackingNumber,
         carrierCode: carrier.code,
         labelPdfUrl: labelUrl,
-        barcodeData,
-        qrCodeData,
+        barcodeData: `data:image/png;base64,${barcodeBuffer.toString('base64')}`,
+        qrCodeData: `data:image/png;base64,${qrCodeBuffer.toString('base64')}`,
         generatedAt: new Date(),
       };
 
@@ -102,8 +102,8 @@ export class LabelGenerationService {
    */
   private async generatePDF(
     labelData: LabelData,
-    barcodeDataUrl: string,
-    qrCodeDataUrl: string
+    barcodeBuffer: Buffer,
+    qrCodeBuffer: Buffer
   ): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage([288, 432]); // 4x6 inches at 72 DPI
@@ -155,17 +155,13 @@ export class LabelGenerationService {
     });
 
     // Barcode
-    try {
-      const barcodeImage = await pdfDoc.embedPng(barcodeDataUrl);
-      page.drawImage(barcodeImage, {
-        x: 20,
-        y: 265,
-        width: 248,
-        height: 60,
-      });
-    } catch (error) {
-      console.error('Failed to embed barcode:', error);
-    }
+    const barcodeImage = await pdfDoc.embedPng(barcodeBuffer);
+    page.drawImage(barcodeImage, {
+      x: 20,
+      y: 265,
+      width: 248,
+      height: 60,
+    });
 
     // Sender Address
     page.drawText('FRÅN:', {
@@ -220,17 +216,13 @@ export class LabelGenerationService {
     }
 
     // QR Code for Tracking
-    try {
-      const qrCodeImage = await pdfDoc.embedPng(qrCodeDataUrl);
-      page.drawImage(qrCodeImage, {
-        x: 200,
-        y: 20,
-        width: 68,
-        height: 68,
-      });
-    } catch (error) {
-      console.error('Failed to embed QR code:', error);
-    }
+    const qrCodeImage = await pdfDoc.embedPng(qrCodeBuffer);
+    page.drawImage(qrCodeImage, {
+      x: 200,
+      y: 20,
+      width: 68,
+      height: 68,
+    });
 
     // Package Details
     page.drawText(`Vikt: ${labelData.packageWeight.toFixed(2)} kg`, {
@@ -272,92 +264,60 @@ export class LabelGenerationService {
   /**
    * Generate Code 128 barcode
    */
-  private async generateBarcode(trackingNumber: string): Promise<string> {
-    try {
-      const png = await bwipjs.toBuffer({
-        bcid: 'code128',
-        text: trackingNumber,
-        scale: 3,
-        height: 10,
-        includetext: false,
-        textxalign: 'center',
-      });
-
-      return `data:image/png;base64,${png.toString('base64')}`;
-    } catch (error) {
-      console.error('Barcode generation error:', error);
-      // Return a placeholder
-      return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-    }
+  private async generateBarcode(trackingNumber: string): Promise<Buffer> {
+    return bwipjs.toBuffer({
+      bcid: 'code128',
+      text: trackingNumber,
+      scale: 3,
+      height: 10,
+      includetext: false,
+      textxalign: 'center',
+    });
   }
 
   /**
    * Generate QR code with tracking URL
    */
-  private async generateQRCode(trackingNumber: string, carrierCode: string): Promise<string> {
-    try {
-      const trackingUrl = `https://www.fortuneessence.se/tracking?number=${trackingNumber}&carrier=${carrierCode}`;
-      return await QRCode.toDataURL(trackingUrl, {
-        width: 200,
-        margin: 1,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF',
-        },
-      });
-    } catch (error) {
-      console.error('QR code generation error:', error);
-      return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-    }
+  private async generateQRCode(trackingNumber: string, carrierCode: string): Promise<Buffer> {
+    const trackingUrl = `https://www.fortuneessence.se/tracking?number=${encodeURIComponent(trackingNumber)}&carrier=${encodeURIComponent(carrierCode)}`;
+    return QRCode.toBuffer(trackingUrl, {
+      width: 200,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF',
+      },
+    });
   }
 
   /**
    * Save PDF to file system
    */
   private async savePDF(fileName: string, pdfBytes: Uint8Array): Promise<string> {
-    try {
-      // Ensure directory exists with proper error handling
-      try {
-        await fs.mkdir(this.labelsDirectory, { recursive: true });
-      } catch (mkdirError: any) {
-        if (mkdirError.code !== 'EEXIST') {
-          throw new Error(`Failed to create labels directory: ${mkdirError.message}`);
-        }
-      }
-
-      // Validate file name to prevent directory traversal
-      const sanitizedFileName = path.basename(fileName);
-      if (sanitizedFileName !== fileName) {
-        throw new Error('Invalid file name: directory traversal detected');
-      }
-
-      // Save file with proper error handling
-      const filePath = path.join(this.labelsDirectory, sanitizedFileName);
-
-      try {
-        await fs.writeFile(filePath, pdfBytes);
-      } catch (writeError: any) {
-        if (writeError.code === 'ENOSPC') {
-          throw new Error('Insufficient disk space to save shipping label');
-        } else if (writeError.code === 'EACCES') {
-          throw new Error('Permission denied: cannot write to labels directory');
-        }
-        throw new Error(`Failed to write PDF file: ${writeError.message}`);
-      }
-
-      // Verify file was written successfully
-      try {
-        await fs.access(filePath);
-      } catch {
-        throw new Error('PDF file was not saved successfully');
-      }
-
-      // Return public URL
-      return `/shipping-labels/${sanitizedFileName}`;
-    } catch (error: any) {
-      console.error('Error saving shipping label PDF:', error);
-      throw new Error(`Failed to save PDF: ${error.message || error}`);
+    // Validate file name to prevent directory traversal
+    const sanitizedFileName = path.basename(fileName);
+    if (sanitizedFileName !== fileName) {
+      throw new Error('Invalid file name: directory traversal detected');
     }
+
+    // { recursive: true } is idempotent — no error if directory already exists
+    await fs.mkdir(this.labelsDirectory, { recursive: true });
+
+    const filePath = path.join(this.labelsDirectory, sanitizedFileName);
+
+    try {
+      await fs.writeFile(filePath, pdfBytes);
+    } catch (writeError) {
+      const err = writeError as NodeJS.ErrnoException;
+      if (err.code === 'ENOSPC') {
+        throw new Error('Insufficient disk space to save shipping label');
+      } else if (err.code === 'EACCES') {
+        throw new Error('Permission denied: cannot write to labels directory');
+      }
+      throw new Error(`Failed to write PDF file: ${err.message ?? String(err)}`);
+    }
+
+    return `/shipping-labels/${sanitizedFileName}`;
   }
 
   /**
@@ -408,7 +368,7 @@ export class LabelGenerationService {
   private hexToRgb(hex: string): { r: number; g: number; b: number } {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     if (!result) {
-      return { r: 1, g: 1, b: 0 }; // Default yellow
+      return { r: 0.9, g: 0.9, b: 0.9 }; // Default light grey
     }
 
     return {

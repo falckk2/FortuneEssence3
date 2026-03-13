@@ -24,6 +24,11 @@ jest.mock('stripe', () => {
 // Mock config
 jest.mock('@/config', () => ({
   config: {
+    database: {
+      supabaseUrl: 'https://test.supabase.co',
+      supabasePublishableKey: 'test-key',
+      supabaseSecretKey: 'test-secret',
+    },
     payments: {
       stripe: {
         secretKey: 'sk_test_mock_key',
@@ -40,12 +45,20 @@ jest.mock('@/config', () => ({
   },
 }));
 
+jest.mock('@/lib/supabase', () => ({
+  supabase: { from: jest.fn() },
+}));
+
+jest.mock('@/lib/supabase-server', () => ({
+  getSupabaseServer: jest.fn(() => ({ from: jest.fn() })),
+}));
+
 describe('PaymentService', () => {
   let paymentService: PaymentService;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    paymentService = new PaymentService();
+    paymentService = new PaymentService(new Stripe('sk_test_mock_key'));
   });
 
   describe('processPayment', () => {

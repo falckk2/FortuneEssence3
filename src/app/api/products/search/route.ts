@@ -1,6 +1,6 @@
 import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { IProductService } from '@/interfaces';
+import type { IProductService } from '@/interfaces';
 import { container, TOKENS } from '@/config/di-container';
 
 const productService = container.resolve<IProductService>(TOKENS.IProductService);
@@ -24,12 +24,10 @@ export async function GET(request: NextRequest) {
     const result = await productService.searchProducts(query.trim(), locale);
 
     if (!result.success) {
+      console.error('Search GET - failed to search products:', result.error);
       return NextResponse.json(
-        {
-          success: false,
-          error: result.error,
-        },
-        { status: 400 }
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
       );
     }
 

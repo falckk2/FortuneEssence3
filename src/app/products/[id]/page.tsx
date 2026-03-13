@@ -23,6 +23,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import toast from 'react-hot-toast';
+import { useLocale } from '@/contexts/LocaleContext';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -37,7 +38,7 @@ export default function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [imageError, setImageError] = useState(false);
-  const locale = 'sv'; // Would come from context in real app
+  const { locale } = useLocale();
 
   const { addItem, isLoading: cartLoading } = useCartStore();
   const { items: wishlistItems, addItem: addToWishlist, removeItem: removeFromWishlist, setAuthenticated, refreshWishlist } = useWishlistStore();
@@ -142,7 +143,7 @@ export default function ProductDetailPage() {
           ? `${quantity} st ${localizedName} tillagd i varukorgen`
           : `${quantity} ${localizedName} added to cart`
       );
-    } catch (error) {
+    } catch {
       toast.error(locale === 'sv' ? 'Kunde inte lägga till i varukorgen' : 'Failed to add to cart');
     }
   };
@@ -226,7 +227,7 @@ export default function ProductDetailPage() {
           ? 'Produkt tillagd i varukorgen'
           : 'Product added to cart'
       );
-    } catch (error) {
+    } catch {
       toast.error(locale === 'sv' ? 'Kunde inte lägga till i varukorgen' : 'Failed to add to cart');
     }
   };
@@ -515,7 +516,7 @@ export default function ProductDetailPage() {
         <div className="mt-16 lg:mt-24">
           <ProductReviews
             productId={productId}
-            userId={undefined} // TODO: Get from session/auth context
+            userId={session?.user?.id}
           />
         </div>
 

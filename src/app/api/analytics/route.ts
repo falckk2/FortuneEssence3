@@ -1,5 +1,7 @@
 import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import type { IAnalyticsService, AnalyticsRange } from '@/interfaces';
 import { container, TOKENS } from '@/config/di-container';
 
@@ -7,11 +9,13 @@ const analyticsService = container.resolve<IAnalyticsService>(TOKENS.IAnalyticsS
 
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Add authentication check here
-    // const session = await getServerSession();
-    // if (!session || !session.user.isAdmin) {
-    //   return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    // }
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
 
     const { searchParams } = new URL(request.url);
     const range = searchParams.get('range') || 'month';
@@ -26,8 +30,9 @@ export async function GET(request: NextRequest) {
     const result = await analyticsService.getAnalytics(range as AnalyticsRange);
 
     if (!result.success) {
+      console.error('Analytics service error:', result.error);
       return NextResponse.json(
-        { success: false, error: result.error },
+        { success: false, error: 'Internal server error' },
         { status: 500 }
       );
     }
@@ -40,7 +45,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Get analytics error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch analytics' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

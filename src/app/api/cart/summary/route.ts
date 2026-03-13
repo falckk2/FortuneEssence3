@@ -2,7 +2,7 @@ import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { ICartService } from '@/interfaces';
+import type { ICartService } from '@/interfaces';
 import { container, TOKENS } from '@/config/di-container';
 
 const cartService = container.resolve<ICartService>(TOKENS.ICartService);
@@ -16,45 +16,37 @@ export async function GET(request: NextRequest) {
 
     if (!cartId && !session?.user?.id && !sessionId) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Cart ID or session required',
-        },
-        { status: 401 }
+        { success: false, error: 'Cart ID or session required' },
+        { status: 400 }
       );
     }
 
     let targetCartId = cartId;
 
-    // If no cartId provided, get cart from session
     if (!targetCartId) {
       const cartResult = await cartService.getCart(
         session?.user?.id,
         sessionId || undefined
       );
-      
-      if (!cartResult.success) {
+
+      if (!cartResult.success || !cartResult.data) {
+        console.error('Cart summary - failed to get cart:', cartResult.error);
         return NextResponse.json(
-          {
-            success: false,
-            error: cartResult.error,
-          },
-          { status: 400 }
+          { success: false, error: 'Internal server error' },
+          { status: 500 }
         );
       }
 
-      targetCartId = cartResult.data!.id;
+      targetCartId = cartResult.data.id;
     }
 
     const result = await cartService.getCartSummary(targetCartId);
 
     if (!result.success) {
+      console.error('Cart summary - failed to get summary:', result.error);
       return NextResponse.json(
-        {
-          success: false,
-          error: result.error,
-        },
-        { status: 400 }
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
       );
     }
 
@@ -65,10 +57,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Cart summary API error:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-      },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

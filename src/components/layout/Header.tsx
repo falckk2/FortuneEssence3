@@ -87,9 +87,9 @@ export const Header = () => {
   const wishlistCount = isClient ? getItemCount() : 0;
 
   return (
-    <header className="bg-white dark:bg-[#242a28] shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <header className="bg-white dark:bg-[#242a28] shadow-sm border-b border-cream-200 dark:border-[#3f4946]">
       {/* Top bar */}
-      <div className="bg-gradient-to-r from-sage-100 to-cream-100 dark:from-[#2a3330] dark:to-[#1f2624] border-b border-sage-200 dark:border-gray-700">
+      <div className="bg-gradient-to-r from-sage-100 to-cream-100 dark:from-[#2a3330] dark:to-[#1f2624] border-b border-sage-200 dark:border-[#3f4946]">
         <div className="container mx-auto px-4 py-2">
           <div className="flex items-center justify-between text-sm">
             <p className="text-forest-700 dark:text-[#B8C5B8] truncate mr-4">
@@ -169,7 +169,7 @@ export const Header = () => {
                   {item.name}
                 </Link>
                 {item.children && (
-                  <div className="absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-[#2a3330] ring-1 ring-black ring-opacity-5 dark:ring-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-[#2a3330] ring-1 ring-black ring-opacity-5 dark:ring-[#3f4946] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                     <div className="py-1">
                       {item.children.map((child) => (
                         <Link
@@ -195,10 +195,10 @@ export const Header = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={locale === 'sv' ? 'Sök produkter...' : 'Search products...'}
-                className="w-full pl-10 pr-4 py-2 border border-sage-300 dark:border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-sage-500 dark:focus:ring-sage-600 focus:border-transparent bg-cream-50 dark:bg-[#2a3330] focus:bg-white dark:focus:bg-[#343c39] text-forest-700 dark:text-[#E8EDE8] placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+                className="w-full pl-10 pr-4 py-2 border border-sage-300 dark:border-[#3f4946] rounded-full focus:outline-none focus:ring-2 focus:ring-sage-500 dark:focus:ring-sage-600 focus:border-transparent bg-cream-50 dark:bg-[#2a3330] focus:bg-white dark:focus:bg-[#343c39] text-forest-700 dark:text-[#E8EDE8] placeholder-forest-400 dark:placeholder-[#6B7B6B] transition-colors"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 dark:text-gray-600" />
+                <MagnifyingGlassIcon className="h-5 w-5 text-forest-400 dark:text-[#6B7B6B]" />
               </div>
             </form>
           </div>
@@ -206,7 +206,7 @@ export const Header = () => {
           {/* Right side icons */}
           <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-4">
             {/* Search icon for mobile */}
-            <button className="md:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors">
+            <button className="md:hidden p-2 text-forest-600 hover:text-forest-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors">
               <MagnifyingGlassIcon className="h-6 w-6" />
             </button>
 
@@ -214,7 +214,7 @@ export const Header = () => {
             <ThemeToggle />
 
             {/* Wishlist */}
-            <Link href="/wishlist" className="relative p-2 text-gray-600 hover:text-gray-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors">
+            <Link href="/wishlist" className="relative p-2 text-forest-600 hover:text-forest-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors">
               <HeartIcon className="h-6 w-6" />
               {wishlistCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
@@ -228,15 +228,15 @@ export const Header = () => {
 
             {/* User menu */}
             <div className="relative group">
-              <button className="p-2 text-gray-600 hover:text-gray-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors">
+              <button className="p-2 text-forest-600 hover:text-forest-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors">
                 <UserIcon className="h-6 w-6" />
               </button>
 
-              <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-[#2a3330] ring-1 ring-black ring-opacity-5 dark:ring-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+              <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-[#2a3330] ring-1 ring-black ring-opacity-5 dark:ring-[#3f4946] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
                 <div className="py-1">
                   {isAuthenticated ? (
                     <>
-                      <div className="px-4 py-2 text-sm text-forest-700 dark:text-[#B8C5B8] border-b border-sage-200 dark:border-gray-700">
+                      <div className="px-4 py-2 text-sm text-forest-700 dark:text-[#B8C5B8] border-b border-sage-200 dark:border-[#3f4946]">
                         {locale === 'sv' ? 'Hej' : 'Hello'} {user?.firstName}
                       </div>
                       <Link
@@ -281,7 +281,7 @@ export const Header = () => {
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 text-gray-600 hover:text-gray-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors"
+              className="lg:hidden p-2 text-forest-600 hover:text-forest-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors"
             >
               {isMobileMenuOpen ? (
                 <XMarkIcon className="h-6 w-6" />
@@ -295,7 +295,7 @@ export const Header = () => {
 
       {/* Mobile menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden border-t border-gray-200 dark:border-gray-700 dark:bg-[#242a28]">
+        <div className="lg:hidden border-t border-cream-200 dark:border-[#3f4946] dark:bg-[#242a28]">
           <div className="px-4 py-3 space-y-3">
             {/* Mobile search */}
             <form onSubmit={handleSearch} className="relative">
@@ -304,10 +304,10 @@ export const Header = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={locale === 'sv' ? 'Sök produkter...' : 'Search products...'}
-                className="w-full pl-10 pr-4 py-2 border border-sage-300 dark:border-gray-700 rounded-full focus:outline-none focus:ring-2 focus:ring-sage-500 dark:focus:ring-sage-600 focus:border-transparent bg-cream-50 dark:bg-[#2a3330] focus:bg-white dark:focus:bg-[#343c39] text-forest-700 dark:text-[#E8EDE8] transition-colors"
+                className="w-full pl-10 pr-4 py-2 border border-sage-300 dark:border-[#3f4946] rounded-full focus:outline-none focus:ring-2 focus:ring-sage-500 dark:focus:ring-sage-600 focus:border-transparent bg-cream-50 dark:bg-[#2a3330] focus:bg-white dark:focus:bg-[#343c39] text-forest-700 dark:text-[#E8EDE8] transition-colors"
               />
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 dark:text-gray-600" />
+                <MagnifyingGlassIcon className="h-5 w-5 text-forest-400 dark:text-[#6B7B6B]" />
               </div>
             </form>
 

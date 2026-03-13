@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { useLocale } from '@/contexts/LocaleContext';
 import Link from 'next/link';
 import { 
   ArrowLeftIcon,
@@ -52,7 +53,7 @@ export default function PrivacyPage() {
   const [updating, setUpdating] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const locale = 'sv'; // This would come from context in a real app
+  const { locale } = useLocale();
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -217,11 +218,11 @@ export default function PrivacyPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-12">
+      <div className="min-h-screen bg-gradient-to-b from-cream-50 to-white py-12">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-            <span className="ml-3 text-gray-600">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sage-600"></div>
+            <span className="ml-3 text-forest-600">
               {locale === 'sv' ? 'Laddar...' : 'Loading...'}
             </span>
           </div>
@@ -235,25 +236,25 @@ export default function PrivacyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-12">
+    <div className="min-h-screen bg-gradient-to-b from-cream-50 to-white py-12">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="mb-8">
           <Link 
             href="/account"
-            className="inline-flex items-center text-purple-600 hover:text-purple-700 mb-4"
+            className="inline-flex items-center text-sage-600 hover:text-sage-700 mb-4"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-2" />
             {locale === 'sv' ? 'Tillbaka till konto' : 'Back to account'}
           </Link>
           
           <div className="flex items-center space-x-3">
-            <ShieldCheckIcon className="h-8 w-8 text-purple-600" />
+            <ShieldCheckIcon className="h-8 w-8 text-sage-600" />
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-forest-900">
                 {locale === 'sv' ? 'GDPR & Integritet' : 'GDPR & Privacy'}
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-forest-600 mt-2">
                 {locale === 'sv' 
                   ? 'Hantera dina data och integritetsinställningar'
                   : 'Manage your data and privacy settings'
@@ -269,17 +270,17 @@ export default function PrivacyPage() {
             {/* Consent Management */}
             {consent && (
               <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                <h2 className="text-xl font-semibold text-forest-900 mb-6">
                   {locale === 'sv' ? 'Samtyckeshantering' : 'Consent Management'}
                 </h2>
                 
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between p-4 border border-cream-200 rounded-lg">
                     <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">
+                      <h3 className="font-medium text-forest-900">
                         {locale === 'sv' ? 'Marknadsföring' : 'Marketing'}
                       </h3>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-forest-600 mt-1">
                         {locale === 'sv' 
                           ? 'Få nyhetsbrev och erbjudanden via e-post'
                           : 'Receive newsletters and offers via email'
@@ -294,16 +295,16 @@ export default function PrivacyPage() {
                         disabled={updating}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                      <div className="w-11 h-6 bg-cream-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-sage-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sage-600"></div>
                     </label>
                   </div>
 
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center justify-between p-4 border border-cream-200 rounded-lg">
                     <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">
+                      <h3 className="font-medium text-forest-900">
                         {locale === 'sv' ? 'Analys' : 'Analytics'}
                       </h3>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-forest-600 mt-1">
                         {locale === 'sv' 
                           ? 'Hjälp oss förbättra hemsidan genom användningsdata'
                           : 'Help us improve the website through usage data'
@@ -318,16 +319,16 @@ export default function PrivacyPage() {
                         disabled={updating}
                         className="sr-only peer"
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                      <div className="w-11 h-6 bg-cream-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-sage-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sage-600"></div>
                     </label>
                   </div>
 
-                  <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
+                  <div className="flex items-center justify-between p-4 border border-cream-200 rounded-lg bg-cream-50">
                     <div className="flex-1">
-                      <h3 className="font-medium text-gray-900">
+                      <h3 className="font-medium text-forest-900">
                         {locale === 'sv' ? 'Funktionella cookies' : 'Functional cookies'}
                       </h3>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-forest-600 mt-1">
                         {locale === 'sv' 
                           ? 'Nödvändiga för att hemsidan ska fungera (kan inte avaktiveras)'
                           : 'Necessary for the website to function (cannot be disabled)'
@@ -341,7 +342,7 @@ export default function PrivacyPage() {
                     </div>
                   </div>
 
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-forest-500">
                     {locale === 'sv' 
                       ? `Senast uppdaterat: ${formatDate(consent.updatedAt)}`
                       : `Last updated: ${formatDate(consent.updatedAt)}`
@@ -354,24 +355,24 @@ export default function PrivacyPage() {
             {/* Data Processing Purposes */}
             {purposes.length > 0 && (
               <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                <h2 className="text-xl font-semibold text-forest-900 mb-6">
                   {locale === 'sv' ? 'Hur vi använder din data' : 'How we use your data'}
                 </h2>
                 
                 <div className="space-y-4">
                   {purposes.map((purpose, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4">
+                    <div key={index} className="border border-cream-200 rounded-lg p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h3 className="font-medium text-gray-900">{purpose.purpose}</h3>
-                          <p className="text-sm text-gray-600 mt-1">{purpose.description}</p>
+                          <h3 className="font-medium text-forest-900">{purpose.purpose}</h3>
+                          <p className="text-sm text-forest-600 mt-1">{purpose.description}</p>
                           <div className="mt-3">
-                            <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                            <span className="text-xs font-medium text-sage-600 bg-sage-100 px-2 py-1 rounded">
                               {purpose.legalBasis}
                             </span>
                             <div className="mt-2 flex flex-wrap gap-1.5">
                               {purpose.dataTypes.map((dataType, i) => (
-                                <span key={i} className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+                                <span key={i} className="text-xs text-forest-600 bg-cream-100 px-2 py-0.5 rounded">
                                   {dataType}
                                 </span>
                               ))}
@@ -388,18 +389,18 @@ export default function PrivacyPage() {
             {/* GDPR Activity Log */}
             {activities.length > 0 && (
               <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-6">
+                <h2 className="text-xl font-semibold text-forest-900 mb-6">
                   {locale === 'sv' ? 'Integritetshändelser' : 'Privacy activity'}
                 </h2>
                 
                 <div className="space-y-3">
                   {activities.slice(0, 10).map((activity) => (
-                    <div key={activity.id} className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg">
-                      <ClockIcon className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div key={activity.id} className="flex items-start space-x-3 p-3 border border-cream-200 rounded-lg">
+                      <ClockIcon className="w-5 h-5 text-forest-400 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{activity.activity}</p>
-                        <p className="text-sm text-gray-600">{activity.description}</p>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-sm font-medium text-forest-900">{activity.activity}</p>
+                        <p className="text-sm text-forest-600">{activity.description}</p>
+                        <p className="text-xs text-forest-500 mt-1">
                           {formatDate(activity.timestamp)}
                         </p>
                       </div>
@@ -414,14 +415,14 @@ export default function PrivacyPage() {
           <div className="space-y-6">
             {/* Your Rights */}
             <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="font-semibold text-gray-900 mb-4">
+              <h3 className="font-semibold text-forest-900 mb-4">
                 {locale === 'sv' ? 'Dina rättigheter' : 'Your rights'}
               </h3>
               
               <div className="space-y-4">
                 <button
                   onClick={() => handleExportData('json')}
-                  className="w-full flex items-center justify-start px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center justify-start px-4 py-3 border border-cream-300 text-forest-700 font-medium rounded-lg hover:bg-cream-50 transition-colors"
                 >
                   <DocumentArrowDownIcon className="h-5 w-5 mr-3" />
                   {locale === 'sv' ? 'Exportera data (JSON)' : 'Export data (JSON)'}
@@ -429,7 +430,7 @@ export default function PrivacyPage() {
                 
                 <button
                   onClick={() => handleExportData('csv')}
-                  className="w-full flex items-center justify-start px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center justify-start px-4 py-3 border border-cream-300 text-forest-700 font-medium rounded-lg hover:bg-cream-50 transition-colors"
                 >
                   <DocumentArrowDownIcon className="h-5 w-5 mr-3" />
                   {locale === 'sv' ? 'Exportera data (CSV)' : 'Export data (CSV)'}
@@ -437,7 +438,7 @@ export default function PrivacyPage() {
 
                 <button
                   onClick={() => handleExportData('pdf')}
-                  className="w-full flex items-center justify-start px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                  className="w-full flex items-center justify-start px-4 py-3 border border-cream-300 text-forest-700 font-medium rounded-lg hover:bg-cream-50 transition-colors"
                 >
                   <DocumentArrowDownIcon className="h-5 w-5 mr-3" />
                   {locale === 'sv' ? 'Exportera data (PDF)' : 'Export data (PDF)'}
@@ -456,15 +457,15 @@ export default function PrivacyPage() {
             {/* Data Retention */}
             {policies.length > 0 && (
               <div className="bg-white rounded-xl shadow-lg p-6">
-                <h3 className="font-semibold text-gray-900 mb-4">
+                <h3 className="font-semibold text-forest-900 mb-4">
                   {locale === 'sv' ? 'Datalagring' : 'Data retention'}
                 </h3>
                 
                 <div className="space-y-3">
                   {policies.map((policy, index) => (
                     <div key={index} className="text-sm">
-                      <p className="font-medium text-gray-900">{policy.dataType}</p>
-                      <p className="text-gray-600">{policy.retentionPeriod}</p>
+                      <p className="font-medium text-forest-900">{policy.dataType}</p>
+                      <p className="text-forest-600">{policy.retentionPeriod}</p>
                     </div>
                   ))}
                 </div>
@@ -473,10 +474,10 @@ export default function PrivacyPage() {
 
             {/* Contact */}
             <div className="bg-gradient-to-r from-purple-50 to-yellow-50 rounded-xl p-6">
-              <h3 className="font-semibold text-gray-900 mb-2">
+              <h3 className="font-semibold text-forest-900 mb-2">
                 {locale === 'sv' ? 'Integritetsfrågor?' : 'Privacy questions?'}
               </h3>
-              <p className="text-gray-600 text-sm mb-4">
+              <p className="text-forest-600 text-sm mb-4">
                 {locale === 'sv' 
                   ? 'Kontakta oss för frågor om dina personuppgifter.'
                   : 'Contact us for questions about your personal data.'
@@ -484,7 +485,7 @@ export default function PrivacyPage() {
               </p>
               <Link
                 href="/contact"
-                className="inline-flex items-center text-purple-600 hover:text-purple-700 font-medium text-sm"
+                className="inline-flex items-center text-sage-600 hover:text-sage-700 font-medium text-sm"
               >
                 {locale === 'sv' ? 'Kontakta oss' : 'Contact us'}
                 <ArrowLeftIcon className="w-4 h-4 ml-1 rotate-180" />
@@ -499,12 +500,12 @@ export default function PrivacyPage() {
             <div className="bg-white rounded-xl p-6 max-w-md mx-4">
               <div className="flex items-center space-x-3 mb-4">
                 <ExclamationTriangleIcon className="h-8 w-8 text-red-600" />
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-forest-900">
                   {locale === 'sv' ? 'Radera konto' : 'Delete account'}
                 </h3>
               </div>
               
-              <p className="text-gray-600 mb-6">
+              <p className="text-forest-600 mb-6">
                 {locale === 'sv' 
                   ? 'Är du säker på att du vill radera ditt konto? Denna åtgärd kan inte ångras och all din data kommer att raderas permanent.'
                   : 'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.'
@@ -514,7 +515,7 @@ export default function PrivacyPage() {
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowDeleteConfirmation(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-cream-300 text-forest-700 font-medium rounded-lg hover:bg-cream-50 transition-colors"
                 >
                   {locale === 'sv' ? 'Avbryt' : 'Cancel'}
                 </button>

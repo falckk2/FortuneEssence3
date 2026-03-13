@@ -1,16 +1,19 @@
 import { injectable, inject } from 'tsyringe';
+import crypto from 'crypto';
 import type {
   IOrderService,
   ICartService,
   IPaymentService,
-  IShippingService,
+  IShippingRateService,
+  IShipmentTrackingService,
   IInventoryService,
   IOrderRepository,
   IOrderItemRepository,
-  IProductService
+  IProductRepository
 } from '@/interfaces';
 import { CreateOrderData } from '@/interfaces';
-import { Order, ApiResponse, CartItem, OrderItem } from '@/types';
+import { TrackingInfo } from '@/interfaces/shipping';
+import { Order, OrderStatus, ApiResponse, CartItem, OrderItem } from '@/types';
 import { TOKENS } from '@/config/di-container';
 
 @injectable()
@@ -20,9 +23,9 @@ export class OrderService implements IOrderService {
     @inject(TOKENS.IOrderItemRepository) private readonly orderItemRepository: IOrderItemRepository,
     @inject(TOKENS.ICartService) private readonly cartService: ICartService,
     @inject(TOKENS.IPaymentService) private readonly paymentService: IPaymentService,
-    @inject(TOKENS.IShippingService) private readonly shippingService: IShippingService,
+    @inject(TOKENS.IShippingService) private readonly shippingService: IShippingRateService & IShipmentTrackingService,
     @inject(TOKENS.IInventoryService) private readonly inventoryService: IInventoryService,
-    @inject(TOKENS.IProductService) private readonly productService: IProductService
+    @inject(TOKENS.IProductRepository) private readonly productRepository: IProductRepository
   ) {}
 
   async createOrder(orderData: CreateOrderData): Promise<ApiResponse<Order>> {
@@ -36,7 +39,7 @@ export class OrderService implements IOrderService {
       // Calculate totals
       const subtotal = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       const tax = subtotal * 0.25; // 25% Swedish VAT
-      
+
       // Get shipping cost
       const shippingResult = await this.shippingService.calculateShipping(orderData.items, orderData.shippingAddress.country);
       if (!shippingResult.success) {
@@ -49,27 +52,7 @@ export class OrderService implements IOrderService {
       const shippingCost = shippingResult.data!.price;
       const totalAmount = subtotal + tax + shippingCost;
 
-      // Process payment
-      const paymentResult = await this.paymentService.processPayment({
-        amount: totalAmount,
-        currency: 'SEK',
-        method: orderData.paymentMethod,
-        orderId: `temp_${Date.now()}`,
-        customerId: orderData.customerId,
-        metadata: {
-          shippingAddress: JSON.stringify(orderData.shippingAddress),
-          billingAddress: JSON.stringify(orderData.billingAddress),
-        },
-      });
-
-      if (!paymentResult.success) {
-        return {
-          success: false,
-          error: `Payment processing failed: ${paymentResult.error}`,
-        };
-      }
-
-      // Reserve stock
+      // Reserve stock before charging — prevents charging a customer for unavailable stock
       const stockReservation = await this.inventoryService.reserveStock(orderData.items);
       if (!stockReservation.success) {
         return {
@@ -78,9 +61,36 @@ export class OrderService implements IOrderService {
         };
       }
 
+      // Stable pre-order reference: a real UUID so the payment provider has a traceable reference
+      // even if order DB creation fails after payment succeeds.
+      const preOrderRef = crypto.randomUUID();
+
+      // Process payment
+      const paymentResult = await this.paymentService.processPayment({
+        amount: totalAmount,
+        currency: 'SEK',
+        method: orderData.paymentMethod,
+        orderId: preOrderRef,
+        customerId: orderData.customerId,
+        metadata: {
+          shippingAddress: JSON.stringify(orderData.shippingAddress),
+          billingAddress: JSON.stringify(orderData.billingAddress),
+        },
+      });
+
+      if (!paymentResult.success) {
+        await this.inventoryService.releaseReservation(stockReservation.data!);
+        return {
+          success: false,
+          error: `Payment processing failed: ${paymentResult.error}`,
+        };
+      }
+
       // Transform CartItems to OrderItems
       const orderItemsResult = await this.transformCartItemsToOrderItems(orderData.items);
       if (!orderItemsResult.success) {
+        await this.inventoryService.releaseReservation(stockReservation.data!);
+        await this.paymentService.refundPayment(paymentResult.data!.paymentId);
         return {
           success: false,
           error: `Failed to prepare order items: ${orderItemsResult.error}`,
@@ -103,8 +113,8 @@ export class OrderService implements IOrderService {
       });
 
       if (!order.success) {
-        // Release stock reservation if order creation fails
         await this.inventoryService.releaseReservation(stockReservation.data!);
+        await this.paymentService.refundPayment(paymentResult.data!.paymentId);
         return order;
       }
 
@@ -165,36 +175,34 @@ export class OrderService implements IOrderService {
     }
   }
 
-  async updateOrderStatus(orderId: string, status: string): Promise<ApiResponse<Order>> {
+  async updateOrderStatus(orderId: string, status: OrderStatus, trackingNumber?: string): Promise<ApiResponse<Order>> {
     try {
-      const result = await this.orderRepository.updateStatus(orderId, status as any);
-      
+      const result = await this.orderRepository.updateStatus(orderId, status, trackingNumber);
+
       if (!result.success) {
         return result;
       }
 
+      const order = result.data!;
+
       // Handle status-specific actions
       switch (status) {
         case 'confirmed':
-          // Create shipment if not exists
-          const order = result.data!;
           if (!order.trackingNumber) {
             await this.createShipmentForOrder(order);
           }
           break;
-        
+
         case 'shipped':
           // Send notification email (would be implemented)
           break;
-        
+
         case 'delivered':
-          // Update inventory and release any reservations
-          await this.finalizeOrderInventory(orderId);
+          // Stock was already decremented by completeReservation at order creation — no further action needed.
           break;
-        
+
         case 'cancelled':
-          // Refund payment and release stock
-          await this.handleOrderCancellation(orderId);
+          await this.handleOrderCancellation(order);
           break;
       }
 
@@ -218,21 +226,14 @@ export class OrderService implements IOrderService {
       const order = orderResult.data!;
 
       // Check if order can be cancelled
-      if (['delivered', 'shipped'].includes(order.status)) {
+      if (['shipped', 'in_transit', 'out_for_delivery', 'delivered'].includes(order.status)) {
         return {
           success: false,
           error: 'Order cannot be cancelled after shipping',
         };
       }
 
-      // Cancel order
-      const result = await this.orderRepository.updateStatus(orderId, 'cancelled');
-      
-      if (result.success) {
-        await this.handleOrderCancellation(orderId);
-      }
-
-      return result;
+      return this.updateOrderStatus(orderId, 'cancelled');
 
     } catch (error) {
       return {
@@ -243,7 +244,7 @@ export class OrderService implements IOrderService {
   }
 
   // Additional utility methods
-  async getOrdersByStatus(status: string): Promise<ApiResponse<Order[]>> {
+  async getOrdersByStatus(status: OrderStatus): Promise<ApiResponse<Order[]>> {
     try {
       return await this.orderRepository.findByStatus(status);
     } catch (error) {
@@ -274,32 +275,26 @@ export class OrderService implements IOrderService {
 
   async trackOrder(trackingNumber: string): Promise<ApiResponse<{
     order: Order;
-    tracking: any;
+    tracking: TrackingInfo;
   }>> {
     try {
-      // Get order by tracking number
-      const orderResult = await this.orderRepository.findByTrackingNumber(trackingNumber);
-      if (!orderResult.success) {
-        return {
-          success: false,
-          error: orderResult.error,
-        };
-      }
+      const [orderResult, trackingResult] = await Promise.all([
+        this.orderRepository.findByTrackingNumber(trackingNumber),
+        this.shippingService.trackShipment(trackingNumber),
+      ]);
 
-      // Get tracking information
-      const trackingResult = await this.shippingService.trackShipment(trackingNumber);
+      if (!orderResult.success) {
+        return { success: false, error: orderResult.error };
+      }
       if (!trackingResult.success) {
-        return {
-          success: false,
-          error: trackingResult.error,
-        };
+        return { success: false, error: trackingResult.error };
       }
 
       return {
         success: true,
         data: {
           order: orderResult.data!,
-          tracking: trackingResult.data,
+          tracking: trackingResult.data!,
         },
       };
 
@@ -326,44 +321,35 @@ export class OrderService implements IOrderService {
 
   /**
    * Transforms CartItems to OrderItems by enriching them with product information.
-   * This method fetches product names and calculates item totals.
-   *
-   * @param cartItems - Array of cart items to transform
-   * @returns ApiResponse containing array of OrderItems or error
    */
   private async transformCartItemsToOrderItems(cartItems: CartItem[]): Promise<ApiResponse<OrderItem[]>> {
     try {
+      const productIds = [...new Set(cartItems.map(item => item.productId))];
+      const productsResult = await this.productRepository.findByIds(productIds);
+      const productMap = new Map((productsResult.data ?? []).map(p => [p.id, p]));
+
       const orderItems: OrderItem[] = [];
 
       for (const cartItem of cartItems) {
-        // Fetch product details to get the product name
-        const productResult = await this.productService.getProduct(cartItem.productId);
+        const product = productMap.get(cartItem.productId);
 
-        if (!productResult.success || !productResult.data) {
+        if (!product) {
           return {
             success: false,
             error: `Product with ID ${cartItem.productId} not found`,
           };
         }
 
-        const product = productResult.data;
-
-        // Transform CartItem to OrderItem
-        const orderItem: OrderItem = {
+        orderItems.push({
           productId: cartItem.productId,
           productName: product.name,
           quantity: cartItem.quantity,
           price: cartItem.price,
           total: cartItem.price * cartItem.quantity,
-        };
-
-        orderItems.push(orderItem);
+        });
       }
 
-      return {
-        success: true,
-        data: orderItems,
-      };
+      return { success: true, data: orderItems };
 
     } catch (error) {
       return {
@@ -375,20 +361,19 @@ export class OrderService implements IOrderService {
 
   private async validateOrderStock(items: CartItem[]): Promise<ApiResponse<boolean>> {
     try {
-      for (const item of items) {
-        const availability = await this.inventoryService.checkAvailability(item.productId, item.quantity);
-        if (!availability.success || !availability.data) {
-          return {
-            success: false,
-            error: `Product is not available in requested quantity`,
-          };
-        }
+      const results = await Promise.all(
+        items.map(item => this.inventoryService.checkAvailability(item.productId, item.quantity))
+      );
+
+      const failed = results.find(r => !r.success || !r.data);
+      if (failed) {
+        return {
+          success: false,
+          error: failed.error ?? 'Product is not available in requested quantity',
+        };
       }
 
-      return {
-        success: true,
-        data: true,
-      };
+      return { success: true, data: true };
 
     } catch (error) {
       return {
@@ -401,10 +386,10 @@ export class OrderService implements IOrderService {
   private async createShipment(orderId: string, shippingRateId: string): Promise<void> {
     try {
       const shipmentResult = await this.shippingService.createShipment(orderId, shippingRateId);
-      
+
       if (shipmentResult.success) {
         const shipment = shipmentResult.data!;
-        await this.orderRepository.updateStatus(orderId, 'shipped', shipment.trackingNumber);
+        await this.updateOrderStatus(orderId, 'shipped', shipment.trackingNumber);
       }
 
     } catch (error) {
@@ -414,10 +399,10 @@ export class OrderService implements IOrderService {
 
   private async createShipmentForOrder(order: Order): Promise<void> {
     try {
-      // Use default shipping rate for the country
+      const totalWeight = await this.calculateOrderWeight(order.items);
       const shippingRates = await this.shippingService.getShippingRates(
         order.shippingAddress.country,
-        this.calculateOrderWeight(order.items)
+        totalWeight
       );
 
       if (shippingRates.success && shippingRates.data!.length > 0) {
@@ -430,26 +415,38 @@ export class OrderService implements IOrderService {
     }
   }
 
-  private calculateOrderWeight(items: OrderItem[]): number {
-    // Simplified weight calculation - would use actual product weights
-    return items.reduce((total, item) => total + (item.quantity * 0.5), 0); // 0.5kg per item
+  private async calculateOrderWeight(items: OrderItem[]): Promise<number> {
+    try {
+      const productIds = [...new Set(items.map(item => item.productId))];
+      const productsResult = await this.productRepository.findByIds(productIds);
+      const productMap = new Map((productsResult.data ?? []).map(p => [p.id, p]));
+
+      return items.reduce((total, item) => {
+        const product = productMap.get(item.productId);
+        return total + ((product?.weight ?? 0.5) * item.quantity);
+      }, 0);
+    } catch {
+      // Fall back to estimate if products can't be fetched
+      return items.reduce((total, item) => total + (item.quantity * 0.5), 0);
+    }
   }
 
-  private async handleOrderCancellation(orderId: string): Promise<void> {
+  private async handleOrderCancellation(order: Order): Promise<void> {
     try {
-      const orderResult = await this.orderRepository.findById(orderId);
-      if (!orderResult.success) return;
-
-      const order = orderResult.data!;
-
-      // Release stock reservations
+      // Restore stock — completeReservation already decremented it at order creation,
+      // so we add back the quantities rather than trying to release a completed reservation.
       if (order.items) {
-        await this.inventoryService.releaseReservation(orderId);
+        await Promise.all(
+          order.items.map(item => this.inventoryService.updateStock(item.productId, item.quantity))
+        );
       }
 
-      // Process refund (would be implemented with payment providers)
+      // Process refund if a payment was made
       if (order.paymentId) {
-        console.log(`Refund needed for payment ${order.paymentId}`);
+        const refundResult = await this.paymentService.refundPayment(order.paymentId);
+        if (!refundResult.success) {
+          console.error(`Refund failed for payment ${order.paymentId}: ${refundResult.error}`);
+        }
       }
 
     } catch (error) {
@@ -457,20 +454,4 @@ export class OrderService implements IOrderService {
     }
   }
 
-  private async finalizeOrderInventory(orderId: string): Promise<void> {
-    try {
-      const orderResult = await this.orderRepository.findById(orderId);
-      if (!orderResult.success) return;
-
-      const order = orderResult.data!;
-
-      // Update actual stock levels
-      for (const item of order.items) {
-        await this.inventoryService.updateStock(item.productId, -item.quantity);
-      }
-
-    } catch (error) {
-      console.error('Failed to finalize order inventory:', error);
-    }
-  }
 }

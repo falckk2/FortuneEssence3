@@ -15,44 +15,29 @@ export class BankTransferPaymentProcessor implements IPaymentProcessor {
   }
 
   async process(paymentData: PaymentData): Promise<ApiResponse<PaymentResult>> {
-    try {
-      // Generate a reference number for the bank transfer
-      const referenceNumber = this.generateReferenceNumber(paymentData.orderId);
-      const paymentId = `bt_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const referenceNumber = this.generateReferenceNumber(paymentData.orderId);
+    const paymentId = `bt_${crypto.randomUUID()}`;
 
-      return {
-        success: true,
-        data: {
-          paymentId: paymentId,
-          status: 'pending', // Bank transfers are always pending until manually verified
-          amount: paymentData.amount,
-          currency: paymentData.currency,
-          referenceNumber,
-        },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Bank transfer payment failed: ${error}`,
-      };
-    }
+    return {
+      success: true,
+      data: {
+        paymentId,
+        status: 'pending', // Bank transfers are always pending until manually verified
+        amount: paymentData.amount,
+        currency: paymentData.currency,
+        referenceNumber,
+      },
+    };
   }
 
-  async verify(paymentId: string): Promise<ApiResponse<boolean>> {
-    try {
-      // TODO: In a real implementation, this would check a database or external system
-      // to see if the bank transfer has been received
-      // For now, bank transfers are always unverified (must be manually confirmed)
-      return {
-        success: true,
-        data: false, // Always false until manually confirmed by admin
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Bank transfer verification failed: ${error}`,
-      };
-    }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async verify(_paymentId: string): Promise<ApiResponse<boolean>> {
+    // TODO: check a database or external system to see if the bank transfer has been received
+    // For now, bank transfers are always unverified (must be manually confirmed by admin)
+    return {
+      success: true,
+      data: false,
+    };
   }
 
   /**

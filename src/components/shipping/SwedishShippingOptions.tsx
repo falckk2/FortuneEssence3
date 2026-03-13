@@ -159,13 +159,13 @@ export function SwedishShippingOptions({
 
   if (loading) {
     return (
-      <div className="p-6 bg-white rounded-lg shadow-md">
+      <div className="p-6 bg-white dark:bg-[#242a28] rounded-lg shadow-md">
         <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-cream-200 dark:bg-[#2a3330] rounded w-1/3 mb-4"></div>
           <div className="space-y-3">
-            <div className="h-16 bg-gray-200 rounded"></div>
-            <div className="h-16 bg-gray-200 rounded"></div>
-            <div className="h-16 bg-gray-200 rounded"></div>
+            <div className="h-16 bg-cream-200 dark:bg-[#2a3330] rounded"></div>
+            <div className="h-16 bg-cream-200 dark:bg-[#2a3330] rounded"></div>
+            <div className="h-16 bg-cream-200 dark:bg-[#2a3330] rounded"></div>
           </div>
         </div>
       </div>
@@ -174,15 +174,15 @@ export function SwedishShippingOptions({
 
   if (error) {
     return (
-      <div className="p-6 bg-white rounded-lg shadow-md">
-        <div className="text-red-600 text-center">
+      <div className="p-6 bg-white dark:bg-[#242a28] rounded-lg shadow-md">
+        <div className="text-red-600 dark:text-red-400 text-center">
           <p className="font-medium">
             {locale === 'sv' ? 'Kunde inte ladda leveransalternativ' : 'Could not load shipping options'}
           </p>
           <p className="text-sm mt-2">{error}</p>
           <button
             onClick={loadShippingOptions}
-            className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            className="mt-4 px-4 py-2 bg-sage-600 text-white rounded-lg hover:bg-sage-700 transition-colors"
           >
             {locale === 'sv' ? 'Försök igen' : 'Try again'}
           </button>
@@ -195,16 +195,16 @@ export function SwedishShippingOptions({
     <div className="space-y-4">
       {/* Zone Information */}
       {zoneInfo && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-sage-50 dark:bg-[#2a3330] border border-sage-200 dark:border-[#3f4946] rounded-lg p-4">
           <div className="flex items-center space-x-2">
-            <MapPinIcon className="w-5 h-5 text-blue-600" />
-            <span className="font-medium text-blue-900">
+            <MapPinIcon className="w-5 h-5 text-sage-600 dark:text-sage-400" />
+            <span className="font-medium text-forest-800 dark:text-[#E8EDE8]">
               {getZoneDescription(zoneInfo.zone)}
             </span>
           </div>
           {zoneInfo.additionalDays > 0 && (
-            <p className="text-sm text-blue-700 mt-1">
-              {locale === 'sv' 
+            <p className="text-sm text-forest-600 dark:text-[#C5D4C5] mt-1">
+              {locale === 'sv'
                 ? `+${zoneInfo.additionalDays} dag(ar) leveranstid på grund av geografiskt läge`
                 : `+${zoneInfo.additionalDays} day(s) additional delivery time due to geographic location`
               }
@@ -214,19 +214,19 @@ export function SwedishShippingOptions({
       )}
 
       {/* Standard Shipping Options */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="bg-white dark:bg-[#242a28] rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold text-forest-900 dark:text-[#E8EDE8] mb-4">
           {locale === 'sv' ? 'Leveransalternativ' : 'Shipping options'}
         </h3>
-        
+
         <div className="space-y-3">
           {rates.map((rate) => (
             <label
               key={rate.id}
               className={`block p-4 border rounded-lg cursor-pointer transition-colors ${
                 selectedRateId === rate.id
-                  ? 'border-purple-500 bg-purple-50'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-sage-500 bg-sage-50 dark:bg-[#2a3330]'
+                  : 'border-cream-200 dark:border-[#3f4946] hover:border-sage-300 dark:hover:border-[#4a5552]'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -237,34 +237,34 @@ export function SwedishShippingOptions({
                     value={rate.id}
                     checked={selectedRateId === rate.id}
                     onChange={() => onRateSelect(rate)}
-                    className="w-4 h-4 text-purple-600 border-gray-300 focus:ring-purple-500"
+                    className="w-4 h-4 text-sage-600 border-cream-300 dark:border-[#4a5552] focus:ring-sage-500"
                   />
                   <div>
                     <div className="flex items-center space-x-2">
-                      <TruckIcon className="w-5 h-5 text-gray-400" />
-                      <span className="font-medium text-gray-900">{rate.name}</span>
+                      <TruckIcon className="w-5 h-5 text-forest-400 dark:text-[#8A9A8A]" />
+                      <span className="font-medium text-forest-900 dark:text-[#E8EDE8]">{rate.name}</span>
                     </div>
                     {rate.description && (
-                      <p className="text-sm text-gray-600 mt-1">{rate.description}</p>
+                      <p className="text-sm text-forest-600 dark:text-[#C5D4C5] mt-1">{rate.description}</p>
                     )}
                     <div className="flex items-center space-x-4 mt-1">
                       <div className="flex items-center space-x-1">
-                        <ClockIcon className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">
+                        <ClockIcon className="w-4 h-4 text-forest-400 dark:text-[#8A9A8A]" />
+                        <span className="text-sm text-forest-600 dark:text-[#C5D4C5]">
                           {getDeliveryText(rate.estimatedDays)}
                         </span>
                       </div>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-forest-500 dark:text-[#8A9A8A]">
                         {locale === 'sv' ? 'Max' : 'Max'} {rate.maxWeight}kg
                       </span>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="text-right">
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-forest-900 dark:text-[#E8EDE8]">
                     {rate.price === 0 ? (
-                      <span className="text-green-600">
+                      <span className="text-green-600 dark:text-green-400">
                         {locale === 'sv' ? 'Gratis' : 'Free'}
                       </span>
                     ) : (
@@ -280,19 +280,19 @@ export function SwedishShippingOptions({
 
       {/* Eco Shipping Options */}
       {ecoOptions && (
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-white dark:bg-[#242a28] rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              <SparklesIcon className="w-5 h-5 text-green-600" />
-              <h3 className="text-lg font-semibold text-gray-900">
+              <SparklesIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+              <h3 className="text-lg font-semibold text-forest-900 dark:text-[#E8EDE8]">
                 {locale === 'sv' ? 'Miljövänlig leverans' : 'Eco-friendly shipping'}
               </h3>
             </div>
             <button
               onClick={() => setShowEcoOptions(!showEcoOptions)}
-              className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+              className="text-sm text-sage-700 dark:text-sage-400 hover:text-sage-800 dark:hover:text-sage-300 font-medium"
             >
-              {showEcoOptions 
+              {showEcoOptions
                 ? (locale === 'sv' ? 'Dölj' : 'Hide')
                 : (locale === 'sv' ? 'Visa alternativ' : 'Show options')
               }
@@ -304,8 +304,8 @@ export function SwedishShippingOptions({
               <label
                 className={`block p-4 border rounded-lg cursor-pointer transition-colors ${
                   selectedRateId === ecoOptions.ecoRate.id
-                    ? 'border-green-500 bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                    : 'border-cream-200 dark:border-[#3f4946] hover:border-green-300'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -316,36 +316,36 @@ export function SwedishShippingOptions({
                       value={ecoOptions.ecoRate.id}
                       checked={selectedRateId === ecoOptions.ecoRate.id}
                       onChange={() => onRateSelect(ecoOptions.ecoRate)}
-                      className="w-4 h-4 text-green-600 border-gray-300 focus:ring-green-500"
+                      className="w-4 h-4 text-green-600 border-cream-300 dark:border-[#4a5552] focus:ring-green-500"
                     />
                     <div>
                       <div className="flex items-center space-x-2">
-                        <SparklesIcon className="w-5 h-5 text-green-600" />
-                        <span className="font-medium text-gray-900">{ecoOptions.ecoRate.name}</span>
-                        <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
+                        <SparklesIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        <span className="font-medium text-forest-900 dark:text-[#E8EDE8]">{ecoOptions.ecoRate.name}</span>
+                        <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium px-2 py-1 rounded-full">
                           CO₂-neutral
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {locale === 'sv' 
+                      <p className="text-sm text-forest-600 dark:text-[#C5D4C5] mt-1">
+                        {locale === 'sv'
                           ? `Klimatkompenserar ${ecoOptions.carbonOffset.kg}kg CO₂`
                           : `Carbon offsets ${ecoOptions.carbonOffset.kg}kg CO₂`
                         }
                       </p>
                       <div className="flex items-center space-x-1 mt-1">
-                        <ClockIcon className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">
+                        <ClockIcon className="w-4 h-4 text-forest-400 dark:text-[#8A9A8A]" />
+                        <span className="text-sm text-forest-600 dark:text-[#C5D4C5]">
                           {getDeliveryText(ecoOptions.ecoRate.estimatedDays)}
                         </span>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="text-right">
-                    <span className="font-semibold text-gray-900">
+                    <span className="font-semibold text-forest-900 dark:text-[#E8EDE8]">
                       {formatPrice(ecoOptions.ecoRate.price)}
                     </span>
-                    <p className="text-xs text-green-600">
+                    <p className="text-xs text-green-600 dark:text-green-400">
                       +{formatPrice(ecoOptions.carbonOffset.cost)} {locale === 'sv' ? 'klimatkompensation' : 'carbon offset'}
                     </p>
                   </div>
@@ -357,14 +357,14 @@ export function SwedishShippingOptions({
       )}
 
       {/* Carrier Information */}
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white dark:bg-[#242a28] rounded-lg shadow-md p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-semibold text-forest-900 dark:text-[#E8EDE8]">
             {locale === 'sv' ? 'Leverantörsinformation' : 'Carrier information'}
           </h3>
           <button
             onClick={() => setShowDetails(!showDetails)}
-            className="flex items-center space-x-1 text-sm text-purple-600 hover:text-purple-700 font-medium"
+            className="flex items-center space-x-1 text-sm text-sage-700 dark:text-sage-400 hover:text-sage-800 dark:hover:text-sage-300 font-medium"
           >
             <InformationCircleIcon className="w-4 h-4" />
             <span>{showDetails ? (locale === 'sv' ? 'Dölj' : 'Hide') : (locale === 'sv' ? 'Visa detaljer' : 'Show details')}</span>
@@ -374,21 +374,21 @@ export function SwedishShippingOptions({
         {showDetails && (
           <div className="space-y-4">
             {carrierServices.map((carrier, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-3">{carrier.carrier}</h4>
+              <div key={index} className="border border-cream-200 dark:border-[#3f4946] rounded-lg p-4">
+                <h4 className="font-medium text-forest-900 dark:text-[#E8EDE8] mb-3">{carrier.carrier}</h4>
                 <div className="space-y-2">
                   {carrier.services.map((service, serviceIndex) => (
                     <div key={serviceIndex} className="text-sm">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-800">{service.name}</span>
-                        <span className="text-gray-500">{getDeliveryText(service.estimatedDays)}</span>
+                        <span className="font-medium text-forest-800 dark:text-[#E8EDE8]">{service.name}</span>
+                        <span className="text-forest-500 dark:text-[#8A9A8A]">{getDeliveryText(service.estimatedDays)}</span>
                       </div>
-                      <p className="text-gray-600">{service.description}</p>
+                      <p className="text-forest-600 dark:text-[#C5D4C5]">{service.description}</p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         {service.features.map((feature, featureIndex) => (
                           <span
                             key={featureIndex}
-                            className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded"
+                            className="bg-cream-100 dark:bg-[#2a3330] text-forest-700 dark:text-[#C5D4C5] text-xs px-2 py-1 rounded"
                           >
                             {feature}
                           </span>
@@ -405,11 +405,11 @@ export function SwedishShippingOptions({
 
       {/* Free Shipping Notice */}
       {rates.some(rate => rate.price === 0) && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
           <div className="flex items-center space-x-2">
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-sm font-medium text-green-800">
-              {locale === 'sv' 
+            <span className="text-sm font-medium text-green-800 dark:text-green-300">
+              {locale === 'sv'
                 ? 'Gratis frakt på beställningar över 500 SEK'
                 : 'Free shipping on orders over 500 SEK'
               }

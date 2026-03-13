@@ -1,24 +1,25 @@
 import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { container } from 'tsyringe';
-import { TOKENS } from '@/config/di-container';
+import { container, TOKENS } from '@/config/di-container';
 import type { IBundleService, IBundleRepository } from '@/interfaces';
-import { getToken } from 'next-auth/jwt';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+
+const bundleService = container.resolve<IBundleService>(TOKENS.IBundleService);
+const bundleRepo = container.resolve<IBundleRepository>(TOKENS.IBundleRepository);
 
 // GET /api/bundles/[id] - Get bundle configuration by bundle product ID
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const bundleService = container.resolve<IBundleService>(TOKENS.IBundleService);
     const { id } = await params;
-
     const result = await bundleService.getBundleConfiguration(id);
 
     if (!result.success) {
       return NextResponse.json(
-        { success: false, error: result.error },
+        { success: false, error: 'Bundle not found' },
         { status: 404 }
       );
     }
@@ -28,7 +29,7 @@ export async function GET(
       data: result.data,
     });
   } catch (error) {
-    console.error('Bundle API error:', error);
+    console.error('Bundle GET error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -40,19 +41,22 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-  if (!token?.isAdmin) {
-    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-  }
-
   try {
-    const bundleRepo = container.resolve<IBundleRepository>(TOKENS.IBundleRepository);
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const { id } = await params;
     const body = await request.json();
     const result = await bundleRepo.update(id, body);
 
     if (!result.success) {
-      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+      console.error('Bundle PATCH - failed to update bundle:', result.error);
+      return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, data: result.data });
@@ -63,21 +67,24 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-  if (!token?.isAdmin) {
-    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-  }
-
   try {
-    const bundleRepo = container.resolve<IBundleRepository>(TOKENS.IBundleRepository);
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const { id } = await params;
     const result = await bundleRepo.delete(id);
 
     if (!result.success) {
-      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+      console.error('Bundle DELETE - failed to delete bundle:', result.error);
+      return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

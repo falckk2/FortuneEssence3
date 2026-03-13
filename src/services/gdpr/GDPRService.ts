@@ -1,5 +1,5 @@
 import { IGDPRService, UserData, ConsentData, UserPreferences } from '@/interfaces';
-import { Customer, Order, ApiResponse } from '@/types';
+import { Customer, Order, OrderStatus, Address, PaymentMethod, ApiResponse } from '@/types';
 import { supabase } from '@/lib/supabase/client';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
@@ -7,24 +7,15 @@ export class GDPRService implements IGDPRService {
 
   async exportUserData(userId: string): Promise<ApiResponse<UserData>> {
     try {
-      // Fetch user's personal information
-      const { data: customer, error: customerError } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (customerError) {
-        return {
-          success: false,
-          error: `Failed to fetch customer data: ${customerError.message}`,
-        };
-      }
-
-      // Fetch user's orders
-      const { data: orders, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
+      // Fetch all data in parallel — all queries only depend on userId
+      const [
+        { data: customer, error: customerError },
+        { data: orders, error: ordersError },
+        { data: consent, error: consentError },
+        { data: preferences, error: preferencesError },
+      ] = await Promise.all([
+        supabase.from('customers').select('*').eq('id', userId).single(),
+        supabase.from('orders').select(`
           *,
           order_items!inner(
             id,
@@ -32,29 +23,23 @@ export class GDPRService implements IGDPRService {
             price,
             products!inner(id, name, name_sv, sku)
           )
-        `)
-        .eq('customer_id', userId)
-        .order('created_at', { ascending: false });
+        `).eq('customer_id', userId).order('created_at', { ascending: false }),
+        supabase.from('user_consent').select('*').eq('user_id', userId).single(),
+        supabase.from('user_preferences').select('*').eq('user_id', userId).single(),
+      ]);
 
-      if (ordersError) {
-        return {
-          success: false,
-          error: `Failed to fetch order data: ${ordersError.message}`,
-        };
+      if (customerError) {
+        return { success: false, error: `Failed to fetch customer data: ${customerError.message}` };
       }
-
-      // Fetch user's preferences and consent
-      const { data: consent, error: consentError } = await supabase
-        .from('user_consent')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      const { data: preferences, error: preferencesError } = await supabase
-        .from('user_preferences')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
+      if (ordersError) {
+        return { success: false, error: `Failed to fetch order data: ${ordersError.message}` };
+      }
+      if (consentError && consentError.code !== 'PGRST116') {
+        return { success: false, error: `Failed to fetch consent data: ${consentError.message}` };
+      }
+      if (preferencesError && preferencesError.code !== 'PGRST116') {
+        return { success: false, error: `Failed to fetch preferences data: ${preferencesError.message}` };
+      }
 
       // Transform customer data
       const personalInfo: Customer = {
@@ -70,11 +55,21 @@ export class GDPRService implements IGDPRService {
         updatedAt: new Date(customer.updated_at),
       };
 
+      type RawProduct = { id: string; name: string };
+      type RawOrderItem = { id: string; quantity: number; price: number; products: RawProduct };
+      type RawOrder = {
+        id: string; customer_id: string; status: OrderStatus; tax: number;
+        shipping_cost?: number; total_amount: number; payment_method: PaymentMethod;
+        payment_id: string; shipping_address: Address; billing_address: Address;
+        tracking_number: string; created_at: string; updated_at: string;
+        order_items: RawOrderItem[];
+      };
+
       // Transform orders data
-      const transformedOrders: Order[] = orders.map((order: any) => ({
+      const transformedOrders: Order[] = (orders as RawOrder[]).map((order) => ({
         id: order.id,
         customerId: order.customer_id,
-        items: order.order_items.map((item: any) => ({
+        items: order.order_items.map((item) => ({
           productId: item.products.id,
           productName: item.products.name,
           quantity: item.quantity,
@@ -101,10 +96,21 @@ export class GDPRService implements IGDPRService {
         newsletter: preferences?.newsletter || false,
       };
 
+      // Transform consent
+      const consentData: ConsentData | undefined = consent
+        ? {
+            marketing: consent.marketing,
+            analytics: consent.analytics,
+            functional: consent.functional,
+            updatedAt: new Date(consent.updated_at),
+          }
+        : undefined;
+
       const userData: UserData = {
         personalInfo,
         orders: transformedOrders,
         preferences: userPreferences,
+        consent: consentData,
       };
 
       // Log the data export request
@@ -128,95 +134,63 @@ export class GDPRService implements IGDPRService {
       // Log the deletion request first
       await this.logGDPRActivity(userId, 'data_deletion', 'User requested account deletion');
 
-      // Delete user data in the correct order to maintain referential integrity
+      // Delete user data maintaining referential integrity:
+      // Step 1: fetch IDs for child records in parallel
+      const [ordersQuery, cartsQuery] = await Promise.all([
+        supabase.from('orders').select('id').eq('customer_id', userId),
+        supabase.from('carts').select('id').eq('customer_id', userId),
+      ]);
 
-      // 1. Get order IDs for this user
-      const { data: userOrders, error: ordersQueryError } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('customer_id', userId);
-
-      if (ordersQueryError && ordersQueryError.code !== 'PGRST116') {
-        throw new Error(`Failed to query orders: ${ordersQueryError.message}`);
+      if (ordersQuery.error && ordersQuery.error.code !== 'PGRST116') {
+        throw new Error(`Failed to query orders: ${ordersQuery.error.message}`);
+      }
+      if (cartsQuery.error && cartsQuery.error.code !== 'PGRST116') {
+        throw new Error(`Failed to query carts: ${cartsQuery.error.message}`);
       }
 
-      // 2. Delete order items first (if there are any orders)
-      if (userOrders && userOrders.length > 0) {
-        const orderIds = userOrders.map(o => o.id);
-        const { error: orderItemsError } = await supabase
-          .from('order_items')
-          .delete()
-          .in('order_id', orderIds);
+      // Step 2: delete child records (order_items and cart_items) in parallel
+      const childDeletes: Promise<unknown>[] = [];
 
-        if (orderItemsError && orderItemsError.code !== 'PGRST116') {
-          throw new Error(`Failed to delete order items: ${orderItemsError.message}`);
-        }
+      if (ordersQuery.data && ordersQuery.data.length > 0) {
+        const orderIds = ordersQuery.data.map(o => o.id);
+        childDeletes.push(
+          Promise.resolve(supabase.from('order_items').delete().in('order_id', orderIds)).then(({ error }) => {
+            if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete order items: ${error.message}`);
+          })
+        );
       }
 
-      // 2. Delete orders
-      const { error: ordersError } = await supabase
-        .from('orders')
-        .delete()
-        .eq('customer_id', userId);
-
-      if (ordersError && ordersError.code !== 'PGRST116') {
-        throw new Error(`Failed to delete orders: ${ordersError.message}`);
+      if (cartsQuery.data && cartsQuery.data.length > 0) {
+        const cartIds = cartsQuery.data.map(c => c.id);
+        childDeletes.push(
+          Promise.resolve(supabase.from('cart_items').delete().in('cart_id', cartIds)).then(({ error }) => {
+            if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete cart items: ${error.message}`);
+          })
+        );
       }
 
-      // 3. Get cart IDs for this user
-      const { data: userCarts, error: cartsQueryError } = await supabase
-        .from('carts')
-        .select('id')
-        .eq('customer_id', userId);
+      await Promise.all(childDeletes);
 
-      if (cartsQueryError && cartsQueryError.code !== 'PGRST116') {
-        throw new Error(`Failed to query carts: ${cartsQueryError.message}`);
-      }
+      // Step 3: delete parent records and user data in parallel
+      await Promise.all([
+        Promise.resolve(supabase.from('orders').delete().eq('customer_id', userId)).then(({ error }) => {
+          if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete orders: ${error.message}`);
+        }),
+        Promise.resolve(supabase.from('carts').delete().eq('customer_id', userId)).then(({ error }) => {
+          if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete carts: ${error.message}`);
+        }),
+        Promise.resolve(supabase.from('abandoned_carts').delete().eq('customer_id', userId)).then(({ error }) => {
+          if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete abandoned carts: ${error.message}`);
+        }),
+        Promise.resolve(supabase.from('user_preferences').delete().eq('user_id', userId)).then(({ error }) => {
+          if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete preferences: ${error.message}`);
+        }),
+        Promise.resolve(supabase.from('user_consent').delete().eq('user_id', userId)).then(({ error }) => {
+          if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete consent: ${error.message}`);
+        }),
+      ]);
 
-      // 4. Delete cart items (if there are any carts)
-      if (userCarts && userCarts.length > 0) {
-        const cartIds = userCarts.map(c => c.id);
-        const { error: cartItemsError } = await supabase
-          .from('cart_items')
-          .delete()
-          .in('cart_id', cartIds);
-
-        if (cartItemsError && cartItemsError.code !== 'PGRST116') {
-          throw new Error(`Failed to delete cart items: ${cartItemsError.message}`);
-        }
-      }
-
-      // 4. Delete carts
-      const { error: cartsError } = await supabase
-        .from('carts')
-        .delete()
-        .eq('customer_id', userId);
-
-      if (cartsError && cartsError.code !== 'PGRST116') {
-        throw new Error(`Failed to delete carts: ${cartsError.message}`);
-      }
-
-      // 5. Delete user preferences
-      const { error: preferencesError } = await supabase
-        .from('user_preferences')
-        .delete()
-        .eq('user_id', userId);
-
-      if (preferencesError && preferencesError.code !== 'PGRST116') {
-        throw new Error(`Failed to delete preferences: ${preferencesError.message}`);
-      }
-
-      // 6. Delete user consent records
-      const { error: consentError } = await supabase
-        .from('user_consent')
-        .delete()
-        .eq('user_id', userId);
-
-      if (consentError && consentError.code !== 'PGRST116') {
-        throw new Error(`Failed to delete consent: ${consentError.message}`);
-      }
-
-      // 7. Finally delete the customer record
+      // Step 4: delete the customer record last
       const { error: customerError } = await supabase
         .from('customers')
         .delete()
@@ -525,19 +499,22 @@ export class GDPRService implements IGDPRService {
   }
 
   private convertToCSV(userData: UserData): string {
+    // Quote a value and escape internal double quotes per RFC 4180
+    const q = (v: unknown): string => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
     let csv = '';
 
     // Personal Information
     csv += 'Personal Information\n';
     csv += 'Field,Value\n';
-    csv += `ID,${userData.personalInfo.id}\n`;
-    csv += `Email,${userData.personalInfo.email}\n`;
-    csv += `First Name,${userData.personalInfo.firstName}\n`;
-    csv += `Last Name,${userData.personalInfo.lastName}\n`;
-    csv += `Phone,${userData.personalInfo.phone || ''}\n`;
-    csv += `Marketing Opt-in,${userData.personalInfo.marketingOptIn}\n`;
-    csv += `Created At,${userData.personalInfo.createdAt}\n`;
-    csv += `Updated At,${userData.personalInfo.updatedAt}\n`;
+    csv += `${q('ID')},${q(userData.personalInfo.id)}\n`;
+    csv += `${q('Email')},${q(userData.personalInfo.email)}\n`;
+    csv += `${q('First Name')},${q(userData.personalInfo.firstName)}\n`;
+    csv += `${q('Last Name')},${q(userData.personalInfo.lastName)}\n`;
+    csv += `${q('Phone')},${q(userData.personalInfo.phone ?? '')}\n`;
+    csv += `${q('Marketing Opt-in')},${q(userData.personalInfo.marketingOptIn)}\n`;
+    csv += `${q('Created At')},${q(userData.personalInfo.createdAt.toISOString())}\n`;
+    csv += `${q('Updated At')},${q(userData.personalInfo.updatedAt.toISOString())}\n`;
     csv += '\n';
 
     // Orders
@@ -545,16 +522,16 @@ export class GDPRService implements IGDPRService {
     csv += 'Order ID,Status,Total Amount,Created At,Items\n';
     userData.orders.forEach(order => {
       const items = order.items.map(item => `${item.productName} (${item.quantity}x)`).join('; ');
-      csv += `${order.id},${order.status},${order.total},${order.createdAt},${items}\n`;
+      csv += `${q(order.id)},${q(order.status)},${q(order.total)},${q(order.createdAt.toISOString())},${q(items)}\n`;
     });
     csv += '\n';
 
     // Preferences
     csv += 'Preferences\n';
     csv += 'Setting,Value\n';
-    csv += `Language,${userData.preferences.language}\n`;
-    csv += `Currency,${userData.preferences.currency}\n`;
-    csv += `Newsletter,${userData.preferences.newsletter}\n`;
+    csv += `${q('Language')},${q(userData.preferences.language)}\n`;
+    csv += `${q('Currency')},${q(userData.preferences.currency)}\n`;
+    csv += `${q('Newsletter')},${q(userData.preferences.newsletter)}\n`;
 
     return csv;
   }

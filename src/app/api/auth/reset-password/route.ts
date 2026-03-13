@@ -1,7 +1,9 @@
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { container } from '@/config/di-container';
-import { TOKENS } from '@/config/di-container';
+import { container, TOKENS } from '@/config/di-container';
 import type { IAuthService } from '@/interfaces';
+
+const authService = container.resolve<IAuthService>(TOKENS.IAuthService);
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +17,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate password strength
     if (password.length < 8) {
       return NextResponse.json(
         { success: false, error: 'Password must be at least 8 characters' },
@@ -30,15 +31,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get AuthService from DI container
-    const authService = container.resolve<IAuthService>(TOKENS.IAuthService);
-
-    // Complete password reset
     const result = await authService.completePasswordReset(token, password);
 
     if (!result.success) {
+      console.error('Password reset failed:', result.error);
       return NextResponse.json(
-        { success: false, error: result.error || 'Failed to reset password' },
+        { success: false, error: 'Invalid or expired reset token' },
         { status: 400 }
       );
     }
@@ -51,7 +49,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Reset password error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to reset password' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

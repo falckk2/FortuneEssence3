@@ -3,14 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { container, TOKENS } from '@/config/di-container';
-import { IReturnService } from '@/interfaces/services';
-import { ReturnStatus } from '@/types';
+import type { IReturnService } from '@/interfaces/services';
+import type { ReturnStatus } from '@/types';
 
 const VALID_STATUSES: ReturnStatus[] = ['pending', 'approved', 'rejected', 'received', 'refunded', 'cancelled'];
 
-function getReturnService() {
-  return container.resolve<IReturnService>(TOKENS.IReturnService);
-}
+const returnService = container.resolve<IReturnService>(TOKENS.IReturnService);
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,18 +20,18 @@ export async function GET(request: NextRequest) {
       );
     }
     if (!session.user.isAdmin) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const returnService = getReturnService();
     const { searchParams } = new URL(request.url);
 
-    // Lightweight counts-only endpoint for stat cards
     if (searchParams.get('counts') === 'true') {
       const countsResult = await returnService.getStatusCounts();
-      return NextResponse.json(countsResult, {
-        status: countsResult.success ? 200 : 500,
-      });
+      if (!countsResult.success) {
+        console.error('Failed to get return status counts:', countsResult.error);
+        return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, data: countsResult.data });
     }
 
     const statusParam = searchParams.get('status');
@@ -41,21 +39,28 @@ export async function GET(request: NextRequest) {
       ? (statusParam as ReturnStatus)
       : undefined;
 
+    const parsePage = parseInt(searchParams.get('page') || '');
+    const parseLimit = parseInt(searchParams.get('limit') || '');
+
     const filters = {
       status,
-      page: parseInt(searchParams.get('page') || '1'),
-      limit: parseInt(searchParams.get('limit') || '20'),
+      page: Number.isFinite(parsePage) && parsePage > 0 ? parsePage : 1,
+      limit: Number.isFinite(parseLimit) && parseLimit > 0 ? parseLimit : 20,
       search: searchParams.get('search') || undefined,
     };
 
     const result = await returnService.getAllReturns(filters);
 
-    return NextResponse.json(result, {
-      status: result.success ? 200 : 500,
-    });
+    if (!result.success) {
+      console.error('Failed to fetch returns:', result.error);
+      return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
+    console.error('Failed to fetch returns:', error);
     return NextResponse.json(
-      { success: false, error: `Server error: ${error}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -71,12 +76,10 @@ export async function POST(request: NextRequest) {
       );
     }
     if (!session.user.isAdmin) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const returnService = getReturnService();
     const body = await request.json();
-
     const { orderId, reason, items } = body;
 
     if (!orderId || !reason || !items || !Array.isArray(items) || items.length === 0) {
@@ -86,7 +89,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate each item has required fields
     for (const item of items) {
       if (!item.productId || !item.quantity || item.quantity < 1) {
         return NextResponse.json(
@@ -98,12 +100,16 @@ export async function POST(request: NextRequest) {
 
     const result = await returnService.createReturn(orderId, items, reason);
 
-    return NextResponse.json(result, {
-      status: result.success ? 201 : 400,
-    });
+    if (!result.success) {
+      console.error('Failed to create return:', result.error);
+      return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, data: result.data }, { status: 201 });
   } catch (error) {
+    console.error('Failed to create return:', error);
     return NextResponse.json(
-      { success: false, error: `Server error: ${error}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -119,20 +125,27 @@ export async function DELETE(request: NextRequest) {
       );
     }
     if (!session.user.isAdmin) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const returnService = getReturnService();
     const { searchParams } = new URL(request.url);
 
     if (searchParams.get('orphaned') === 'preview') {
       const result = await returnService.findOrphanedReturns();
-      return NextResponse.json(result, { status: result.success ? 200 : 500 });
+      if (!result.success) {
+        console.error('Failed to find orphaned returns:', result.error);
+        return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, data: result.data });
     }
 
     if (searchParams.get('orphaned') === 'delete') {
       const result = await returnService.deleteOrphanedReturns();
-      return NextResponse.json(result, { status: result.success ? 200 : 500 });
+      if (!result.success) {
+        console.error('Failed to delete orphaned returns:', result.error);
+        return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+      }
+      return NextResponse.json({ success: true, data: result.data });
     }
 
     return NextResponse.json(
@@ -140,8 +153,9 @@ export async function DELETE(request: NextRequest) {
       { status: 400 }
     );
   } catch (error) {
+    console.error('Failed to process return deletion:', error);
     return NextResponse.json(
-      { success: false, error: `Server error: ${error}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

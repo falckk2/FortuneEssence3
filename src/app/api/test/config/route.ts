@@ -14,39 +14,26 @@ import { join } from 'path';
 const ENV_LOCAL_PATH = join(process.cwd(), '.env.local');
 
 function getTestModeStatus(): boolean {
-  // Check environment variable
   if (process.env.ENABLE_TEST_ENDPOINTS === 'true') {
     return true;
   }
-
-  // In development, default to enabled
   if (process.env.NODE_ENV === 'development') {
     return true;
   }
-
   return false;
 }
 
 function updateEnvFile(enabled: boolean) {
   try {
     let envContent = '';
-
-    // Read existing .env.local if it exists
     if (existsSync(ENV_LOCAL_PATH)) {
       envContent = readFileSync(ENV_LOCAL_PATH, 'utf-8');
     }
-
-    // Remove any existing ENABLE_TEST_ENDPOINTS line
     const lines = envContent.split('\n').filter(line =>
       !line.trim().startsWith('ENABLE_TEST_ENDPOINTS')
     );
-
-    // Add the new value
     lines.push(`ENABLE_TEST_ENDPOINTS=${enabled ? 'true' : 'false'}`);
-
-    // Write back to file
     writeFileSync(ENV_LOCAL_PATH, lines.join('\n'));
-
     return true;
   } catch (error) {
     console.error('Failed to update .env.local:', error);
@@ -54,11 +41,9 @@ function updateEnvFile(enabled: boolean) {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-
-    // Only allow authenticated users to check status
     if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
@@ -80,8 +65,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    console.error('Test config GET error:', error);
     return NextResponse.json(
-      { success: false, error: `Failed to get test mode status: ${error}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -90,16 +76,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-
-    // Only allow authenticated users to toggle
     if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
+    if (!session.user.isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
 
-    // Don't allow toggling in production for safety
     if (process.env.NODE_ENV === 'production') {
       return NextResponse.json(
         {
@@ -120,15 +106,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update .env.local file
     const updated = updateEnvFile(enabled);
 
     if (!updated) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Failed to update .env.local file. You may need to update it manually.'
-        },
+        { success: false, error: 'Internal server error' },
         { status: 500 }
       );
     }
@@ -138,14 +120,15 @@ export async function POST(request: NextRequest) {
       data: {
         enabled,
         message: enabled
-          ? '✅ Test endpoints ENABLED - Restart server for changes to take effect'
-          : '🔒 Test endpoints DISABLED - Restart server for changes to take effect',
+          ? 'Test endpoints ENABLED - Restart server for changes to take effect'
+          : 'Test endpoints DISABLED - Restart server for changes to take effect',
         requiresRestart: true,
       },
     });
   } catch (error) {
+    console.error('Test config POST error:', error);
     return NextResponse.json(
-      { success: false, error: `Failed to toggle test mode: ${error}` },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

@@ -82,8 +82,17 @@ export class ProductRepository extends BaseRepository<Product> implements IProdu
         }
       }
 
-      // Order by name
-      query = query.order('name');
+      if (params?.excludeId) {
+        query = query.neq('id', params.excludeId);
+      }
+
+      // Apply sorting
+      const sortColumn = params?.sortBy === 'price' ? 'price' : params?.sortBy === 'created' ? 'created_at' : 'name';
+      query = query.order(sortColumn, { ascending: params?.sortOrder !== 'desc' });
+
+      if (params?.limit) {
+        query = query.limit(params.limit);
+      }
 
       const { data, error } = await query;
 
@@ -287,6 +296,7 @@ export class ProductRepository extends BaseRepository<Product> implements IProdu
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected transformDbRecord(record: any): Product {
     return {
       id: record.id,
@@ -344,7 +354,7 @@ export class ProductRepository extends BaseRepository<Product> implements IProdu
         success: true,
         data: data.map(record => this.transformDbRecord(record)),
       };
-    } catch (error) {
+    } catch {
       // Fallback to mock data
       return {
         success: true,
@@ -384,6 +394,52 @@ export class ProductRepository extends BaseRepository<Product> implements IProdu
         success: false,
         error: `Failed to find product by SKU: ${error}`,
       };
+    }
+  }
+
+  async findByIds(ids: string[]): Promise<ApiResponse<Product[]>> {
+    try {
+      const { data, error } = await this.supabase
+        .from(this.tableName)
+        .select('*')
+        .in('id', ids)
+        .eq('is_active', true);
+
+      if (error) {
+        const products = mockProducts.filter(p => ids.includes(p.id) && p.isActive);
+        return { success: true, data: products };
+      }
+
+      return {
+        success: true,
+        data: data.map(record => this.transformDbRecord(record)),
+      };
+    } catch {
+      const products = mockProducts.filter(p => ids.includes(p.id) && p.isActive);
+      return { success: true, data: products };
+    }
+  }
+
+  async findBySkus(skus: string[]): Promise<ApiResponse<Product[]>> {
+    try {
+      const { data, error } = await this.supabase
+        .from(this.tableName)
+        .select('*')
+        .in('sku', skus)
+        .eq('is_active', true);
+
+      if (error) {
+        const products = mockProducts.filter(p => skus.includes(p.sku) && p.isActive);
+        return { success: true, data: products };
+      }
+
+      return {
+        success: true,
+        data: data.map(record => this.transformDbRecord(record)),
+      };
+    } catch {
+      const products = mockProducts.filter(p => skus.includes(p.sku) && p.isActive);
+      return { success: true, data: products };
     }
   }
 
@@ -462,8 +518,32 @@ export class ProductRepository extends BaseRepository<Product> implements IProdu
       });
     }
 
-    // Sort by name
-    filteredProducts.sort((a, b) => a.name.localeCompare(b.name));
+    if (params?.excludeId) {
+      filteredProducts = filteredProducts.filter(p => p.id !== params.excludeId);
+    }
+
+    // Apply sorting
+    const locale = params?.locale === 'sv' ? 'sv' : 'en';
+    const ascending = params?.sortOrder !== 'desc';
+    filteredProducts.sort((a, b) => {
+      let valueA: string | number | Date;
+      let valueB: string | number | Date;
+      if (params?.sortBy === 'price') {
+        valueA = a.price; valueB = b.price;
+      } else if (params?.sortBy === 'created') {
+        valueA = a.createdAt; valueB = b.createdAt;
+      } else {
+        valueA = a.translations[locale].name;
+        valueB = b.translations[locale].name;
+      }
+      return ascending
+        ? (valueA < valueB ? -1 : valueA > valueB ? 1 : 0)
+        : (valueA > valueB ? -1 : valueA < valueB ? 1 : 0);
+    });
+
+    if (params?.limit) {
+      filteredProducts = filteredProducts.slice(0, params.limit);
+    }
 
     return {
       success: true,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   PlusIcon,
   PencilIcon,
@@ -37,17 +37,16 @@ export default function AdminBundlesPage() {
   const [bundles, setBundles] = useState<BundleConfiguration[]>([]);
   const [bundleProducts, setBundleProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<BundleForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       const [bundlesRes, productsRes] = await Promise.all([
         fetch('/api/bundles'),
@@ -60,11 +59,16 @@ export default function AdminBundlesPage() {
       if (bundlesData.success) setBundles(bundlesData.data || []);
       if (productsData.success) setBundleProducts(productsData.data || []);
     } catch {
+      setError(true);
       toast.error('Failed to load bundles');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -88,13 +92,25 @@ export default function AdminBundlesPage() {
       toast.error('Select a bundle product');
       return;
     }
-    setSaving(true);
 
+    const qty = parseInt(form.requiredQuantity);
+    const discount = parseFloat(form.discountPercentage);
+
+    if (!form.requiredQuantity || isNaN(qty) || qty < 1) {
+      toast.error('Required quantity must be at least 1');
+      return;
+    }
+    if (!form.discountPercentage || isNaN(discount) || discount < 0 || discount > 100) {
+      toast.error('Discount must be between 0 and 100');
+      return;
+    }
+
+    setSaving(true);
     const body = {
       bundleProductId: form.bundleProductId,
-      requiredQuantity: parseInt(form.requiredQuantity),
+      requiredQuantity: qty,
       allowedCategory: form.allowedCategory,
-      discountPercentage: parseFloat(form.discountPercentage),
+      discountPercentage: discount,
     };
 
     try {
@@ -122,7 +138,7 @@ export default function AdminBundlesPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this bundle configuration?')) return;
+    setConfirmDelete(null);
     try {
       const res = await fetch(`/api/bundles/${id}`, { method: 'DELETE' });
       const data = await res.json();
@@ -138,8 +154,8 @@ export default function AdminBundlesPage() {
   };
 
   const getBundleProductName = (productId: string) => {
-    const p = bundleProducts.find(p => p.id === productId);
-    return p ? p.translations.sv.name : productId;
+    const prod = bundleProducts.find(p => p.id === productId);
+    return prod ? prod.translations.sv.name : productId;
   };
 
   if (loading) {
@@ -150,13 +166,27 @@ export default function AdminBundlesPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <p className="text-forest-600 dark:text-[#C5D4C5]">Failed to load bundles</p>
+        <button
+          onClick={fetchAll}
+          className="px-4 py-2 bg-sage-600 text-white rounded-lg hover:bg-sage-700 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-forest-800">Bundles</h1>
-          <p className="text-forest-600 mt-1">Configure bundle discount rules</p>
+          <h1 className="text-3xl font-serif font-bold text-forest-800 dark:text-[#E8EDE8]">Bundles</h1>
+          <p className="text-forest-600 dark:text-[#C5D4C5] mt-1">Configure bundle discount rules</p>
         </div>
         <button
           onClick={openCreate}
@@ -168,47 +198,47 @@ export default function AdminBundlesPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-soft overflow-hidden">
+      <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-soft overflow-hidden">
         {bundles.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-cream-50 border-b border-cream-200">
+              <thead className="bg-cream-50 dark:bg-[#1a1f1e] border-b border-cream-200 dark:border-[#3f4946]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">Bundle Product</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">Required Qty</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">Allowed Category</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">Discount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">Created</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">Bundle Product</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">Required Qty</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">Allowed Category</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">Discount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">Created</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-forest-600 dark:text-[#8A9A8A] uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-cream-200">
+              <tbody className="divide-y divide-cream-200 dark:divide-[#3f4946]">
                 {bundles.map(bundle => (
-                  <tr key={bundle.id} className="hover:bg-cream-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-forest-800">
+                  <tr key={bundle.id} className="hover:bg-cream-50 dark:hover:bg-[#2a3330] transition-colors">
+                    <td className="px-6 py-4 font-medium text-forest-800 dark:text-[#E8EDE8]">
                       {getBundleProductName(bundle.bundleProductId)}
                     </td>
-                    <td className="px-6 py-4 text-forest-600">{bundle.requiredQuantity}</td>
+                    <td className="px-6 py-4 text-forest-600 dark:text-[#C5D4C5]">{bundle.requiredQuantity}</td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-sage-100 text-sage-700 border border-sage-200">
+                      <span className="px-2 py-1 rounded-full text-xs font-medium bg-sage-100 dark:bg-[#2a3330] text-sage-700 dark:text-sage-400 border border-sage-200 dark:border-[#3f4946]">
                         {CATEGORIES.find(c => c.value === bundle.allowedCategory)?.label || bundle.allowedCategory}
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-forest-800">{bundle.discountPercentage}%</td>
-                    <td className="px-6 py-4 text-sm text-forest-500">
-                      {new Date(bundle.createdAt).toLocaleDateString()}
+                    <td className="px-6 py-4 font-semibold text-forest-800 dark:text-[#E8EDE8]">{bundle.discountPercentage}%</td>
+                    <td className="px-6 py-4 text-sm text-forest-500 dark:text-[#8A9A8A]">
+                      {new Date(bundle.createdAt).toLocaleDateString('sv-SE')}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => openEdit(bundle)}
-                          className="p-2 rounded-lg hover:bg-blue-50 text-blue-600 transition-colors"
+                          className="p-2 rounded-lg hover:bg-sage-50 dark:hover:bg-[#2a3330] text-sage-700 dark:text-sage-400 transition-colors"
                         >
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(bundle.id)}
-                          className="p-2 rounded-lg hover:bg-red-50 text-red-600 transition-colors"
+                          onClick={() => setConfirmDelete(bundle.id)}
+                          className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 transition-colors"
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>
@@ -220,8 +250,8 @@ export default function AdminBundlesPage() {
             </table>
           </div>
         ) : (
-          <div className="p-12 text-center text-forest-600">
-            <SwatchIcon className="h-12 w-12 mx-auto mb-4 text-forest-300" />
+          <div className="p-12 text-center text-forest-600 dark:text-[#C5D4C5]">
+            <SwatchIcon className="h-12 w-12 mx-auto mb-4 text-forest-300 dark:text-[#6B7B6B]" />
             <p className="mb-4">No bundle configurations yet</p>
             <button
               onClick={openCreate}
@@ -234,21 +264,22 @@ export default function AdminBundlesPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Create / Edit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4">
-            <h2 className="text-lg font-semibold text-forest-800 mb-4">
+          <div className="bg-white dark:bg-[#242a28] rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4">
+            <h2 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8] mb-4">
               {editingId ? 'Edit Bundle' : 'New Bundle Configuration'}
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-forest-700 mb-1">Bundle Product *</label>
+                <label htmlFor="bundle-product" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Bundle Product *</label>
                 {bundleProducts.length > 0 ? (
                   <select
+                    id="bundle-product"
                     value={form.bundleProductId}
                     onChange={e => setForm(f => ({ ...f, bundleProductId: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
                   >
                     <option value="">Select a bundle product...</option>
                     {bundleProducts.map(p => (
@@ -256,41 +287,44 @@ export default function AdminBundlesPage() {
                     ))}
                   </select>
                 ) : (
-                  <p className="text-sm text-forest-500 italic px-4 py-3 rounded-xl border-2 border-cream-200 bg-cream-50">
-                    No products with category "bundles" found. Create one first.
+                  <p className="text-sm text-forest-500 dark:text-[#8A9A8A] italic px-4 py-3 rounded-xl border-2 border-cream-200 dark:border-[#3f4946] bg-cream-50 dark:bg-[#1a1f1e]">
+                    No products with category &ldquo;bundles&rdquo; found. Create one first.
                   </p>
                 )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-forest-700 mb-1">Required Qty *</label>
+                  <label htmlFor="bundle-qty" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Required Qty *</label>
                   <input
+                    id="bundle-qty"
                     type="number"
                     min="1"
                     value={form.requiredQuantity}
                     onChange={e => setForm(f => ({ ...f, requiredQuantity: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-forest-700 mb-1">Discount % *</label>
+                  <label htmlFor="bundle-discount" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Discount % *</label>
                   <input
+                    id="bundle-discount"
                     type="number"
                     min="0"
                     max="100"
                     step="0.1"
                     value={form.discountPercentage}
                     onChange={e => setForm(f => ({ ...f, discountPercentage: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-forest-700 mb-1">Allowed Category *</label>
+                <label htmlFor="bundle-category" className="block text-sm font-medium text-forest-700 dark:text-[#C5D4C5] mb-1">Allowed Category *</label>
                 <select
+                  id="bundle-category"
                   value={form.allowedCategory}
                   onChange={e => setForm(f => ({ ...f, allowedCategory: e.target.value as ProductCategory }))}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 focus:border-sage-600 focus:outline-none"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-cream-300 dark:border-[#3f4946] bg-white dark:bg-[#2a3330] text-forest-800 dark:text-[#E8EDE8] focus:border-sage-600 focus:outline-none"
                 >
                   {CATEGORIES.map(c => (
                     <option key={c.value} value={c.value}>{c.label}</option>
@@ -301,7 +335,7 @@ export default function AdminBundlesPage() {
             <div className="flex gap-3 justify-end mt-6">
               <button
                 onClick={() => setModalOpen(false)}
-                className="px-5 py-2 rounded-full border-2 border-cream-300 text-forest-700 font-medium hover:bg-cream-100 transition-all"
+                className="px-5 py-2 rounded-full border-2 border-cream-300 dark:border-[#3f4946] text-forest-700 dark:text-[#C5D4C5] font-medium hover:bg-cream-100 dark:hover:bg-[#2a3330] transition-all"
               >
                 Cancel
               </button>
@@ -311,6 +345,32 @@ export default function AdminBundlesPage() {
                 className="px-5 py-2 rounded-full bg-sage-600 text-white font-medium hover:bg-sage-700 transition-all disabled:opacity-50"
               >
                 {saving ? 'Saving...' : editingId ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white dark:bg-[#242a28] rounded-xl p-6 max-w-sm mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-forest-800 dark:text-[#E8EDE8] mb-2">Delete bundle?</h3>
+            <p className="text-forest-600 dark:text-[#C5D4C5] text-sm mb-6">
+              Delete <span className="font-medium">{getBundleProductName(confirmDelete)}</span>? This cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleDelete(confirmDelete)}
+                className="flex-1 px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 px-4 py-2 border border-cream-300 dark:border-[#3f4946] text-forest-700 dark:text-[#C5D4C5] font-medium rounded-lg hover:bg-cream-50 dark:hover:bg-[#2a3330] transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>

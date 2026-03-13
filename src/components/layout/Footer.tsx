@@ -72,7 +72,7 @@ export const Footer = () => {
   };
 
   return (
-    <footer className="bg-cream-100 dark:bg-[#1a1f1e] mt-auto border-t border-forest-200 dark:border-gray-800">
+    <footer className="bg-cream-100 dark:bg-[#1a1f1e] mt-auto border-t border-forest-200 dark:border-[#3f4946]">
       {/* Newsletter Section - Commented out for now */}
       {/* <div className="border-b border-forest-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -195,7 +195,7 @@ export const Footer = () => {
         </div>
 
         {/* Contact Information */}
-        <div className="mt-12 pt-8 border-t border-forest-200 dark:border-gray-800">
+        <div className="mt-12 pt-8 border-t border-forest-200 dark:border-[#3f4946]">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-start gap-3">
               <EnvelopeIcon className="h-6 w-6 text-sage-600 dark:text-sage-400 flex-shrink-0 mt-1" />
@@ -235,7 +235,7 @@ export const Footer = () => {
         </div>
 
         {/* Payment Methods & Bottom Bar */}
-        <div className="mt-8 pt-8 border-t border-forest-200 dark:border-gray-800">
+        <div className="mt-8 pt-8 border-t border-forest-200 dark:border-[#3f4946]">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-forest-600 dark:text-[#8A9A8A] text-sm text-center md:text-left">
               © {currentYear} Fortune Essence. {locale === 'sv' ? 'Alla rättigheter förbehållna.' : 'All rights reserved.'}
@@ -246,16 +246,16 @@ export const Footer = () => {
               </span>
               <div className="flex flex-wrap gap-2">
                 {/* Payment method badges */}
-                <div className="px-3 py-1.5 bg-white rounded text-xs font-semibold text-forest-800">
+                <div className="px-3 py-1.5 bg-white dark:bg-[#343c39] rounded text-xs font-semibold text-forest-800 dark:text-[#E8EDE8]">
                   Swish
                 </div>
-                <div className="px-3 py-1.5 bg-white rounded text-xs font-semibold text-forest-800">
+                <div className="px-3 py-1.5 bg-white dark:bg-[#343c39] rounded text-xs font-semibold text-forest-800 dark:text-[#E8EDE8]">
                   Klarna
                 </div>
-                <div className="px-3 py-1.5 bg-white rounded text-xs font-semibold text-forest-800">
+                <div className="px-3 py-1.5 bg-white dark:bg-[#343c39] rounded text-xs font-semibold text-forest-800 dark:text-[#E8EDE8]">
                   Visa
                 </div>
-                <div className="px-3 py-1.5 bg-white rounded text-xs font-semibold text-forest-800">
+                <div className="px-3 py-1.5 bg-white dark:bg-[#343c39] rounded text-xs font-semibold text-forest-800 dark:text-[#E8EDE8]">
                   Mastercard
                 </div>
               </div>
