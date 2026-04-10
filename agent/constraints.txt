@@ -1,0 +1,3 @@
+# Exclude packages that require C++ compilation and have no Python 3.14 wheels
+pyiceberg==999999999  # never install
+pyroaring==999999999  # never install

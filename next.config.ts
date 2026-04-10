@@ -59,7 +59,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https: blob:",
               "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://*.supabase.co https://*.supabase.com https://api.stripe.com https://checkout.stripe.com wss://*.supabase.co",
+              "connect-src 'self' https://*.supabase.co https://*.supabase.com https://api.stripe.com https://checkout.stripe.com wss://*.supabase.co" + (process.env.NODE_ENV === 'development' ? ' http://localhost:8001' : ''),
               "frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
               "object-src 'none'",
               "base-uri 'self'"

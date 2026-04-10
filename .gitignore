@@ -2,6 +2,9 @@
 
 # dependencies
 /node_modules
+agent/venv/
+agent/__pycache__/
+agent/**/__pycache__/
 /.pnp
 .pnp.*
 .yarn/*

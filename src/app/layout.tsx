@@ -6,9 +6,10 @@ import { LocaleProvider } from "@/contexts/LocaleContext";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CookieConsent } from "@/components/gdpr/CookieConsent";
+import { Toaster } from 'react-hot-toast';
 import dynamic from "next/dynamic";
 const DevAdminButton = dynamic(() => import("@/components/admin/DevAdminButton"));
-import { Toaster } from 'react-hot-toast';
+const OilAdvisorWidget = dynamic(() => import("@/components/advisor/OilAdvisorWidget").then(m => m.OilAdvisorWidget));
 import "./globals.css";
 
 const geistSans = Geist({
@@ -79,6 +80,7 @@ export default function RootLayout({
               <CookieConsent />
               <Toaster position="top-right" />
               <DevAdminButton />
+              <OilAdvisorWidget />
             </AuthProvider>
           </ThemeProvider>
         </LocaleProvider>

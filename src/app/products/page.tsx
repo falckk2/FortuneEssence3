@@ -39,6 +39,12 @@ export default function ProductsPage() {
 
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
+  // Pre-fill search from URL param (e.g. from the oil advisor widget)
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('search');
+    if (q) setSearchQuery(q);
+  }, []);
+
   // Fetch products and filter options
   useEffect(() => {
     const fetchData = async () => {
