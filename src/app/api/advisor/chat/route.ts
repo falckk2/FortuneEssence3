@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const maxDuration = 60;
+
 const AGENT_URL = process.env.ADVISOR_API_URL || 'http://127.0.0.1:8000';
 
 export async function POST(req: NextRequest) {
