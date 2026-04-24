@@ -69,11 +69,7 @@ export function OilAdvisorWidget() {
       setMessages(prev => [...prev, { role: 'advisor', content: data.reply }]);
       if (data.products?.length) setProducts(data.products);
     } catch (err) {
-      setError(
-        locale === 'sv'
-          ? 'Något gick fel. Försök igen.'
-          : 'Something went wrong. Please try again.'
-      );
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
