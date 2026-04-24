@@ -80,11 +80,8 @@ def get_embeddings():
             base_url=OLLAMA_BASE_URL,
         )
     elif USE_GROK:
-        from langchain_huggingface import HuggingFaceEndpointEmbeddings
-        return HuggingFaceEndpointEmbeddings(
-            model=HF_EMBED_MODEL,
-            huggingfacehub_api_token=HF_API_KEY,
-        )
+        from langchain_community.embeddings import FastEmbedEmbeddings
+        return FastEmbedEmbeddings(model_name="BAAI/bge-base-en-v1.5")
     else:
         openai_key = os.environ.get("OPENAI_API_KEY")
         if not openai_key:
