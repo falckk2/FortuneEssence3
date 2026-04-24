@@ -6,6 +6,7 @@ import { LocaleProvider } from "@/contexts/LocaleContext";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CookieConsent } from "@/components/gdpr/CookieConsent";
+import { AdvisorProvider } from "@/contexts/AdvisorContext";
 import { Toaster } from 'react-hot-toast';
 import dynamic from "next/dynamic";
 const DevAdminButton = dynamic(() => import("@/components/admin/DevAdminButton"));
@@ -80,7 +81,9 @@ export default function RootLayout({
               <CookieConsent />
               <Toaster position="top-right" />
               <DevAdminButton />
-              <OilAdvisorWidget />
+              <AdvisorProvider>
+                <OilAdvisorWidget />
+              </AdvisorProvider>
             </AuthProvider>
           </ThemeProvider>
         </LocaleProvider>

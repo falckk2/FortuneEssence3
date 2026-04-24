@@ -4,36 +4,21 @@ import { useState, useRef, useEffect } from 'react';
 import { MinusIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/react/24/solid';
 import { useLocale } from '@/contexts/LocaleContext';
-
-const API_URL = '';
-
-interface Message {
-  role: 'user' | 'advisor';
-  content: string;
-}
-
-interface Product {
-  name: string;
-  name_sv?: string;
-  price_sek?: number;
-  sku?: string;
-}
+import { useAdvisor } from '@/contexts/AdvisorContext';
 
 interface ChatResponse {
   session_id: string;
   reply: string;
-  products: Product[];
+  products: { name: string; name_sv?: string; price_sek?: number; sku?: string }[];
   gathered_enough: boolean;
 }
 
 export function OilAdvisorWidget() {
   const { locale } = useLocale();
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { open, setOpen, messages, setMessages, sessionId, setSessionId, products, setProducts, reset } = useAdvisor();
+
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,7 +38,7 @@ export function OilAdvisorWidget() {
         setMessages([{ role: 'advisor', content: greeting }]);
       }
     }
-  }, [open, greeting, messages.length]);
+  }, [open, greeting, messages.length, setMessages]);
 
   async function sendMessage() {
     const text = input.trim();
@@ -67,7 +52,7 @@ export function OilAdvisorWidget() {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 120_000);
-      const res = await fetch(`${API_URL}/api/advisor/chat`, {
+      const res = await fetch('/api/advisor/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, session_id: sessionId }),
@@ -75,25 +60,22 @@ export function OilAdvisorWidget() {
       });
       clearTimeout(timeout);
       if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`${res.status} ${res.statusText}: ${text}`);
+        const body = await res.text().catch(() => '');
+        throw new Error(`${res.status} ${res.statusText}: ${body}`);
       }
       const data: ChatResponse = await res.json();
       setSessionId(data.session_id);
       setMessages(prev => [...prev, { role: 'advisor', content: data.reply }]);
       if (data.products?.length) setProducts(data.products);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(
+        locale === 'sv'
+          ? 'Något gick fel. Försök igen.'
+          : 'Something went wrong. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
-  }
-
-  function reset() {
-    setMessages([{ role: 'advisor', content: greeting }]);
-    setSessionId(null);
-    setProducts([]);
-    setError(null);
   }
 
   return (
@@ -111,12 +93,12 @@ export function OilAdvisorWidget() {
                 {locale === 'sv' ? 'Oljerådgivare' : 'Oil Advisor'}
               </p>
               <p className="text-xs text-gray-400 dark:text-[#6B7B6B] mt-0.5">
-                {locale === 'sv' ? 'Powered by AI' : 'Powered by AI'}
+                Powered by AI
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={reset}
+                onClick={() => reset(greeting)}
                 className="text-xs text-gray-400 dark:text-[#6B7B6B] hover:text-gray-600 dark:hover:text-[#C5D4C5] transition-colors px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-[#2a3330]"
               >
                 {locale === 'sv' ? 'Börja om' : 'Reset'}
@@ -226,7 +208,7 @@ export function OilAdvisorWidget() {
 
       {/* Pill trigger button */}
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen(!open)}
         aria-label="Open oil advisor chat"
         className="flex items-center gap-2.5 bg-gray-900 dark:bg-[#2a3330] text-white pl-4 pr-5 py-3 rounded-full shadow-lg hover:bg-gray-700 dark:hover:bg-[#343c39] transition-colors"
       >

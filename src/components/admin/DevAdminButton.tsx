@@ -90,7 +90,7 @@ export default function DevAdminButton() {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50" ref={menuRef}>
+    <div className="fixed bottom-6 right-52 z-50" ref={menuRef}>
       {/* Menu */}
       {isOpen && (
         <div className="absolute bottom-16 right-0 w-72 bg-white rounded-lg shadow-2xl border-2 border-gray-200 overflow-hidden mb-2 animate-slideUp">
