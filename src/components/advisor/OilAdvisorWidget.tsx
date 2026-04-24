@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { MinusIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/react/24/solid';
 import { useLocale } from '@/contexts/LocaleContext';
@@ -161,7 +162,7 @@ export function OilAdvisorWidget() {
                   {locale === 'sv' ? 'Rekommenderade produkter' : 'Recommended products'}
                 </p>
                 {products.map((p, i) => (
-                  <a
+                  <Link
                     key={i}
                     href={`/products?search=${encodeURIComponent(p.sku || p.name)}`}
                     className="flex justify-between items-center px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-[#1a1f1e] border border-gray-200 dark:border-[#3f4946] hover:border-forest-400 dark:hover:border-sage-500 transition-colors group"
@@ -174,7 +175,7 @@ export function OilAdvisorWidget() {
                         {p.price_sek} kr
                       </span>
                     )}
-                  </a>
+                  </Link>
                 ))}
               </div>
             )}
