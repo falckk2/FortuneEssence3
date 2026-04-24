@@ -1,6 +1,7 @@
-import asyncio
 import json
+import os
 import uuid
+from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from dotenv import load_dotenv
@@ -14,13 +15,39 @@ from pydantic import BaseModel
 
 from agent import agent, AgentState
 
-app = FastAPI(title="FortuneEssence Oil Advisor API")
+
+def _validate_env() -> None:
+    USE_OLLAMA = os.environ.get("USE_OLLAMA", "false").lower() == "true"
+    USE_GROK   = os.environ.get("USE_GROK",   "false").lower() == "true"
+
+    if USE_GROK and not os.environ.get("XAI_API_KEY"):
+        raise EnvironmentError("USE_GROK=true but XAI_API_KEY is not set.")
+
+    if USE_GROK and not os.environ.get("HF_API_KEY"):
+        raise EnvironmentError("USE_GROK=true but HF_API_KEY is not set (required for HuggingFace embeddings).")
+
+    if not USE_OLLAMA and not USE_GROK and not os.environ.get("ANTHROPIC_API_KEY"):
+        raise EnvironmentError("ANTHROPIC_API_KEY is not set (required when USE_OLLAMA and USE_GROK are both false).")
+
+    if not USE_OLLAMA and not USE_GROK and not os.environ.get("OPENAI_API_KEY"):
+        raise EnvironmentError("OPENAI_API_KEY is not set (required for embeddings when USE_OLLAMA and USE_GROK are both false).")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _validate_env()
+    yield
+
+
+app = FastAPI(title="FortuneEssence Oil Advisor API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
         "https://fortuneessence.vercel.app",  # update to your actual Vercel URL
     ],
     allow_credentials=True,

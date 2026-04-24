@@ -5,7 +5,7 @@ import { MinusIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/react/24/solid';
 import { useLocale } from '@/contexts/LocaleContext';
 
-const API_URL = process.env.NEXT_PUBLIC_ADVISOR_API_URL || 'http://localhost:8001';
+const API_URL = '';
 
 interface Message {
   role: 'user' | 'advisor';
@@ -74,17 +74,16 @@ export function OilAdvisorWidget() {
         signal: controller.signal,
       });
       clearTimeout(timeout);
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`${res.status} ${res.statusText}: ${text}`);
+      }
       const data: ChatResponse = await res.json();
       setSessionId(data.session_id);
       setMessages(prev => [...prev, { role: 'advisor', content: data.reply }]);
       if (data.products?.length) setProducts(data.products);
-    } catch {
-      setError(
-        locale === 'sv'
-          ? 'Något gick fel. Försök igen.'
-          : 'Something went wrong. Please try again.'
-      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }

@@ -6,26 +6,37 @@ from langchain_core.documents import Document
 from supabase import create_client
 
 from .state import AgentState, UserNeeds
-from .prompts import SYSTEM_PROMPT, GATHER_NEEDS_PROMPT, RECOMMEND_PROMPT
+from .prompts import SYSTEM_PROMPT, RECOMMEND_PROMPT
 from .tools import search_products
 
 # ---------------------------------------------------------------------------
-# Provider selection — set USE_OLLAMA=true in .env to use local Ollama
+# Provider selection
+#   USE_OLLAMA=true   → local Ollama (free, no API key)
+#   USE_GROK=true     → xAI Grok free-tier via OpenAI-compatible API
+#   (default)         → Anthropic LLM + OpenAI embeddings
 # ---------------------------------------------------------------------------
 
 USE_OLLAMA = os.environ.get("USE_OLLAMA", "false").lower() == "true"
+USE_GROK   = os.environ.get("USE_GROK",   "false").lower() == "true"
 
 # Ollama defaults (override via env)
 OLLAMA_BASE_URL   = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_LLM_MODEL  = os.environ.get("OLLAMA_LLM_MODEL", "llama3.2")
 OLLAMA_EMBED_MODEL = os.environ.get("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 
+# Grok / xAI defaults (override via env)
+GROK_API_KEY = os.environ.get("XAI_API_KEY", "")
+GROK_MODEL   = os.environ.get("GROK_MODEL", "grok-3-mini")
+
+# HuggingFace embeddings (used when USE_GROK=true)
+HF_API_KEY     = os.environ.get("HF_API_KEY", "")
+HF_EMBED_MODEL = os.environ.get("HF_EMBED_MODEL", "sentence-transformers/all-mpnet-base-v2")
+
 # ---------------------------------------------------------------------------
 # Shared singletons
 # ---------------------------------------------------------------------------
 
 _llm = None
-_retriever = None
 
 
 def get_llm():
@@ -36,11 +47,21 @@ def get_llm():
             _llm = ChatOllama(
                 model=OLLAMA_LLM_MODEL,
                 base_url=OLLAMA_BASE_URL,
-                temperature=0.3,   # lower = more deterministic, better instruction following
+                temperature=0.3,
                 num_ctx=4096,
-                think=False,       # disable chain-of-thought for qwen3 — much faster
+                think=False,
             )
             print(f"[nodes] Using Ollama LLM: {OLLAMA_LLM_MODEL} @ {OLLAMA_BASE_URL}")
+        elif USE_GROK:
+            from langchain_openai import ChatOpenAI
+            _llm = ChatOpenAI(
+                model=GROK_MODEL,
+                temperature=0.3,
+                api_key=GROK_API_KEY,
+                base_url="https://api.x.ai/v1",
+                model_kwargs={"reasoning_effort": "low"},  # limits reasoning tokens on free tier
+            )
+            print(f"[nodes] Using Grok LLM: {GROK_MODEL}")
         else:
             from langchain_anthropic import ChatAnthropic
             _llm = ChatAnthropic(
@@ -58,11 +79,22 @@ def get_embeddings():
             model=OLLAMA_EMBED_MODEL,
             base_url=OLLAMA_BASE_URL,
         )
+    elif USE_GROK:
+        from langchain_huggingface import HuggingFaceEndpointEmbeddings
+        return HuggingFaceEndpointEmbeddings(
+            model=HF_EMBED_MODEL,
+            huggingfacehub_api_token=HF_API_KEY,
+        )
     else:
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        if not openai_key:
+            raise EnvironmentError(
+                "OPENAI_API_KEY is required for embeddings when USE_OLLAMA and USE_GROK are both false."
+            )
         from langchain_openai import OpenAIEmbeddings
         return OpenAIEmbeddings(
             model="text-embedding-3-large",
-            api_key=os.environ["OPENAI_API_KEY"],
+            api_key=openai_key,
         )
 
 
