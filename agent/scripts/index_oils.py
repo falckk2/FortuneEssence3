@@ -9,19 +9,19 @@ Usage:
     cd agent/
     python scripts/index_oils.py
 
-Set USE_OLLAMA=true in .env to use local Ollama embeddings (no OpenAI key needed).
-Ollama must be running with nomic-embed-text pulled:
-    ollama pull nomic-embed-text
+Embedding provider is selected by .env flags (same as the agent):
+  USE_OLLAMA=true  → local Ollama (nomic-embed-text, 768-dim). Ollama must be running.
+  USE_GROK=true    → HuggingFace Inference API (all-mpnet-base-v2, 768-dim). Needs HF_API_KEY.
+  (default)        → OpenAI text-embedding-3-large. Needs OPENAI_API_KEY.
 
 Requirements:
     - .env file with SUPABASE_URL, SUPABASE_SERVICE_KEY
-    - For OpenAI embeddings: OPENAI_API_KEY
-    - For Ollama embeddings: USE_OLLAMA=true (and Ollama running locally)
     - Supabase migration 017_vector_store.sql already applied
 """
 
 import os
 import time
+import random
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -40,8 +40,11 @@ from supabase import create_client
 SUPABASE_URL        = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 USE_OLLAMA          = os.environ.get("USE_OLLAMA", "false").lower() == "true"
+USE_GROK            = os.environ.get("USE_GROK",   "false").lower() == "true"
 OLLAMA_BASE_URL     = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_EMBED_MODEL  = os.environ.get("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+HF_API_KEY          = os.environ.get("HF_API_KEY", "")
+HF_EMBED_MODEL      = os.environ.get("HF_EMBED_MODEL", "sentence-transformers/all-mpnet-base-v2")
 
 CSV_PATH = Path(__file__).parent.parent / "data" / "curated_oils.csv"
 
@@ -77,6 +80,15 @@ def get_embeddings():
         print(f"   Using Ollama embeddings: {OLLAMA_EMBED_MODEL} @ {OLLAMA_BASE_URL}")
         print("   (make sure Ollama is running: ollama serve)")
         return OllamaEmbeddings(model=OLLAMA_EMBED_MODEL, base_url=OLLAMA_BASE_URL)
+    elif USE_GROK:
+        if not HF_API_KEY:
+            raise EnvironmentError("USE_GROK=true but HF_API_KEY is not set.")
+        from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+        print(f"   Using HuggingFace embeddings: {HF_EMBED_MODEL}")
+        return HuggingFaceInferenceAPIEmbeddings(
+            api_key=HF_API_KEY,
+            model_name=HF_EMBED_MODEL,
+        )
     else:
         from langchain_openai import OpenAIEmbeddings
         print("   Using OpenAI embeddings: text-embedding-3-large")
@@ -130,6 +142,34 @@ def chunk_documents(docs: list[Document]) -> list[Document]:
     return [c for c in chunks if len(c.page_content.strip()) > 80]
 
 
+def _is_retriable(e: Exception) -> bool:
+    """True for HuggingFace cold-start (503) and rate-limit (429) errors."""
+    # huggingface_hub raises HfHubHTTPError with a numeric status_code attribute
+    status = getattr(e, "response", None)
+    if status is not None:
+        code = getattr(status, "status_code", 0)
+        if code in (429, 503):
+            return True
+    msg = str(e).lower()
+    return any(k in msg for k in ("loading", "503", "429", "rate limit", "too many"))
+
+
+def embed_with_retry(embeddings, texts: list[str], max_retries: int = 5) -> list:
+    """Embed texts with exponential backoff — handles HuggingFace cold starts and rate limits."""
+    for attempt in range(max_retries):
+        try:
+            return embeddings.embed_documents(texts)
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise
+            if _is_retriable(e):
+                wait = 2 ** attempt + random.uniform(0, 1)
+                print(f"   HuggingFace not ready (attempt {attempt + 1}), retrying in {wait:.1f}s...")
+                time.sleep(wait)
+            else:
+                raise
+
+
 def clear_existing_documents(sb):
     print("Clearing existing oil_knowledge rows...")
     sb.table("oil_knowledge").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
@@ -140,7 +180,7 @@ def clear_existing_documents(sb):
 # ---------------------------------------------------------------------------
 
 def main():
-    provider = "Ollama" if USE_OLLAMA else "OpenAI"
+    provider = "Ollama" if USE_OLLAMA else ("HuggingFace" if USE_GROK else "OpenAI")
     print(f"\nFortuneEssence Oil Knowledge Indexer  [{provider} embeddings]")
     print("=" * 55)
 
@@ -166,16 +206,18 @@ def main():
 
     print(f"\nEmbedding and storing {len(chunks)} chunks...")
     if USE_OLLAMA:
-        print("   (Ollama embeds locally - no API cost, but slower than OpenAI)\n")
+        print("   (Ollama embeds locally - no API cost, but slower)\n")
+    elif USE_GROK:
+        print("   (HuggingFace Inference API - free tier, batches of 32)\n")
     else:
         print("   (OpenAI API - batched in groups of 100)\n")
 
     # Embed and insert in batches directly — avoids langchain-community/supabase version conflicts
-    batch_size = 50 if USE_OLLAMA else 100
+    batch_size = 50 if USE_OLLAMA else (32 if USE_GROK else 100)
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i : i + batch_size]
         texts = [c.page_content for c in batch]
-        vectors = embeddings.embed_documents(texts)
+        vectors = embed_with_retry(embeddings, texts) if USE_GROK else embeddings.embed_documents(texts)
         rows = [
             {
                 "content":   doc.page_content,
@@ -186,6 +228,8 @@ def main():
         ]
         sb.table("oil_knowledge").insert(rows).execute()
         print(f"   Stored batch {i // batch_size + 1}/{(len(chunks) - 1) // batch_size + 1}")
+        if USE_GROK:
+            time.sleep(1.5)  # stay under HuggingFace free-tier rate limit
 
     print(f"\nDone! {len(chunks)} chunks stored in oil_knowledge.")
     print("   The agent is ready.\n")
