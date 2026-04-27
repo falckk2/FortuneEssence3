@@ -21,13 +21,15 @@ export function initializeDI() {
     try {
       configureDependencyInjection();
       isConfigured = true;
+      console.log('DI container initialized successfully');
     } catch (error) {
-      console.error('Failed to configure DI container:', error);
+      console.error('DI container initialization FAILED:', error);
+      throw error;
     }
   }
 }
 
-// Auto-initialize only when env vars are present (skips build time)
-if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+// Auto-initialize only when server env vars are present (skips build time)
+if (process.env.SUPABASE_SECRET_KEY) {
   initializeDI();
 }
