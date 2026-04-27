@@ -27,5 +27,7 @@ export function initializeDI() {
   }
 }
 
-// Auto-initialize when this module is imported
-initializeDI();
+// Auto-initialize only when env vars are present (skips build time)
+if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  initializeDI();
+}
