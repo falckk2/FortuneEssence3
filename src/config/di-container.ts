@@ -196,4 +196,17 @@ export function configureDependencyInjection() {
   });
 }
 
+// Wrap resolve to return null instead of throwing when token is unregistered.
+// Prevents module-level resolve calls in route files from crashing during
+// Next.js build-time page data collection (handlers are never invoked at build
+// time, so null services are never actually used).
+const _resolve = container.resolve.bind(container);
+(container as any).resolve = function <T>(token: any): T {
+  try {
+    return _resolve<T>(token);
+  } catch {
+    return null as T;
+  }
+};
+
 export { container };
