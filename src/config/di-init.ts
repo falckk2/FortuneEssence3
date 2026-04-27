@@ -18,8 +18,12 @@ export function initializeDI() {
       console.error('Failed to configure DI container:', error);
     }
   } else if (typeof window === 'undefined' && !isConfigured && process.env.NODE_ENV === 'production') {
-    configureDependencyInjection();
-    isConfigured = true;
+    try {
+      configureDependencyInjection();
+      isConfigured = true;
+    } catch (error) {
+      console.error('Failed to configure DI container:', error);
+    }
   }
 }
 
