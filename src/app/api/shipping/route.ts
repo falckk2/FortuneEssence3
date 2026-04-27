@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import type { IShippingService } from '@/interfaces';
