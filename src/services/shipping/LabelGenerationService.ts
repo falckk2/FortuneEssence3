@@ -12,6 +12,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Order, ShippingLabel, Address, ApiResponse } from '@/types';
 import { getCarrierByCode, SENDER_ADDRESS } from '@/config/carriers';
+import { config } from '@/config';
 
 interface LabelData {
   trackingNumber: string;
@@ -28,7 +29,7 @@ interface LabelData {
 
 @injectable()
 export class LabelGenerationService {
-  private readonly labelsDirectory = path.join(process.cwd(), 'public', 'shipping-labels');
+  private readonly labelsDirectory = '/tmp/shipping-labels';
 
   /**
    * Generate a shipping label for an order
@@ -279,7 +280,7 @@ export class LabelGenerationService {
    * Generate QR code with tracking URL
    */
   private async generateQRCode(trackingNumber: string, carrierCode: string): Promise<Buffer> {
-    const trackingUrl = `https://www.fortuneessence.se/tracking?number=${encodeURIComponent(trackingNumber)}&carrier=${encodeURIComponent(carrierCode)}`;
+    const trackingUrl = `${config.app.url}/tracking?number=${encodeURIComponent(trackingNumber)}&carrier=${encodeURIComponent(carrierCode)}`;
     return QRCode.toBuffer(trackingUrl, {
       width: 200,
       margin: 1,
@@ -317,7 +318,7 @@ export class LabelGenerationService {
       throw new Error(`Failed to write PDF file: ${err.message ?? String(err)}`);
     }
 
-    return `/shipping-labels/${sanitizedFileName}`;
+    return filePath;
   }
 
   /**

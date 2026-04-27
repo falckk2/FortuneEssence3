@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // External packages for server-side rendering
-  serverExternalPackages: ['@supabase/supabase-js'],
+  serverExternalPackages: ['@supabase/supabase-js', 'bwip-js'],
   
   // Image optimization configuration
   images: {
@@ -149,7 +149,7 @@ const nextConfig: NextConfig = {
   },
 
   // Output configuration for static exports (if needed)
-  output: process.env.BUILD_MODE === 'export' ? 'export' : undefined,
+  output: process.env.BUILD_MODE === 'export' ? 'export' : 'standalone',
   trailingSlash: false,
   
   // Enable React strict mode

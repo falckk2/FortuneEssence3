@@ -11,7 +11,6 @@ import { authOptions } from '@/lib/auth';
 import { container, TOKENS } from '@/config/di-container';
 import type { IShippingService } from '@/interfaces';
 import fs from 'fs/promises';
-import path from 'path';
 
 const shippingService = container.resolve<IShippingService>(TOKENS.IShippingService);
 
@@ -47,7 +46,7 @@ export async function GET(request: NextRequest) {
     const label = labelResult.data;
 
     // Read PDF file
-    const pdfPath = path.join(process.cwd(), 'public', label.labelPdfUrl);
+    const pdfPath = label.labelPdfUrl;
 
     try {
       const pdfBuffer = await fs.readFile(pdfPath);

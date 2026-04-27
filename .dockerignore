@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+*.md
+.env*.local
+agent/
+cron/
+__tests__/
+scripts/
+database/

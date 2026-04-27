@@ -7,12 +7,7 @@ import { ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/react/24/solid';
 import { useLocale } from '@/contexts/LocaleContext';
 import { useAdvisor } from '@/contexts/AdvisorContext';
 
-interface ChatResponse {
-  session_id: string;
-  reply: string;
-  products: { name: string; name_sv?: string; price_sek?: number; sku?: string }[];
-  gathered_enough: boolean;
-}
+type AdvisorProduct = { name: string; name_sv?: string; price_sek?: number; sku?: string };
 
 export function OilAdvisorWidget() {
   const { locale } = useLocale();
@@ -53,21 +48,54 @@ export function OilAdvisorWidget() {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 120_000);
-      const res = await fetch('/api/advisor/chat', {
+      const res = await fetch('/api/advisor/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, session_id: sessionId }),
         signal: controller.signal,
       });
       clearTimeout(timeout);
-      if (!res.ok) {
+
+      if (!res.ok || !res.body) {
         const body = await res.text().catch(() => '');
         throw new Error(`${res.status} ${res.statusText}: ${body}`);
       }
-      const data: ChatResponse = await res.json();
-      setSessionId(data.session_id);
-      setMessages(prev => [...prev, { role: 'advisor', content: data.reply }]);
-      if (data.products?.length) setProducts(data.products);
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw) continue;
+
+          let event: { type: string; session_id?: string; content?: string; products?: AdvisorProduct[]; message?: string };
+          try { event = JSON.parse(raw); } catch { continue; }
+
+          if (event.type === 'session' && event.session_id) {
+            setSessionId(event.session_id);
+          } else if (event.type === 'message' || event.type === 'recommendation') {
+            if (event.content) {
+              setLoading(false);
+              setMessages(prev => [...prev, { role: 'advisor', content: event.content! }]);
+            }
+            if (event.products?.length) {
+              setProducts(event.products);
+            }
+          } else if (event.type === 'error') {
+            throw new Error(event.message ?? 'Unknown error');
+          }
+        }
+      }
     } catch {
       setError(
         locale === 'sv'
