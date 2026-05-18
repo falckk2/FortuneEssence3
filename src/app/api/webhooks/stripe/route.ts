@@ -6,6 +6,7 @@ import { container, TOKENS } from '@/config/di-container';
 import type { IOrderService } from '@/interfaces';
 import type { IEmailService } from '@/interfaces/email';
 import { config } from '@/config';
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 // Lazy-initialize Stripe to avoid build-time errors when env var is missing
 let _stripe: Stripe | null = null;
@@ -67,6 +68,20 @@ export async function POST(request: NextRequest) {
       type: event.type,
       created: new Date(event.created * 1000).toISOString(),
     });
+
+    // Idempotency guard — reject replayed events before any side-effects run
+    const { error: idempotencyError } = await getSupabaseServer()
+      .from('processed_stripe_events')
+      .insert({ event_id: event.id, event_type: event.type });
+
+    if (idempotencyError) {
+      if (idempotencyError.code === '23505') {
+        console.log('Duplicate Stripe event ignored:', event.id);
+        return NextResponse.json({ success: true, received: true, duplicate: true });
+      }
+      // Log but don't block — idempotency table failure must not drop legitimate events
+      console.error('Failed to record Stripe event idempotency key:', idempotencyError);
+    }
 
     switch (event.type) {
       case 'payment_intent.succeeded':

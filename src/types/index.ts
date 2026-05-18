@@ -119,6 +119,7 @@ export interface Order {
   paymentId: string;
   trackingNumber?: string;
   carrier?: string;
+  reservationId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

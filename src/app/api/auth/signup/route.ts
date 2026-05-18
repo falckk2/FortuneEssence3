@@ -8,12 +8,14 @@ import { signUpSchema } from '@/utils/validation';
 const authService = container.resolve<IAuthService>(TOKENS.IAuthService);
 
 export async function POST(request: NextRequest) {
+  console.log('[issue-tracker][signup-route] POST start', { hasAuthService: !!authService }); // [issue-tracker] diagnostic log
   try {
     const body = await request.json();
-    
+
     // Validate the request body
     const validation = signUpSchema.safeParse(body);
     if (!validation.success) {
+      console.warn('[issue-tracker][signup-route] schema validation failed', validation.error.issues); // [issue-tracker] diagnostic log
       return NextResponse.json(
         {
           success: false,
@@ -27,6 +29,8 @@ export async function POST(request: NextRequest) {
 
     // Create the customer account
     const result = await authService.signUp(signUpData);
+    // [issue-tracker] diagnostic log — capture signup service result without leaking PII
+    console.log('[issue-tracker][signup-route] signUp result', { success: result.success, hasData: !!result.data, error: result.success ? undefined : result.error });
 
     if (!result.success || !result.data) {
       console.error('Sign up service error:', result.error);

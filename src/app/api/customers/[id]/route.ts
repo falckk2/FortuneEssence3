@@ -1,6 +1,12 @@
+export const dynamic = 'force-dynamic';
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
+import { container, TOKENS } from '@/config/di-container';
+import type { ICustomerRepository } from '@/interfaces';
+
+const customerRepository = container.resolve<ICustomerRepository>(TOKENS.ICustomerRepository);
 
 interface RouteParams {
   params: Promise<{
@@ -23,81 +29,23 @@ export async function GET(
 
     const { id } = await params;
 
-    // TODO: Fetch customer from database with all related data
-    /*
-    const { data: customer, error } = await supabase
-      .from('customers')
-      .select(`
-        *,
-        orders (
-          id,
-          total,
-          status,
-          createdAt,
-          items:order_items (
-            id,
-            quantity,
-            price,
-            product:products (
-              id,
-              translations
-            )
-          )
-        ),
-        addresses (
-          id,
-          type,
-          street,
-          city,
-          postalCode,
-          country,
-          isDefault
-        )
-      `)
-      .eq('id', id)
-      .single();
+    const result = await customerRepository.findById(id);
 
-    if (error) {
-      if (error.code === 'PGRST116') {
+    if (!result.success) {
+      if (result.error === 'Customer not found') {
         return NextResponse.json(
           { success: false, error: 'Customer not found' },
           { status: 404 }
         );
       }
-      throw error;
+      console.error('Failed to fetch customer:', result.error);
+      return NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
+      );
     }
 
-    const totalOrders = customer.orders.length;
-    const totalSpent = customer.orders.reduce((sum, order) => sum + order.total, 0);
-    const avgOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
-    const lastOrderDate = totalOrders > 0
-      ? customer.orders.sort((a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )[0].createdAt
-      : null;
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...customer,
-        statistics: { totalOrders, totalSpent, avgOrderValue, lastOrderDate }
-      }
-    });
-    */
-
-    return NextResponse.json({
-      success: true,
-      message: 'Customer details endpoint (requires database implementation)',
-      data: {
-        id,
-        name: 'Mock Customer',
-        email: 'customer@example.com',
-        phone: '+46 70 123 4567',
-        createdAt: new Date().toISOString(),
-        status: 'active',
-        newsletter: true,
-      },
-    });
+    return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
     console.error('Get customer error:', error);
     return NextResponse.json(
@@ -123,18 +71,27 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
 
-    // TODO: Update customer in database
-    /*
-    const updateData: any = {};
+    // Validate fields that are present
+    const updateData: Record<string, unknown> = {};
 
-    if (body.name !== undefined) {
-      if (body.name.trim().length < 2) {
+    if (body.firstName !== undefined) {
+      if (String(body.firstName).trim().length < 1) {
         return NextResponse.json(
-          { success: false, error: 'Name must be at least 2 characters' },
+          { success: false, error: 'firstName cannot be empty' },
           { status: 400 }
         );
       }
-      updateData.name = body.name.trim();
+      updateData.firstName = String(body.firstName).trim();
+    }
+
+    if (body.lastName !== undefined) {
+      if (String(body.lastName).trim().length < 1) {
+        return NextResponse.json(
+          { success: false, error: 'lastName cannot be empty' },
+          { status: 400 }
+        );
+      }
+      updateData.lastName = String(body.lastName).trim();
     }
 
     if (body.email !== undefined) {
@@ -145,48 +102,41 @@ export async function PATCH(
           { status: 400 }
         );
       }
-      updateData.email = body.email.trim().toLowerCase();
+      updateData.email = String(body.email).trim().toLowerCase();
     }
 
-    if (body.phone !== undefined) updateData.phone = body.phone?.trim() || null;
-
-    if (body.status !== undefined) {
-      if (!['active', 'inactive'].includes(body.status)) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid status' },
-          { status: 400 }
-        );
-      }
-      updateData.status = body.status;
+    if (body.phone !== undefined) {
+      updateData.phone = body.phone ? String(body.phone).trim() : undefined;
     }
 
-    if (body.newsletter !== undefined) updateData.newsletter = body.newsletter;
+    if (body.marketingOptIn !== undefined) {
+      updateData.marketingOptIn = body.marketingOptIn === true;
+    }
 
-    const { data: updatedCustomer, error } = await supabase
-      .from('customers')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No valid fields to update' },
+        { status: 400 }
+      );
+    }
 
-    if (error) {
-      if (error.code === 'PGRST116') {
+    const result = await customerRepository.update(id, updateData);
+
+    if (!result.success) {
+      if (result.error === 'Customer not found') {
         return NextResponse.json(
           { success: false, error: 'Customer not found' },
           { status: 404 }
         );
       }
-      throw error;
+      console.error('Failed to update customer:', result.error);
+      return NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ success: true, data: updatedCustomer });
-    */
-
-    return NextResponse.json({
-      success: true,
-      message: 'Customer updated (requires database implementation)',
-      data: { id, ...body },
-    });
+    return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
     console.error('Update customer error:', error);
     return NextResponse.json(
@@ -196,7 +146,10 @@ export async function PATCH(
   }
 }
 
-export async function DELETE() {
+export async function DELETE(
+  _request: NextRequest,
+  { params }: RouteParams
+) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -206,49 +159,25 @@ export async function DELETE() {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    // TODO: Delete customer from database (GDPR compliant)
-    /*
-    const { error: addressError } = await supabase
-      .from('addresses').delete().eq('customerId', id);
-    if (addressError) throw addressError;
+    const { id } = await params;
 
-    const { error: wishlistError } = await supabase
-      .from('wishlist').delete().eq('customerId', id);
-    if (wishlistError) throw wishlistError;
+    const result = await customerRepository.delete(id);
 
-    const { error: orderError } = await supabase
-      .from('orders')
-      .update({ customerId: null, customerName: 'Deleted Customer', customerEmail: 'deleted@example.com' })
-      .eq('customerId', id);
-    if (orderError) throw orderError;
-
-    const { error: customerError } = await supabase
-      .from('customers').delete().eq('id', id);
-    if (customerError) {
-      if (customerError.code === 'PGRST116') {
+    if (!result.success) {
+      if (result.error === 'Customer not found') {
         return NextResponse.json(
           { success: false, error: 'Customer not found' },
           { status: 404 }
         );
       }
-      throw customerError;
+      console.error('Failed to delete customer:', result.error);
+      return NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
+      );
     }
 
-    await supabase.from('audit_log').insert({
-      action: 'customer_deleted',
-      resourceType: 'customer',
-      resourceId: id,
-      performedBy: session.user.id,
-      timestamp: new Date().toISOString(),
-    });
-
     return NextResponse.json({ success: true, message: 'Customer deleted successfully' });
-    */
-
-    return NextResponse.json({
-      success: true,
-      message: 'Customer deletion endpoint (requires database implementation)',
-    });
   } catch (error) {
     console.error('Delete customer error:', error);
     return NextResponse.json(

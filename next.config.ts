@@ -51,20 +51,9 @@ const nextConfig: NextConfig = {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin'
           },
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://checkout.stripe.com https://maps.googleapis.com",
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "img-src 'self' data: https: blob:",
-              "font-src 'self' https://fonts.gstatic.com",
-              "connect-src 'self' https://*.supabase.co https://*.supabase.com https://api.stripe.com https://checkout.stripe.com wss://*.supabase.co" + (process.env.NODE_ENV === 'development' ? ' http://localhost:8001' : ''),
-              "frame-src https://js.stripe.com https://hooks.stripe.com https://checkout.stripe.com",
-              "object-src 'none'",
-              "base-uri 'self'"
-            ].join('; ')
-          }
+          // Content-Security-Policy is set per-request by src/middleware.ts using
+          // a cryptographic nonce, replacing the former static unsafe-inline allowance.
+          // Do NOT add a static CSP header here — it would conflict with the middleware header.
         ]
       },
       {

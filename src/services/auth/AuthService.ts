@@ -6,7 +6,6 @@ import type { IAuthService, SignUpData, IEmailService } from '@/interfaces';
 import type { ICustomerRepository } from '@/interfaces/repositories';
 import { Customer, ApiResponse } from '@/types';
 import { signUpSchema } from '@/utils/validation';
-import { signIn, signOut, getSession } from 'next-auth/react';
 import bcrypt from 'bcryptjs';
 import { TOKENS } from '@/config/di-container';
 
@@ -17,45 +16,6 @@ export class AuthService implements IAuthService {
     @inject(TOKENS.IEmailService) private readonly emailService: IEmailService,
     @inject(TOKENS.SupabaseClient) private readonly supabase: SupabaseClient
   ) {}
-
-  async signIn(email: string, password: string): Promise<ApiResponse<{ user: Customer; token: string }>> {
-    try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        return {
-          success: false,
-          error: result.error,
-        };
-      }
-
-      // Get the customer data
-      const customerResult = await this.customerRepository.findByEmail(email);
-      if (!customerResult.success || !customerResult.data) {
-        return {
-          success: false,
-          error: 'Failed to retrieve user data',
-        };
-      }
-
-      return {
-        success: true,
-        data: {
-          user: customerResult.data,
-          token: 'jwt_token', // This would be the actual JWT token
-        },
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Sign in failed: ${error}`,
-      };
-    }
-  }
 
   async signUp(userData: SignUpData): Promise<ApiResponse<Customer>> {
     try {
@@ -116,52 +76,6 @@ export class AuthService implements IAuthService {
       return {
         success: false,
         error: `Sign up failed: ${error}`,
-      };
-    }
-  }
-
-  async signOut(): Promise<ApiResponse<void>> {
-    try {
-      await signOut({ redirect: false });
-      return {
-        success: true,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Sign out failed: ${error}`,
-      };
-    }
-  }
-
-  async getCurrentUser(): Promise<ApiResponse<Customer>> {
-    try {
-      const session = await getSession();
-      
-      if (!session?.user?.email) {
-        return {
-          success: false,
-          error: 'No active session',
-        };
-      }
-
-      const result = await this.customerRepository.findByEmail(session.user.email);
-      
-      if (!result.success) {
-        return {
-          success: false,
-          error: result.error || 'Failed to retrieve user data',
-        };
-      }
-
-      return {
-        success: true,
-        data: result.data!,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: `Failed to get current user: ${error}`,
       };
     }
   }
@@ -362,12 +276,9 @@ export class AuthService implements IAuthService {
   async deleteAccount(userId: string): Promise<ApiResponse<void>> {
     try {
       const result = await this.customerRepository.delete(userId);
-      
-      if (result.success) {
-        // Sign out the user after account deletion
-        await this.signOut();
-      }
-      
+      // Note: signing the user out after deletion is a client-side concern.
+      // The calling component should call signOut() from auth-client.ts
+      // after this method returns successfully.
       return result;
     } catch (error) {
       return {

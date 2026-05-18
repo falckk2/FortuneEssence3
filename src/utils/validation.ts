@@ -43,13 +43,13 @@ export const orderSchema = z.object({
 });
 
 export const signUpSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.string().trim().toLowerCase().email('Invalid email address').max(254, 'Email address is too long'),
   password: z.string()
     .min(8, 'Password must be at least 8 characters')
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number'),
-  firstName: z.string().min(1, 'First name is required').max(50),
-  lastName: z.string().min(1, 'Last name is required').max(50),
-  phone: z.string().optional(),
+  firstName: z.string().trim().min(1, 'First name is required').max(50),
+  lastName: z.string().trim().min(1, 'Last name is required').max(50),
+  phone: z.string().trim().max(20).optional(),
   marketingOptIn: z.boolean().default(false),
   consentGiven: z.literal(true, { message: 'You must accept the terms and conditions' }),
 });

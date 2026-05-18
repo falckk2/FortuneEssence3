@@ -1,0 +1,630 @@
+import { IGDPRService, UserData, ConsentData, UserPreferences } from '$lib/interfaces';
+import { Customer, Order, OrderStatus, Address, PaymentMethod, ApiResponse } from '$lib/types';
+import { supabase } from '$lib/supabase';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+
+export class GDPRService implements IGDPRService {
+
+  async exportUserData(userId: string): Promise<ApiResponse<UserData>> {
+    try {
+      // Fetch all data in parallel — all queries only depend on userId
+      const [
+        { data: customer, error: customerError },
+        { data: orders, error: ordersError },
+        { data: consent, error: consentError },
+        { data: preferences, error: preferencesError },
+      ] = await Promise.all([
+        supabase.from('customers').select('*').eq('id', userId).single(),
+        supabase.from('orders').select(`
+          *,
+          order_items!inner(
+            id,
+            quantity,
+            price,
+            products!inner(id, name, name_sv, sku)
+          )
+        `).eq('customer_id', userId).order('created_at', { ascending: false }),
+        supabase.from('user_consent').select('*').eq('user_id', userId).single(),
+        supabase.from('user_preferences').select('*').eq('user_id', userId).single(),
+      ]);
+
+      if (customerError) {
+        return { success: false, error: `Failed to fetch customer data: ${customerError.message}` };
+      }
+      if (ordersError) {
+        return { success: false, error: `Failed to fetch order data: ${ordersError.message}` };
+      }
+      if (consentError && consentError.code !== 'PGRST116') {
+        return { success: false, error: `Failed to fetch consent data: ${consentError.message}` };
+      }
+      if (preferencesError && preferencesError.code !== 'PGRST116') {
+        return { success: false, error: `Failed to fetch preferences data: ${preferencesError.message}` };
+      }
+
+      // Transform customer data
+      const personalInfo: Customer = {
+        id: customer.id,
+        email: customer.email,
+        firstName: customer.first_name,
+        lastName: customer.last_name,
+        phone: customer.phone,
+        address: customer.address || { street: '', city: '', postalCode: '', country: '' },
+        consentGiven: customer.consent_given || false,
+        marketingOptIn: customer.marketing_opt_in,
+        createdAt: new Date(customer.created_at),
+        updatedAt: new Date(customer.updated_at),
+      };
+
+      type RawProduct = { id: string; name: string };
+      type RawOrderItem = { id: string; quantity: number; price: number; products: RawProduct };
+      type RawOrder = {
+        id: string; customer_id: string; status: OrderStatus; tax: number;
+        shipping_cost?: number; total_amount: number; payment_method: PaymentMethod;
+        payment_id: string; shipping_address: Address; billing_address: Address;
+        tracking_number: string; created_at: string; updated_at: string;
+        order_items: RawOrderItem[];
+      };
+
+      // Transform orders data
+      const transformedOrders: Order[] = (orders as RawOrder[]).map((order) => ({
+        id: order.id,
+        customerId: order.customer_id,
+        items: order.order_items.map((item) => ({
+          productId: item.products.id,
+          productName: item.products.name,
+          quantity: item.quantity,
+          price: item.price,
+          total: item.price * item.quantity,
+        })),
+        status: order.status,
+        tax: order.tax,
+        shipping: order.shipping_cost || 0,
+        total: order.total_amount,
+        paymentMethod: order.payment_method,
+        paymentId: order.payment_id,
+        shippingAddress: order.shipping_address,
+        billingAddress: order.billing_address,
+        trackingNumber: order.tracking_number,
+        createdAt: new Date(order.created_at),
+        updatedAt: new Date(order.updated_at),
+      }));
+
+      // Transform preferences
+      const userPreferences: UserPreferences = {
+        language: preferences?.language || 'sv',
+        currency: preferences?.currency || 'SEK',
+        newsletter: preferences?.newsletter || false,
+      };
+
+      // Transform consent
+      const consentData: ConsentData | undefined = consent
+        ? {
+            marketing: consent.marketing,
+            analytics: consent.analytics,
+            functional: consent.functional,
+            updatedAt: new Date(consent.updated_at),
+          }
+        : undefined;
+
+      const userData: UserData = {
+        personalInfo,
+        orders: transformedOrders,
+        preferences: userPreferences,
+        consent: consentData,
+      };
+
+      // Log the data export request
+      await this.logGDPRActivity(userId, 'data_export', 'User requested data export');
+
+      return {
+        success: true,
+        data: userData,
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to export user data: ${error}`,
+      };
+    }
+  }
+
+  async deleteUserData(userId: string): Promise<ApiResponse<void>> {
+    try {
+      // Log the deletion request first
+      await this.logGDPRActivity(userId, 'data_deletion', 'User requested account deletion');
+
+      // Delete user data maintaining referential integrity:
+      // Step 1: fetch IDs for child records in parallel
+      const [ordersQuery, cartsQuery] = await Promise.all([
+        supabase.from('orders').select('id').eq('customer_id', userId),
+        supabase.from('carts').select('id').eq('customer_id', userId),
+      ]);
+
+      if (ordersQuery.error && ordersQuery.error.code !== 'PGRST116') {
+        throw new Error(`Failed to query orders: ${ordersQuery.error.message}`);
+      }
+      if (cartsQuery.error && cartsQuery.error.code !== 'PGRST116') {
+        throw new Error(`Failed to query carts: ${cartsQuery.error.message}`);
+      }
+
+      // Step 2: delete child records (order_items and cart_items) in parallel
+      const childDeletes: Promise<unknown>[] = [];
+
+      if (ordersQuery.data && ordersQuery.data.length > 0) {
+        const orderIds = ordersQuery.data.map(o => o.id);
+        childDeletes.push(
+          Promise.resolve(supabase.from('order_items').delete().in('order_id', orderIds)).then(({ error }) => {
+            if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete order items: ${error.message}`);
+          })
+        );
+      }
+
+      if (cartsQuery.data && cartsQuery.data.length > 0) {
+        const cartIds = cartsQuery.data.map(c => c.id);
+        childDeletes.push(
+          Promise.resolve(supabase.from('cart_items').delete().in('cart_id', cartIds)).then(({ error }) => {
+            if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete cart items: ${error.message}`);
+          })
+        );
+      }
+
+      await Promise.all(childDeletes);
+
+      // Step 3: delete parent records and user data in parallel
+      await Promise.all([
+        Promise.resolve(supabase.from('orders').delete().eq('customer_id', userId)).then(({ error }) => {
+          if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete orders: ${error.message}`);
+        }),
+        Promise.resolve(supabase.from('carts').delete().eq('customer_id', userId)).then(({ error }) => {
+          if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete carts: ${error.message}`);
+        }),
+        Promise.resolve(supabase.from('abandoned_carts').delete().eq('customer_id', userId)).then(({ error }) => {
+          if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete abandoned carts: ${error.message}`);
+        }),
+        Promise.resolve(supabase.from('user_preferences').delete().eq('user_id', userId)).then(({ error }) => {
+          if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete preferences: ${error.message}`);
+        }),
+        Promise.resolve(supabase.from('user_consent').delete().eq('user_id', userId)).then(({ error }) => {
+          if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete consent: ${error.message}`);
+        }),
+      ]);
+
+      // Step 4: delete the customer record last
+      const { error: customerError } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', userId);
+
+      if (customerError) {
+        throw new Error(`Failed to delete customer: ${customerError.message}`);
+      }
+
+      return {
+        success: true,
+        data: undefined,
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to delete user data: ${error}`,
+      };
+    }
+  }
+
+  async updateConsent(userId: string, consentData: ConsentData): Promise<ApiResponse<void>> {
+    try {
+      // Upsert consent data
+      const { error } = await supabase
+        .from('user_consent')
+        .upsert({
+          user_id: userId,
+          marketing: consentData.marketing,
+          analytics: consentData.analytics,
+          functional: consentData.functional,
+          updated_at: consentData.updatedAt.toISOString(),
+        });
+
+      if (error) {
+        return {
+          success: false,
+          error: `Failed to update consent: ${error.message}`,
+        };
+      }
+
+      // Also update marketing opt-in in customer table
+      const { error: customerError } = await supabase
+        .from('customers')
+        .update({
+          marketing_opt_in: consentData.marketing,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      if (customerError) {
+        return {
+          success: false,
+          error: `Failed to update customer marketing consent: ${customerError.message}`,
+        };
+      }
+
+      // Log the consent update
+      await this.logGDPRActivity(userId, 'consent_update', `Consent updated - Marketing: ${consentData.marketing}, Analytics: ${consentData.analytics}, Functional: ${consentData.functional}`);
+
+      return {
+        success: true,
+        data: undefined,
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to update consent: ${error}`,
+      };
+    }
+  }
+
+  async getConsentStatus(userId: string): Promise<ApiResponse<ConsentData>> {
+    try {
+      const { data: consent, error } = await supabase
+        .from('user_consent')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No consent record found, return default values
+          const defaultConsent: ConsentData = {
+            marketing: false,
+            analytics: false,
+            functional: true, // Functional cookies are essential
+            updatedAt: new Date(),
+          };
+
+          return {
+            success: true,
+            data: defaultConsent,
+          };
+        }
+
+        return {
+          success: false,
+          error: `Failed to get consent status: ${error.message}`,
+        };
+      }
+
+      const consentData: ConsentData = {
+        marketing: consent.marketing,
+        analytics: consent.analytics,
+        functional: consent.functional,
+        updatedAt: new Date(consent.updated_at),
+      };
+
+      return {
+        success: true,
+        data: consentData,
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get consent status: ${error}`,
+      };
+    }
+  }
+
+  // Additional GDPR utility methods
+
+  async getDataProcessingPurposes(): Promise<ApiResponse<Array<{
+    purpose: string;
+    description: string;
+    legalBasis: string;
+    dataTypes: string[];
+  }>>> {
+    const purposes = [
+      {
+        purpose: 'Order Processing',
+        description: 'Processing customer orders and payments',
+        legalBasis: 'Contract Performance',
+        dataTypes: ['Name', 'Email', 'Address', 'Phone', 'Order history', 'Payment info'],
+      },
+      {
+        purpose: 'Customer Service',
+        description: 'Providing customer support and handling inquiries',
+        legalBasis: 'Legitimate Interest',
+        dataTypes: ['Name', 'Email', 'Support messages'],
+      },
+      {
+        purpose: 'Marketing Communications',
+        description: 'Sending promotional emails and newsletters',
+        legalBasis: 'Consent',
+        dataTypes: ['Name', 'Email', 'Marketing preferences'],
+      },
+      {
+        purpose: 'Analytics',
+        description: 'Understanding website usage and improving services',
+        legalBasis: 'Consent',
+        dataTypes: ['Usage data', 'Device info', 'Page views'],
+      },
+      {
+        purpose: 'Legal Compliance',
+        description: 'Meeting tax and regulatory requirements',
+        legalBasis: 'Legal Obligation',
+        dataTypes: ['Order history', 'Transaction data', 'Invoice data'],
+      },
+    ];
+
+    return {
+      success: true,
+      data: purposes,
+    };
+  }
+
+  async getDataRetentionPolicies(): Promise<ApiResponse<Array<{
+    dataType: string;
+    retentionPeriod: string;
+    purpose: string;
+  }>>> {
+    const policies = [
+      {
+        dataType: 'Customer Account Data',
+        retentionPeriod: 'Until account deletion or 7 years after last activity',
+        purpose: 'Customer service and legal compliance',
+      },
+      {
+        dataType: 'Order and Transaction Data',
+        retentionPeriod: '7 years',
+        purpose: 'Tax compliance and warranty claims',
+      },
+      {
+        dataType: 'Marketing Data',
+        retentionPeriod: 'Until consent is withdrawn',
+        purpose: 'Marketing communications',
+      },
+      {
+        dataType: 'Analytics Data',
+        retentionPeriod: '2 years',
+        purpose: 'Website improvement and analysis',
+      },
+      {
+        dataType: 'Support Communications',
+        retentionPeriod: '3 years',
+        purpose: 'Customer service quality and training',
+      },
+    ];
+
+    return {
+      success: true,
+      data: policies,
+    };
+  }
+
+  async requestDataPortability(userId: string, format: 'json' | 'csv' | 'pdf'): Promise<ApiResponse<string>> {
+    try {
+      const userDataResult = await this.exportUserData(userId);
+
+      if (!userDataResult.success) {
+        return {
+          success: false,
+          error: userDataResult.error,
+        };
+      }
+
+      const userData = userDataResult.data!;
+      let exportData: string;
+
+      if (format === 'json') {
+        exportData = JSON.stringify(userData, null, 2);
+      } else if (format === 'pdf') {
+        const pdfBytes = await this.convertToPDF(userData);
+        exportData = Buffer.from(pdfBytes).toString('base64');
+      } else {
+        exportData = this.convertToCSV(userData);
+      }
+
+      // Log the data portability request
+      await this.logGDPRActivity(userId, 'data_portability', `Data export in ${format} format`);
+
+      return {
+        success: true,
+        data: exportData,
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to process data portability request: ${error}`,
+      };
+    }
+  }
+
+  async getGDPRActivityLog(userId: string): Promise<ApiResponse<Array<{
+    id: string;
+    activity: string;
+    description: string;
+    timestamp: string;
+  }>>> {
+    try {
+      const { data: activities, error } = await supabase
+        .from('gdpr_activity_log')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        return {
+          success: false,
+          error: `Failed to get GDPR activity log: ${error.message}`,
+        };
+      }
+
+      const transformedActivities = activities.map(activity => ({
+        id: activity.id,
+        activity: activity.activity,
+        description: activity.description || '',
+        timestamp: new Date(activity.created_at).toISOString(),
+      }));
+
+      return {
+        success: true,
+        data: transformedActivities,
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to get GDPR activity log: ${error}`,
+      };
+    }
+  }
+
+  // Private helper methods
+
+  private async logGDPRActivity(userId: string, activity: string, description: string): Promise<void> {
+    try {
+      await supabase
+        .from('gdpr_activity_log')
+        .insert({
+          user_id: userId,
+          activity,
+          description,
+          created_at: new Date().toISOString(),
+        });
+    } catch (error) {
+      console.error('Failed to log GDPR activity:', error);
+    }
+  }
+
+  private convertToCSV(userData: UserData): string {
+    // Quote a value and escape internal double quotes per RFC 4180
+    const q = (v: unknown): string => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+    let csv = '';
+
+    // Personal Information
+    csv += 'Personal Information\n';
+    csv += 'Field,Value\n';
+    csv += `${q('ID')},${q(userData.personalInfo.id)}\n`;
+    csv += `${q('Email')},${q(userData.personalInfo.email)}\n`;
+    csv += `${q('First Name')},${q(userData.personalInfo.firstName)}\n`;
+    csv += `${q('Last Name')},${q(userData.personalInfo.lastName)}\n`;
+    csv += `${q('Phone')},${q(userData.personalInfo.phone ?? '')}\n`;
+    csv += `${q('Marketing Opt-in')},${q(userData.personalInfo.marketingOptIn)}\n`;
+    csv += `${q('Created At')},${q(userData.personalInfo.createdAt.toISOString())}\n`;
+    csv += `${q('Updated At')},${q(userData.personalInfo.updatedAt.toISOString())}\n`;
+    csv += '\n';
+
+    // Orders
+    csv += 'Orders\n';
+    csv += 'Order ID,Status,Total Amount,Created At,Items\n';
+    userData.orders.forEach(order => {
+      const items = order.items.map(item => `${item.productName} (${item.quantity}x)`).join('; ');
+      csv += `${q(order.id)},${q(order.status)},${q(order.total)},${q(order.createdAt.toISOString())},${q(items)}\n`;
+    });
+    csv += '\n';
+
+    // Preferences
+    csv += 'Preferences\n';
+    csv += 'Setting,Value\n';
+    csv += `${q('Language')},${q(userData.preferences.language)}\n`;
+    csv += `${q('Currency')},${q(userData.preferences.currency)}\n`;
+    csv += `${q('Newsletter')},${q(userData.preferences.newsletter)}\n`;
+
+    return csv;
+  }
+
+  private async convertToPDF(userData: UserData): Promise<Uint8Array> {
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const fontSize = 10;
+    const titleSize = 16;
+    const sectionSize = 13;
+    const lineHeight = 16;
+    const margin = 50;
+
+    let page = pdfDoc.addPage([595, 842]); // A4
+    let y = 792;
+
+    const addText = (text: string, size: number, useBold = false, color = rgb(0, 0, 0)) => {
+      if (y < margin + lineHeight) {
+        page = pdfDoc.addPage([595, 842]);
+        y = 792;
+      }
+      page.drawText(text, { x: margin, y, size, font: useBold ? fontBold : font, color });
+      y -= size + 6;
+    };
+
+    const addLine = () => {
+      if (y < margin + lineHeight) {
+        page = pdfDoc.addPage([595, 842]);
+        y = 792;
+      }
+      page.drawLine({ start: { x: margin, y }, end: { x: 545, y }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) });
+      y -= 10;
+    };
+
+    // Title
+    addText('Fortune Essence - GDPR Data Export', titleSize, true, rgb(0.4, 0.2, 0.6));
+    addText(`Generated: ${new Date().toLocaleDateString('sv-SE')}`, fontSize, false, rgb(0.5, 0.5, 0.5));
+    y -= 10;
+    addLine();
+
+    // Personal Information
+    addText('Personal Information', sectionSize, true);
+    y -= 4;
+    addText(`Name: ${userData.personalInfo.firstName} ${userData.personalInfo.lastName}`, fontSize);
+    addText(`Email: ${userData.personalInfo.email}`, fontSize);
+    addText(`Phone: ${userData.personalInfo.phone || 'N/A'}`, fontSize);
+    addText(`Marketing Opt-in: ${userData.personalInfo.marketingOptIn ? 'Yes' : 'No'}`, fontSize);
+    addText(`Account Created: ${new Date(userData.personalInfo.createdAt).toLocaleDateString('sv-SE')}`, fontSize);
+    y -= 10;
+    addLine();
+
+    // Address
+    const addr = userData.personalInfo.address;
+    if (addr) {
+      addText('Address', sectionSize, true);
+      y -= 4;
+      if (addr.street) addText(`Street: ${addr.street}`, fontSize);
+      if (addr.postalCode || addr.city) addText(`${addr.postalCode || ''} ${addr.city || ''}`.trim(), fontSize);
+      if (addr.country) addText(`Country: ${addr.country}`, fontSize);
+      y -= 10;
+      addLine();
+    }
+
+    // Orders
+    addText(`Orders (${userData.orders.length})`, sectionSize, true);
+    y -= 4;
+    if (userData.orders.length === 0) {
+      addText('No orders found.', fontSize, false, rgb(0.5, 0.5, 0.5));
+    } else {
+      for (const order of userData.orders) {
+        const items = order.items.map(item => `${item.productName} (${item.quantity}x)`).join(', ');
+        addText(`Order ${order.id.slice(0, 8)}... - ${order.status} - ${order.total} SEK`, fontSize, true);
+        addText(`  Date: ${new Date(order.createdAt).toLocaleDateString('sv-SE')}`, fontSize);
+        if (items) addText(`  Items: ${items.length > 80 ? items.slice(0, 80) + '...' : items}`, fontSize);
+        y -= 4;
+      }
+    }
+    y -= 6;
+    addLine();
+
+    // Preferences
+    addText('Preferences', sectionSize, true);
+    y -= 4;
+    addText(`Language: ${userData.preferences.language}`, fontSize);
+    addText(`Currency: ${userData.preferences.currency}`, fontSize);
+    addText(`Newsletter: ${userData.preferences.newsletter ? 'Yes' : 'No'}`, fontSize);
+    y -= 10;
+    addLine();
+
+    // Footer
+    addText('This document was generated as part of your GDPR data portability rights.', fontSize, false, rgb(0.5, 0.5, 0.5));
+
+    return pdfDoc.save();
+  }
+}

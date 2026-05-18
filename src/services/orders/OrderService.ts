@@ -110,6 +110,7 @@ export class OrderService implements IOrderService {
         paymentMethod: orderData.paymentMethod,
         paymentId: paymentResult.data!.paymentId,
         trackingNumber: undefined,
+        reservationId: stockReservation.data!,
       });
 
       if (!order.success) {

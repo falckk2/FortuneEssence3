@@ -49,7 +49,14 @@ export interface IBundleRepository {
   delete(id: string): Promise<ApiResponse<void>>;
 }
 
+export interface CustomerSearchParams {
+  search?: string;
+  status?: string;
+  limit?: number;
+}
+
 export interface ICustomerRepository {
+  findAll(params?: CustomerSearchParams): Promise<ApiResponse<Customer[]>>;
   findById(id: string): Promise<ApiResponse<Customer>>;
   findByEmail(email: string): Promise<ApiResponse<Customer>>;
   create(customer: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Customer>>;

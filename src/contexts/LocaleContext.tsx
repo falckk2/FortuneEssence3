@@ -65,20 +65,26 @@ export const LocaleProvider: React.FC<LocaleProviderProps> = ({
   const [locale, setLocaleState] = useState<Locale>('sv');
   const [isClient, setIsClient] = useState(false);
 
+  // Run once on mount: mark client hydrated and detect the user's preferred locale.
+  // Runs with [] so it doesn't re-trigger on every locale state change (ISSUE-015).
   useEffect(() => {
     setIsClient(true);
-
-    // Only detect locale on client mount if no default is provided
     if (!defaultLocale) {
       const detectedLocale = detectUserLocale();
-      // Only update if different from default to avoid unnecessary re-renders
       if (detectedLocale !== 'sv') {
         setLocaleState(detectedLocale);
       }
-    } else if (defaultLocale !== locale) {
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync the prop-provided default locale whenever it changes.
+  // Dropping `locale` from deps prevents re-running on every user-driven change.
+  useEffect(() => {
+    if (defaultLocale) {
       setLocaleState(defaultLocale);
     }
-  }, [defaultLocale, locale]);
+  }, [defaultLocale]);
 
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale);

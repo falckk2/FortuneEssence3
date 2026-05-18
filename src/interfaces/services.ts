@@ -17,11 +17,11 @@ import {
 import { BundleValidationResult } from '@/types/bundles';
 
 
+// Server-safe operations only. Client-side auth functions (signIn, signOut,
+// getCurrentUser) live in src/lib/auth-client.ts and must only be called
+// from React components/hooks — NOT from DI-injected services.
 export interface IAuthService {
-  signIn(email: string, password: string): Promise<ApiResponse<{ user: Customer; token: string }>>;
   signUp(userData: SignUpData): Promise<ApiResponse<Customer>>;
-  signOut(): Promise<ApiResponse<void>>;
-  getCurrentUser(): Promise<ApiResponse<Customer>>;
   resetPassword(email: string): Promise<ApiResponse<void>>;
   verifyResetToken(token: string): Promise<ApiResponse<{ email: string }>>;
   completePasswordReset(token: string, newPassword: string): Promise<ApiResponse<void>>;

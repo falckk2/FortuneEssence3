@@ -40,14 +40,28 @@ export const authOptions: NextAuthOptions = {
           let isAdmin = false;
           try {
             const supabaseServer = getSupabaseServer();
-            const { data: adminData } = await supabaseServer
+            const { data: adminData, error: adminErr } = await supabaseServer
               .from('customers')
               .select('is_admin')
               .eq('id', user.id)
               .single();
+            if (adminErr) {
+              console.error('[auth] is_admin lookup returned Supabase error', {
+                userId: user.id,
+                code: adminErr.code,
+                message: adminErr.message,
+              });
+            }
+            if (!adminData) {
+              console.warn('[auth] is_admin lookup returned no row — defaulting to non-admin', { userId: user.id });
+            }
             isAdmin = adminData?.is_admin ?? false;
-          } catch {
-            // Non-fatal: default to false
+          } catch (adminCatchErr) {
+            // Non-fatal: default to false, but log so the misconfiguration is observable.
+            console.error('[auth] is_admin lookup threw an exception — defaulting to non-admin', {
+              userId: user.id,
+              error: adminCatchErr,
+            });
           }
 
           return {
@@ -59,7 +73,7 @@ export const authOptions: NextAuthOptions = {
             isAdmin,
           };
         } catch (error) {
-          console.error('Authentication error:', error);
+          console.error('[auth] authorize threw — sign-in will fail:', error);
           return null;
         }
       },

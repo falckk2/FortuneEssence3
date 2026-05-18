@@ -4,6 +4,7 @@ export type {
   ProductSearchParams,
   IBundleRepository,
   ICustomerRepository,
+  CustomerSearchParams,
   IOrderRepository,
   IOrderItemRepository,
   IAnalyticsRepository,

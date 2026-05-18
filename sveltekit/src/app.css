@@ -1,0 +1,65 @@
+@import 'tailwindcss';
+
+@theme {
+	--color-forest-50: #f3f7f3;
+	--color-forest-100: #e4ede4;
+	--color-forest-200: #c9dbc9;
+	--color-forest-300: #a3c2a3;
+	--color-forest-400: #76a276;
+	--color-forest-500: #4a7c59;
+	--color-forest-600: #3a6347;
+	--color-forest-700: #2d4f38;
+	--color-forest-800: #1e3326;
+	--color-forest-900: #162718;
+
+	--color-sage-50: #f5f7f4;
+	--color-sage-100: #e8ede6;
+	--color-sage-200: #d0dbcc;
+	--color-sage-300: #aec0a8;
+	--color-sage-400: #87a07e;
+	--color-sage-500: #6b845f;
+	--color-sage-600: #546a4a;
+	--color-sage-700: #43543b;
+	--color-sage-800: #2d3827;
+	--color-sage-900: #1e2619;
+
+	--color-cream-50: #fdfcf8;
+	--color-cream-100: #faf7ef;
+	--color-cream-200: #f4eddb;
+	--color-cream-300: #ecdfc0;
+	--color-cream-400: #e0cc9a;
+	--color-cream-500: #d4b975;
+	--color-cream-600: #c4a055;
+	--color-cream-700: #a07c3a;
+	--color-cream-800: #7a5c28;
+	--color-cream-900: #5c4219;
+
+	--color-terracotta-50: #fdf5f3;
+	--color-terracotta-100: #fae8e4;
+	--color-terracotta-200: #f5d0c9;
+	--color-terracotta-300: #ecafa4;
+	--color-terracotta-400: #e08272;
+	--color-terracotta-500: #c85c48;
+	--color-terracotta-600: #b04638;
+	--color-terracotta-700: #8c352a;
+	--color-terracotta-800: #6b2620;
+	--color-terracotta-900: #4f1c17;
+}
+
+:root {
+	color-scheme: light dark;
+}
+
+html.dark {
+	color-scheme: dark;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+		sans-serif;
+}

@@ -1,0 +1,22 @@
+# FortuneEssence – System crontab entries for Strato VPS
+#
+# Add to the app user's crontab:  crontab -e
+# Or install system-wide:        sudo cp crontab.example /etc/cron.d/fortune-essence
+#   (when using /etc/cron.d, add the username field: * * * * * appuser <command>)
+#
+# The CRON_SECRET must match the value in .env.
+# Nginx blocks /api/cron/ from external traffic; curl hits localhost directly.
+
+CRON_SECRET=your-cron-secret-here
+BASE_URL=http://127.0.0.1:3000
+LOG_DIR=/var/log/fortune-essence
+
+# ── Every 10 minutes: clean up expired stock reservations ────────────────────
+*/10 * * * * curl -sf -H "Authorization: Bearer $CRON_SECRET" \
+  "$BASE_URL/api/cron/cleanup-reservations" \
+  >> "$LOG_DIR/cron-cleanup.log" 2>&1
+
+# ── Every hour: send abandoned cart reminder emails ──────────────────────────
+0 * * * * curl -sf -H "Authorization: Bearer $CRON_SECRET" \
+  "$BASE_URL/api/cron/send-abandoned-cart-reminders" \
+  >> "$LOG_DIR/cron-abandoned-cart.log" 2>&1

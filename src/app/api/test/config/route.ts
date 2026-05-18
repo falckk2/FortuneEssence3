@@ -1,42 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { writeFileSync, readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 /**
  * TEST MODE CONFIGURATION API
  *
  * Allows toggling test endpoints on/off via API or admin interface.
- * Configuration is stored in .env.local
+ * Configuration is persisted in the `feature_flags` Supabase table so
+ * it works in deployed (serverless) environments where the filesystem
+ * is read-only / ephemeral.
  */
 
-const ENV_LOCAL_PATH = join(process.cwd(), '.env.local');
+const FLAG_KEY = 'enable_test_endpoints';
 
-function getTestModeStatus(): boolean {
-  if (process.env.ENABLE_TEST_ENDPOINTS === 'true') {
-    return true;
+async function getTestModeStatus(): Promise<boolean> {
+  // Env var always takes precedence (useful for CI / dev without DB)
+  if (process.env.ENABLE_TEST_ENDPOINTS === 'true') return true;
+  if (process.env.NODE_ENV === 'development') return true;
+
+  try {
+    const supabase = getSupabaseServer();
+    const { data } = await supabase
+      .from('feature_flags')
+      .select('value')
+      .eq('key', FLAG_KEY)
+      .single();
+    return data?.value === true;
+  } catch {
+    return false;
   }
-  if (process.env.NODE_ENV === 'development') {
-    return true;
-  }
-  return false;
 }
 
-function updateEnvFile(enabled: boolean) {
+async function setTestModeStatus(enabled: boolean): Promise<boolean> {
   try {
-    let envContent = '';
-    if (existsSync(ENV_LOCAL_PATH)) {
-      envContent = readFileSync(ENV_LOCAL_PATH, 'utf-8');
+    const supabase = getSupabaseServer();
+    const { error } = await supabase
+      .from('feature_flags')
+      .upsert({
+        key: FLAG_KEY,
+        value: enabled,
+        updated_at: new Date().toISOString(),
+      });
+    if (error) {
+      console.error('Failed to update feature flag:', error);
+      return false;
     }
-    const lines = envContent.split('\n').filter(line =>
-      !line.trim().startsWith('ENABLE_TEST_ENDPOINTS')
-    );
-    lines.push(`ENABLE_TEST_ENDPOINTS=${enabled ? 'true' : 'false'}`);
-    writeFileSync(ENV_LOCAL_PATH, lines.join('\n'));
     return true;
   } catch (error) {
-    console.error('Failed to update .env.local:', error);
+    console.error('Failed to update feature flag:', error);
     return false;
   }
 }
@@ -51,14 +63,14 @@ export async function GET() {
       );
     }
 
-    const isEnabled = getTestModeStatus();
+    const isEnabled = await getTestModeStatus();
 
     return NextResponse.json({
       success: true,
       data: {
         enabled: isEnabled,
         environment: process.env.NODE_ENV,
-        canToggle: process.env.NODE_ENV !== 'production',
+        canToggle: session.user.isAdmin === true,
         message: isEnabled
           ? 'Test endpoints are currently ENABLED'
           : 'Test endpoints are currently DISABLED',
@@ -86,16 +98,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    if (process.env.NODE_ENV === 'production') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Cannot toggle test endpoints in production environment. Update environment variables manually.'
-        },
-        { status: 403 }
-      );
-    }
-
     const body = await request.json();
     const { enabled } = body;
 
@@ -106,7 +108,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const updated = updateEnvFile(enabled);
+    const updated = await setTestModeStatus(enabled);
 
     if (!updated) {
       return NextResponse.json(
@@ -120,9 +122,8 @@ export async function POST(request: NextRequest) {
       data: {
         enabled,
         message: enabled
-          ? 'Test endpoints ENABLED - Restart server for changes to take effect'
-          : 'Test endpoints DISABLED - Restart server for changes to take effect',
-        requiresRestart: true,
+          ? 'Test endpoints ENABLED'
+          : 'Test endpoints DISABLED',
       },
     });
   } catch (error) {

@@ -8,22 +8,16 @@ import { configureDependencyInjection } from './di-container';
 let isConfigured = false;
 
 export function initializeDI() {
-  // Only initialize on server-side in API routes or server components
-  // Skip initialization during build time or instrumentation
-  if (typeof window === 'undefined' && !isConfigured && process.env.NODE_ENV !== 'production') {
+  // Only initialize on server-side in API routes or server components.
+  // A single branch covers all NODE_ENV values (development, production, test, etc.)
+  // so the container is never accidentally skipped in test or custom environments.
+  if (typeof window === 'undefined' && !isConfigured) {
     try {
       configureDependencyInjection();
       isConfigured = true;
+      console.log('[di-init] DI container initialized successfully', { nodeEnv: process.env.NODE_ENV });
     } catch (error) {
-      console.error('Failed to configure DI container:', error);
-    }
-  } else if (typeof window === 'undefined' && !isConfigured && process.env.NODE_ENV === 'production') {
-    try {
-      configureDependencyInjection();
-      isConfigured = true;
-      console.log('DI container initialized successfully');
-    } catch (error) {
-      console.error('DI container initialization FAILED:', error);
+      console.error('[di-init] DI container initialization FAILED:', error);
       throw error;
     }
   }

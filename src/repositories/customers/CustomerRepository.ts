@@ -1,14 +1,45 @@
-import { ICustomerRepository } from '@/interfaces';
+import { ICustomerRepository, CustomerSearchParams } from '@/interfaces';
 import { Customer, ApiResponse } from '@/types';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase-server';
 import bcrypt from 'bcryptjs';
 
 export class CustomerRepository implements ICustomerRepository {
   private readonly tableName = 'customers';
 
+  async findAll(params?: CustomerSearchParams): Promise<ApiResponse<Customer[]>> {
+    try {
+      let query = getSupabaseServer()
+        .from(this.tableName)
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (params?.search) {
+        const s = params.search;
+        query = query.or(`email.ilike.%${s}%,first_name.ilike.%${s}%,last_name.ilike.%${s}%,phone.ilike.%${s}%`);
+      }
+
+      if (params?.limit && params.limit > 0) {
+        query = query.limit(params.limit);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return {
+        success: true,
+        data: (data ?? []).map((r: any) => this.transformDbRecord(r)),
+      };
+    } catch (error) {
+      return { success: false, error: `Failed to list customers: ${error}` };
+    }
+  }
+
   async findById(id: string): Promise<ApiResponse<Customer>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseServer()
         .from(this.tableName)
         .select('*')
         .eq('id', id)
@@ -42,7 +73,7 @@ export class CustomerRepository implements ICustomerRepository {
 
   async findByEmail(email: string): Promise<ApiResponse<Customer>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseServer()
         .from(this.tableName)
         .select('*')
         .eq('email', email.toLowerCase())
@@ -90,7 +121,7 @@ export class CustomerRepository implements ICustomerRepository {
         marketing_opt_in: customer.marketingOptIn,
       };
 
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseServer()
         .from(this.tableName)
         .insert(customerData)
         .select()
@@ -139,7 +170,7 @@ export class CustomerRepository implements ICustomerRepository {
       if (customer.consentGiven !== undefined) updateData.consent_given = customer.consentGiven;
       if (customer.marketingOptIn !== undefined) updateData.marketing_opt_in = customer.marketingOptIn;
 
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseServer()
         .from(this.tableName)
         .update(updateData)
         .eq('id', id)
@@ -174,7 +205,7 @@ export class CustomerRepository implements ICustomerRepository {
 
   async delete(id: string): Promise<ApiResponse<void>> {
     try {
-      const { error } = await supabase
+      const { error } = await getSupabaseServer()
         .from(this.tableName)
         .delete()
         .eq('id', id);
@@ -237,11 +268,12 @@ export class CustomerRepository implements ICustomerRepository {
         country: customer.address.country,
         region: customer.address.region,
         consent_given: customer.consentGiven,
-        marketing_opt_in: customer.marketingOptIn,
+        marketing_opt_in: customer.marketingOptIn ?? false,
+        is_admin: false,
         password_hash: hashedPassword,
       };
 
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseServer()
         .from(this.tableName)
         .insert(customerData)
         .select()
@@ -274,7 +306,7 @@ export class CustomerRepository implements ICustomerRepository {
 
   async changePassword(id: string, currentPassword: string, newPassword: string): Promise<ApiResponse<void>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseServer()
         .from(this.tableName)
         .select('password_hash')
         .eq('id', id)
@@ -290,7 +322,7 @@ export class CustomerRepository implements ICustomerRepository {
       }
 
       const hashedPassword = await bcrypt.hash(newPassword, 12);
-      const { error: updateError } = await supabase
+      const { error: updateError } = await getSupabaseServer()
         .from(this.tableName)
         .update({ password_hash: hashedPassword })
         .eq('id', id);
@@ -307,37 +339,25 @@ export class CustomerRepository implements ICustomerRepository {
 
   async verifyPassword(email: string, password: string): Promise<ApiResponse<Customer>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseServer()
         .from(this.tableName)
         .select('*')
         .eq('email', email.toLowerCase())
         .single();
 
       if (error || !data) {
-        return {
-          success: false,
-          error: 'Invalid email or password',
-        };
+        return { success: false, error: 'Invalid email or password' };
       }
 
       const isValidPassword = await bcrypt.compare(password, data.password_hash);
-
       if (!isValidPassword) {
-        return {
-          success: false,
-          error: 'Invalid email or password',
-        };
+        return { success: false, error: 'Invalid email or password' };
       }
 
-      return {
-        success: true,
-        data: this.transformDbRecord(data),
-      };
+      return { success: true, data: this.transformDbRecord(data) };
     } catch (error) {
-      return {
-        success: false,
-        error: `Authentication failed: ${error}`,
-      };
+      console.error('[auth] verifyPassword failed:', error);
+      return { success: false, error: `Authentication failed: ${error}` };
     }
   }
 }

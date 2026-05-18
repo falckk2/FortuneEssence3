@@ -16,6 +16,8 @@ export interface EmailOptions {
   cc?: string | string[];
   bcc?: string | string[];
   attachments?: EmailAttachment[];
+  /** Stable key passed to Resend as `Idempotency-Key` to deduplicate retried sends. */
+  idempotencyKey?: string;
 }
 
 export interface EmailTemplate {

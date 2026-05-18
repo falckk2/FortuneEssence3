@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { XMarkIcon, CogIcon } from '@heroicons/react/24/outline';
 import { useLocale } from '@/contexts/LocaleContext';
+import { LocalStorageHelper } from '@/utils/helpers';
 
 interface ConsentData {
   marketing: boolean;
@@ -25,21 +26,16 @@ export function CookieConsent() {
   });
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    checkConsentStatus();
-  }, [session]);
-
-  const checkConsentStatus = async () => {
-    // Check localStorage first for non-authenticated users
-    const storedConsent = localStorage.getItem('cookie-consent');
-    
-    if (storedConsent) {
-      const parsed = JSON.parse(storedConsent);
+  const checkConsentStatus = useCallback(async () => {
+    // Check localStorage first for non-authenticated users.
+    // Use LocalStorageHelper so that SecurityError (Safari private mode) and
+    // corrupt JSON are caught and fall through to showing the banner.
+    const parsed = LocalStorageHelper.getItem<ConsentData>('cookie-consent');
+    if (parsed) {
       // Check if consent is recent (less than 1 year old)
       const consentDate = new Date(parsed.updatedAt);
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-      
       if (consentDate > oneYearAgo) {
         return; // Don't show banner
       }
@@ -69,7 +65,14 @@ export function CookieConsent() {
 
     // Show banner if no recent consent found
     setShowBanner(true);
-  };
+  // Depend only on the stable user ID, not the entire session object, to avoid
+  // re-running on every token refresh (ISSUE-014).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    checkConsentStatus();
+  }, [checkConsentStatus]);
 
   const handleAcceptAll = async () => {
     const newConsent = {
@@ -101,8 +104,8 @@ export function CookieConsent() {
     setLoading(true);
     
     try {
-      // Save to localStorage for all users
-      localStorage.setItem('cookie-consent', JSON.stringify(consentData));
+      // Save to localStorage for all users (safe write — handles SecurityError in private mode)
+      LocalStorageHelper.setItem('cookie-consent', consentData);
 
       // Save to server for authenticated users
       if (session?.user?.id) {

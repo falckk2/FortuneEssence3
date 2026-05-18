@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LocaleProvider } from "@/contexts/LocaleContext";
@@ -58,13 +60,35 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read the per-request nonce injected by middleware so we can apply it to
+  // inline scripts, satisfying the nonce-based CSP set on each response.
+  const nonce = (await headers()).get('x-nonce') ?? '';
+
   return (
     <html lang="sv" suppressHydrationWarning>
+      <head>
+        {/* Inline script runs synchronously before first paint to apply the saved
+            theme class, eliminating the light-mode flash on dark-mode page loads.
+            The nonce attribute authorises this script under the nonce-based CSP. */}
+        <Script id="theme-init" strategy="beforeInteractive" nonce={nonce}>{`
+          (function() {
+            try {
+              var saved = localStorage.getItem('theme');
+              var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              if (saved === 'dark' || (!saved && prefersDark)) {
+                document.documentElement.classList.add('dark');
+              } else {
+                document.documentElement.classList.remove('dark');
+              }
+            } catch (e) {}
+          })();
+        `}</Script>
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen overflow-x-hidden bg-cream-100 dark:bg-[#1a1f1e] text-forest-700 dark:text-[#E8EDE8] transition-colors duration-300`}
       >

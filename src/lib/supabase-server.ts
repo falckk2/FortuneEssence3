@@ -14,6 +14,7 @@ let serverClientInstance: SupabaseClient | null = null;
 export function getSupabaseServer(): SupabaseClient {
   // Ensure we're on the server
   if (typeof window !== 'undefined') {
+    console.error('[issue-tracker][supabase-server] called on client'); // [issue-tracker] diagnostic log
     throw new Error('getSupabaseServer() can only be called on the server side');
   }
 
@@ -25,6 +26,13 @@ export function getSupabaseServer(): SupabaseClient {
   const supabaseUrl = config.database.supabaseUrl;
   const supabaseSecretKey = config.database.supabaseSecretKey;
 
+  // [issue-tracker] diagnostic log — first-time server client creation
+  console.log('[issue-tracker][supabase-server] creating server client (first call)', {
+    hasUrl: !!supabaseUrl,
+    hasSecret: !!supabaseSecretKey,
+    urlHost: supabaseUrl ? new URL(supabaseUrl).host : null,
+  });
+
   // Warn at runtime if credentials are missing
   if (process.env.NODE_ENV !== 'production') {
     if (!supabaseUrl || !supabaseSecretKey) {
@@ -33,6 +41,7 @@ export function getSupabaseServer(): SupabaseClient {
   }
 
   if (!supabaseUrl || !supabaseSecretKey) {
+    console.error('[issue-tracker][supabase-server] missing credentials — throwing'); // [issue-tracker] diagnostic log
     throw new Error('Supabase URL and secret key are required for server client');
   }
 

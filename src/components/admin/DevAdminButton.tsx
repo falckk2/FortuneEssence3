@@ -93,7 +93,7 @@ export default function DevAdminButton() {
     <div className="fixed bottom-6 right-52 z-50" ref={menuRef}>
       {/* Menu */}
       {isOpen && (
-        <div className="absolute bottom-16 right-0 w-72 bg-white rounded-lg shadow-2xl border-2 border-gray-200 overflow-hidden mb-2 animate-slideUp">
+        <div className="absolute bottom-16 right-0 w-72 bg-white dark:bg-[#242a28] rounded-lg shadow-2xl border-2 border-gray-200 dark:border-[#3f4946] overflow-hidden mb-2 animate-slideUp">
           {/* Header */}
           <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4">
             <h3 className="font-bold text-lg">🛠️ Dev Admin Panel</h3>
@@ -101,7 +101,7 @@ export default function DevAdminButton() {
           </div>
 
           {/* Menu Items */}
-          <div className="p-2">
+          <div className="p-2 bg-white dark:bg-[#242a28]">
             {/* Test Mode Toggle */}
             <button
               onClick={toggleTestMode}
@@ -118,7 +118,7 @@ export default function DevAdminButton() {
                 </span>
                 <div className="text-left">
                   <p className="font-semibold text-sm">Test Mode</p>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-gray-600 dark:text-[#8A9A8A]">
                     {isLoading
                       ? 'Toggling...'
                       : testModeEnabled === null
@@ -145,12 +145,12 @@ export default function DevAdminButton() {
             </button>
 
             {/* Divider */}
-            <div className="border-t border-gray-200 my-2"></div>
+            <div className="border-t border-gray-200 dark:border-[#3f4946] my-2"></div>
 
             {/* Test Orders */}
             <Link
               href="/test-orders"
-              className="flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-50 transition-colors group"
+              className="flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-50 dark:hover:bg-[#2a3330] transition-colors group"
               onClick={() => setIsOpen(false)}
             >
               <span className="text-2xl">🧪</span>
@@ -158,7 +158,7 @@ export default function DevAdminButton() {
                 <p className="font-semibold text-sm group-hover:text-blue-600">
                   Test Orders
                 </p>
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-gray-600 dark:text-[#8A9A8A]">
                   Create & manage test orders
                 </p>
               </div>
@@ -180,7 +180,7 @@ export default function DevAdminButton() {
             {/* Admin Settings */}
             <Link
               href="/admin/test-config"
-              className="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 transition-colors group"
+              className="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 dark:hover:bg-[#2a3330] transition-colors group"
               onClick={() => setIsOpen(false)}
             >
               <span className="text-2xl">⚙️</span>
@@ -188,7 +188,7 @@ export default function DevAdminButton() {
                 <p className="font-semibold text-sm group-hover:text-purple-600">
                   Test Config
                 </p>
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-gray-600 dark:text-[#8A9A8A]">
                   Advanced test settings
                 </p>
               </div>
@@ -208,21 +208,21 @@ export default function DevAdminButton() {
             </Link>
 
             {/* Divider */}
-            <div className="border-t border-gray-200 my-2"></div>
+            <div className="border-t border-gray-200 dark:border-[#3f4946] my-2"></div>
 
             {/* Documentation */}
             <a
               href="/TEST_SYSTEM_GUIDE.md"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+              className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-[#2a3330] transition-colors group"
             >
               <span className="text-2xl">📚</span>
               <div className="flex-1 text-left">
                 <p className="font-semibold text-sm group-hover:text-gray-700">
                   Documentation
                 </p>
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-gray-600 dark:text-[#8A9A8A]">
                   Test system guide
                 </p>
               </div>
@@ -243,9 +243,9 @@ export default function DevAdminButton() {
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-50 px-4 py-2 text-center">
-            <p className="text-xs text-gray-500">
-              💡 Only visible in development
+          <div className="bg-gray-50 dark:bg-[#1a1f1e] px-4 py-2 text-center">
+            <p className="text-xs text-gray-500 dark:text-[#8A9A8A]">
+              Only visible in development
             </p>
           </div>
         </div>

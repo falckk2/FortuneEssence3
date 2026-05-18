@@ -36,12 +36,17 @@ export class EmailService implements IEmailService {
         };
       }
 
+      const headers: Record<string, string> = {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      };
+      if (options.idempotencyKey) {
+        headers['Idempotency-Key'] = options.idempotencyKey;
+      }
+
       const response = await fetch(this.baseUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           from: options.from || `${this.fromName} <${this.fromEmail}>`,
           to: Array.isArray(options.to) ? options.to : [options.to],

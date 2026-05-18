@@ -16,6 +16,7 @@ const paymentService = container.resolve<IPaymentService>(TOKENS.IPaymentService
 const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
 const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
 
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -242,28 +243,36 @@ async function handleProcessPayment(body: any, userId?: string) {
     const customerName = `${body.firstName || ''} ${body.lastName || ''}`.trim() || 'Kund';
 
     if (customerEmail) {
-      try {
-        await emailService.sendOrderConfirmation(
-          customerEmail,
-          {
-            orderId: order.id,
-            customerName,
-            items: order.items.map((item: any) => ({
-              name: item.productName || item.name || 'Produkt',
-              quantity: item.quantity,
-              price: item.price,
-            })),
-            subtotal: order.total - order.tax - order.shipping,
-            tax: order.tax,
-            shippingCost: order.shipping,
-            total: order.total,
-            shippingAddress: formatAddress(order.shippingAddress),
-            trackingNumber: order.trackingNumber,
-          },
-          'sv'
-        );
-      } catch (emailError) {
-        console.error(`Failed to send customer confirmation email:`, emailError);
+      // For card payments, the Stripe webhook (payment_intent.succeeded) sends the
+      // order confirmation email once Stripe confirms the charge, to avoid duplicates.
+      // For all other payment methods (swish, klarna, bank-transfer) send it here
+      // because there is no Stripe webhook to rely on.
+      const isCardPayment = order.paymentMethod === 'card';
+
+      if (!isCardPayment) {
+        try {
+          await emailService.sendOrderConfirmation(
+            customerEmail,
+            {
+              orderId: order.id,
+              customerName,
+              items: order.items.map((item: any) => ({
+                name: item.productName || item.name || 'Produkt',
+                quantity: item.quantity,
+                price: item.price,
+              })),
+              subtotal: order.total - order.tax - order.shipping,
+              tax: order.tax,
+              shippingCost: order.shipping,
+              total: order.total,
+              shippingAddress: formatAddress(order.shippingAddress),
+              trackingNumber: order.trackingNumber,
+            },
+            'sv'
+          );
+        } catch (emailError) {
+          console.error(`Failed to send customer confirmation email:`, emailError);
+        }
       }
 
       try {

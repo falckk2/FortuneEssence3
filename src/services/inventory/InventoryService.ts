@@ -444,6 +444,7 @@ export class InventoryService implements IInventoryService {
   }
 
   async completeReservation(reservationId: string): Promise<ApiResponse<void>> {
+    console.log('[issue-tracker][inventory] completeReservation start', { reservationId }); // [issue-tracker] diagnostic log
     try {
       // Fetch items before marking completed so we can decrement actual stock.
       // Reservations are soft holds — products.stock is only reduced here at

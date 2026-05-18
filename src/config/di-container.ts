@@ -196,16 +196,24 @@ export function configureDependencyInjection() {
   });
 }
 
-// Wrap resolve to return null instead of throwing when token is unregistered.
-// Prevents module-level resolve calls in route files from crashing during
-// Next.js build-time page data collection (handlers are never invoked at build
-// time, so null services are never actually used).
+// Wrap resolve to return null ONLY during Next.js build-time, where module-level
+// resolve calls in route files must not throw (handlers are never invoked at
+// build time, so null services are never actually used).
+// At runtime, resolution failures are logged and rethrown so the route handler's
+// try/catch produces a real 500 with a stack trace instead of a silent null-deref.
 const _resolve = container.resolve.bind(container);
+const IS_BUILD_TIME = process.env.NEXT_PHASE === 'phase-production-build' || !process.env.SUPABASE_SECRET_KEY;
 (container as any).resolve = function <T>(token: any): T {
   try {
     return _resolve<T>(token);
-  } catch {
-    return null as T;
+  } catch (err) {
+    if (IS_BUILD_TIME) {
+      // At build time it is expected that env vars and registrations are absent.
+      return null as T;
+    }
+    // At runtime a resolution failure is a real error — log and rethrow.
+    console.error('[di] resolve failed at runtime for token', String(token), err);
+    throw err;
   }
 };
 

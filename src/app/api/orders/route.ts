@@ -3,26 +3,29 @@ import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import type { IOrderService } from '@/interfaces';
+import type { IOrderService, ICustomerRepository } from '@/interfaces';
 import { container, TOKENS } from '@/config/di-container';
 
 const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
+const customerRepository = container.resolve<ICustomerRepository>(TOKENS.ICustomerRepository);
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
 
-    // Track-by-order doesn't require authentication
+    // Track-by-order: unauthenticated but requires a second factor (email) to
+    // prevent information disclosure when an order ID leaks via URL/referrer.
     if (action === 'track-by-order') {
       const orderNumber = searchParams.get('orderNumber');
-      if (!orderNumber) {
+      const email = searchParams.get('email');
+      if (!orderNumber || !email) {
         return NextResponse.json(
-          { success: false, error: 'Order number is required' },
+          { success: false, error: 'Order number and email are required' },
           { status: 400 }
         );
       }
-      return handleTrackByOrderNumber(orderNumber);
+      return handleTrackByOrderNumber(orderNumber, email);
     }
 
     // All other actions require authentication
@@ -73,6 +76,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('[issue-tracker][orders-route] POST start'); // [issue-tracker] diagnostic log
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -84,6 +88,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { action } = body;
+    console.log('[issue-tracker][orders-route] POST action', { action, userId: session.user.id }); // [issue-tracker] diagnostic log
 
     switch (action) {
       case 'create':
@@ -359,11 +364,12 @@ async function handleUpdateOrderStatus(orderId: string, status: string, userId: 
   }
 }
 
-async function handleTrackByOrderNumber(orderNumber: string) {
+async function handleTrackByOrderNumber(orderNumber: string, email: string) {
   try {
     const result = await orderService.getOrder(orderNumber);
 
     if (!result.success || !result.data) {
+      // Always return 404 (not 401/403) to avoid revealing whether the order exists.
       return NextResponse.json(
         { success: false, error: 'Order not found' },
         { status: 404 }
@@ -372,13 +378,26 @@ async function handleTrackByOrderNumber(orderNumber: string) {
 
     const order = result.data;
 
+    // Verify the supplied email matches the customer on this order.
+    // Normalise both sides to prevent case-sensitivity bypasses.
+    // Return 404 either way to avoid confirming order existence on mismatch.
+    const customerResult = await customerRepository.findById(order.customerId);
+    const customerEmail = (customerResult.data?.email ?? '').toLowerCase().trim();
+    const suppliedEmail = email.toLowerCase().trim();
+    if (!customerEmail || customerEmail !== suppliedEmail) {
+      return NextResponse.json(
+        { success: false, error: 'Order not found' },
+        { status: 404 }
+      );
+    }
+
+    // Return only the fields needed for tracking — omit total and createdAt
+    // to minimise information disclosure if the link is shared.
     return NextResponse.json({
       success: true,
       data: {
         id: order.id,
         status: order.status,
-        total: order.total,
-        createdAt: order.createdAt,
         trackingNumber: order.trackingNumber,
         carrier: order.carrier || 'PostNord',
       },

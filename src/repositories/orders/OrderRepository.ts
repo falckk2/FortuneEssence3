@@ -53,6 +53,7 @@ export class OrderRepository extends BaseRepository<Order> implements IOrderRepo
       payment_id: order.paymentId,
       tracking_number: order.trackingNumber,
       carrier: order.carrier,
+      reservation_id: order.reservationId,
     });
   }
 
@@ -214,6 +215,7 @@ export class OrderRepository extends BaseRepository<Order> implements IOrderRepo
       paymentId: record.payment_id,
       trackingNumber: record.tracking_number,
       carrier: record.carrier,
+      reservationId: record.reservation_id,
       createdAt: new Date(record.created_at),
       updatedAt: new Date(record.updated_at),
     };
