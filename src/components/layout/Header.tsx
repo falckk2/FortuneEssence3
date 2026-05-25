@@ -147,7 +147,7 @@ export const Header = () => {
                 {/* Subtle glow effect */}
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-400 to-yellow-600 rounded-full blur-md opacity-20 group-hover:opacity-30 transition-opacity"></div>
               </div>
-              <div className="flex flex-col">
+              <div className="hidden sm:flex flex-col">
                 <span className="text-2xl font-serif font-bold text-forest-800 dark:text-[#E8EDE8] tracking-tight leading-none group-hover:text-sage-700 dark:group-hover:text-sage-400 transition-colors">
                   Fortune Essence
                 </span>
@@ -227,7 +227,7 @@ export const Header = () => {
             <CartIcon />
 
             {/* User menu */}
-            <div className="relative group">
+            <div className="relative group hidden sm:block">
               <button className="p-2 text-forest-600 hover:text-forest-900 dark:text-[#B8C5B8] dark:hover:text-[#E8EDE8] transition-colors">
                 <UserIcon className="h-6 w-6" />
               </button>
@@ -337,6 +337,51 @@ export const Header = () => {
                 )}
               </div>
             ))}
+
+            {/* Mobile account links */}
+            <div className="border-t border-cream-200 dark:border-[#3f4946] pt-3 space-y-1">
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    href="/account"
+                    className="block py-2 text-forest-700 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] font-medium transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {locale === 'sv' ? 'Mitt konto' : 'My Account'}
+                  </Link>
+                  <Link
+                    href="/account/orders"
+                    className="block py-2 text-forest-700 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] font-medium transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {locale === 'sv' ? 'Mina beställningar' : 'My Orders'}
+                  </Link>
+                  <button
+                    onClick={() => { handleSignOut(); setIsMobileMenuOpen(false); }}
+                    className="block w-full text-left py-2 text-forest-700 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] font-medium transition-colors"
+                  >
+                    {locale === 'sv' ? 'Logga ut' : 'Sign Out'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/auth/signin"
+                    className="block py-2 text-forest-700 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] font-medium transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {locale === 'sv' ? 'Logga in' : 'Sign In'}
+                  </Link>
+                  <Link
+                    href="/auth/signup"
+                    className="block py-2 text-forest-700 dark:text-[#B8C5B8] hover:text-sage-700 dark:hover:text-[#E8EDE8] font-medium transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {locale === 'sv' ? 'Skapa konto' : 'Sign Up'}
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
