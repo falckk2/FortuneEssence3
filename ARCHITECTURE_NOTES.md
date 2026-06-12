@@ -1,6 +1,6 @@
 # Architecture Notes — Handoff for Future Agents/Developers
 
-_Last updated: 2026-06-11 (Claude Fable 5 session — FABLE-008/010/011/015/016/017)._
+_Last updated: 2026-06-12 (Claude Fable 5 session — FABLE-008/010/011/015/016/017; §5 DI/async-module gotcha)._
 _Cross-reference: `fable_issues.md` for the issue-by-issue history, `issues.md` for the older ISSUE-XXX registry._
 
 This file documents deliberate architectural decisions made during the June 2026
@@ -147,7 +147,31 @@ how it works, and where the bodies are buried.
 
 ---
 
-## 5. Things that look wrong but aren't
+## 5. DI container vs webpack "async modules" (2026-06-12)
+
+- `configureDependencyInjection()` loads every service with a CommonJS-style
+  `require()`. If a service module (or anything it statically imports) becomes
+  a webpack **async module**, that `require()` silently returns `{}`, the
+  registration becomes `useClass: undefined`, and resolving the token throws
+  `TypeInfo not known for "undefined"` at runtime — surfacing as an HTML 500
+  from any route that resolves the service at module scope (the client then
+  reports `Unexpected token '<' … is not valid JSON`).
+- What makes a module async: top-level await, or a static import of a package
+  that is **externalized as ESM**. That second case is what broke
+  `IShippingService`: `bwip-js` is in `serverExternalPackages`
+  (next.config.ts) and its `node`+`import` export condition resolves to an
+  `.mjs` build, so importing it made `LabelGenerationService` (and everything
+  that imports it) async.
+- Fix/rule: services registered in the DI container must not statically import
+  ESM-externalized packages. Import them lazily inside the method instead —
+  see `LabelGenerationService.generateBarcode()` (`await import('bwip-js')`).
+  If you add a package to `serverExternalPackages`, check whether its `import`
+  condition points at an ESM build before importing it from a DI-registered
+  module.
+
+---
+
+## 6. Things that look wrong but aren't
 
 - `next build` warns about multiple lockfiles — known, benign.
 - The `sveltekit/` directory is excluded in `tsconfig.json`; don't remove the

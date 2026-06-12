@@ -420,13 +420,15 @@ describe('CartService - Abandoned Cart Methods', () => {
     });
 
     it('should handle recovery at exactly 30 days', async () => {
-      // Arrange
-      const exactDate = new Date();
-      exactDate.setDate(exactDate.getDate() - 30); // Exactly 30 days ago
+      // Arrange — pin Date.now: the boundary is exact, so any wall-clock
+      // drift between building the date and the service reading the clock
+      // would flip the result (this test used to be flaky).
+      const fixedNow = new Date('2026-01-31T12:00:00Z').getTime();
+      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
 
       const exactCart: AbandonedCart = {
         ...mockAbandonedCart,
-        abandonedAt: exactDate,
+        abandonedAt: new Date(fixedNow - 30 * 24 * 60 * 60 * 1000), // exactly 30 days ago
       };
 
       mockAbandonedCartRepository.findByRecoveryToken.mockResolvedValue({
@@ -434,13 +436,17 @@ describe('CartService - Abandoned Cart Methods', () => {
         data: exactCart,
       });
 
-      // Act
-      const result = await cartService.recoverAbandonedCart('token-abc123');
+      try {
+        // Act
+        const result = await cartService.recoverAbandonedCart('token-abc123');
 
-      // Assert
-      // Should allow recovery (not greater than 30)
-      expect(result.success).toBe(true);
-      expect(mockAbandonedCartRepository.markExpired).not.toHaveBeenCalled();
+        // Assert
+        // Should allow recovery (not greater than 30)
+        expect(result.success).toBe(true);
+        expect(mockAbandonedCartRepository.markExpired).not.toHaveBeenCalled();
+      } finally {
+        nowSpy.mockRestore();
+      }
     });
   });
 });

@@ -8,10 +8,12 @@ jest.mock('@/lib/supabase', () => ({
   supabase: null,
 }));
 
-// Mock tsyringe
+// Mock tsyringe. The container must exist because di-container.ts wraps
+// container.resolve at module scope (build-time guard).
 jest.mock('tsyringe', () => ({
   injectable: () => (target: any) => target,
   inject: () => (target: any, propertyKey: string, parameterIndex: number) => {},
+  container: { resolve: jest.fn(), register: jest.fn() },
 }));
 
 describe('ProductRepository', () => {

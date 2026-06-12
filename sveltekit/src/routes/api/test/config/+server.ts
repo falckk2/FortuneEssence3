@@ -14,7 +14,7 @@ function getTestModeStatus(): boolean {
 
 function updateEnvFile(enabled: boolean): boolean {
 	try {
-		let content = existsSync(ENV_LOCAL_PATH) ? readFileSync(ENV_LOCAL_PATH, 'utf-8') : '';
+		const content = existsSync(ENV_LOCAL_PATH) ? readFileSync(ENV_LOCAL_PATH, 'utf-8') : '';
 		const lines = content.split('\n').filter(l => !l.trim().startsWith('ENABLE_TEST_ENDPOINTS'));
 		lines.push(`ENABLE_TEST_ENDPOINTS=${enabled ? 'true' : 'false'}`);
 		writeFileSync(ENV_LOCAL_PATH, lines.join('\n'));

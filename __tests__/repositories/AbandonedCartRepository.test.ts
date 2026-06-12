@@ -3,9 +3,9 @@ import { createMockSupabaseClient, mockSupabaseSuccess, mockSupabaseError, mockS
 import { mockAbandonedCart, mockDbAbandonedCart, mockCartItems } from '../helpers/testData';
 import type { AbandonedCartCreateData } from '@/types';
 
-// Mock the supabase module
-jest.mock('@/lib/supabase', () => ({
-  supabase: null, // Will be replaced in each test
+// Repositories use the service-role client since FABLE-013/015.
+jest.mock('@/lib/supabase-server', () => ({
+  getSupabaseServer: jest.fn(),
 }));
 
 describe('AbandonedCartRepository', () => {
@@ -19,9 +19,9 @@ describe('AbandonedCartRepository', () => {
     // Create new mock supabase client
     mockSupabase = createMockSupabaseClient();
 
-    // Replace the mocked supabase with our test version
-    const supabaseModule = require('@/lib/supabase');
-    supabaseModule.supabase = mockSupabase;
+    // Wire the mocked service-role client factory to our test client
+    const { getSupabaseServer } = require('@/lib/supabase-server');
+    (getSupabaseServer as jest.Mock).mockReturnValue(mockSupabase);
 
     // Create repository instance
     repository = new AbandonedCartRepository();

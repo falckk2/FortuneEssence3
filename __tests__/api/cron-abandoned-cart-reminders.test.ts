@@ -31,6 +31,13 @@ jest.mock('@/config/di-container', () => ({
 import { GET } from '@/app/api/cron/send-abandoned-cart-reminders/route';
 import { container } from '@/config/di-container';
 
+// The route fails closed (401 whenever CRON_SECRET is unset), so functional
+// tests must authenticate the way Vercel Cron does.
+const authedRequest = () =>
+  new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders', {
+    headers: { authorization: 'Bearer test-secret' },
+  });
+
 describe('Abandoned Cart Reminders Cron Job', () => {
   let mockCartService: jest.Mocked<ICartService>;
   let mockEmailService: jest.Mocked<IEmailService>;
@@ -91,7 +98,9 @@ describe('Abandoned Cart Reminders Cron Job', () => {
     it('should require authorization header with cron secret', async () => {
       // Arrange
       process.env.CRON_SECRET = 'test-secret';
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = new NextRequest(
+        'http://localhost:3000/api/cron/send-abandoned-cart-reminders'
+      ); // deliberately unauthenticated
 
       // Act
       const response = await GET(request);
@@ -157,7 +166,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
 
   describe('Cron Job Execution', () => {
     beforeEach(() => {
-      delete process.env.CRON_SECRET; // No auth required for these tests
+      process.env.CRON_SECRET = 'test-secret';
     });
 
     it('should return success when no abandoned carts found', async () => {
@@ -167,7 +176,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         data: [],
       });
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       const response = await GET(request);
@@ -206,7 +215,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         success: true,
       });
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       const response = await GET(request);
@@ -250,7 +259,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         success: true,
       });
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       await GET(request);
@@ -299,7 +308,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         success: true,
       });
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       await GET(request);
@@ -346,7 +355,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         success: true,
       });
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       const response = await GET(request);
@@ -382,7 +391,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         error: 'Database error',
       });
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       const response = await GET(request);
@@ -415,7 +424,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         success: true,
       });
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       await GET(request);
@@ -431,7 +440,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
 
   describe('Error Handling', () => {
     beforeEach(() => {
-      delete process.env.CRON_SECRET;
+      process.env.CRON_SECRET = 'test-secret';
     });
 
     it('should return error when getAbandonedCartsForReminder fails', async () => {
@@ -441,7 +450,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         error: 'Database connection failed',
       });
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       const response = await GET(request);
@@ -459,7 +468,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         new Error('Unexpected error')
       );
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       const response = await GET(request);
@@ -477,7 +486,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
     let consoleErrorSpy: jest.SpyInstance;
 
     beforeEach(() => {
-      delete process.env.CRON_SECRET;
+      process.env.CRON_SECRET = 'test-secret';
       consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
       consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
     });
@@ -494,7 +503,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         data: [],
       });
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       await GET(request);
@@ -526,7 +535,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         success: true,
       });
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       await GET(request);
@@ -558,7 +567,7 @@ describe('Abandoned Cart Reminders Cron Job', () => {
         success: true,
       });
 
-      const request = new NextRequest('http://localhost:3000/api/cron/send-abandoned-cart-reminders');
+      const request = authedRequest();
 
       // Act
       await GET(request);

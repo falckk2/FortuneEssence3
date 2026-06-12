@@ -128,7 +128,8 @@ export async function POST(request: NextRequest) {
         ip_address: ipAddress,
         user_agent: userAgent,
         source: 'website',
-        subscribed_at: new Date().toISOString(),
+        // Subscription time is the row's created_at (defaults to now());
+        // the table has no subscribed_at column.
       })
       .select()
       .single();

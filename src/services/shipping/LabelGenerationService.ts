@@ -6,7 +6,6 @@
 
 import { injectable } from 'tsyringe';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import bwipjs from 'bwip-js';
 import QRCode from 'qrcode';
 import path from 'path';
 import { getSupabaseServer } from '@/lib/supabase-server';
@@ -269,6 +268,12 @@ export class LabelGenerationService {
    * Generate Code 128 barcode
    */
   private async generateBarcode(trackingNumber: string): Promise<Buffer> {
+    // bwip-js is in serverExternalPackages and resolves to an ESM build; a
+    // static import would turn this whole module into a webpack "async module",
+    // whose exports are empty when the DI container loads it via require()
+    // (the IShippingService chain then fails to resolve). Import it lazily so
+    // this module stays synchronous.
+    const bwipjs = (await import('bwip-js')).default;
     return bwipjs.toBuffer({
       bcid: 'code128',
       text: trackingNumber,

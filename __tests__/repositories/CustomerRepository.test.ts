@@ -3,9 +3,9 @@ import { createMockSupabaseClient, mockSupabaseSuccess, mockSupabaseError, mockS
 import type { Customer, Address } from '@/types';
 import bcrypt from 'bcryptjs';
 
-// Mock the supabase module
-jest.mock('@/lib/supabase', () => ({
-  supabase: null,
+// Repositories use the service-role client since FABLE-013/015.
+jest.mock('@/lib/supabase-server', () => ({
+  getSupabaseServer: jest.fn(),
 }));
 
 // Mock bcryptjs
@@ -46,8 +46,8 @@ describe('CustomerRepository', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSupabase = createMockSupabaseClient();
-    const supabaseModule = require('@/lib/supabase');
-    supabaseModule.supabase = mockSupabase;
+    const { getSupabaseServer } = require('@/lib/supabase-server');
+    (getSupabaseServer as jest.Mock).mockReturnValue(mockSupabase);
     repository = new CustomerRepository();
   });
 

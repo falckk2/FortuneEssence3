@@ -21,6 +21,7 @@ import CarrierOption from './CarrierOption';
 import { BundleImage } from '@/components/bundles/BundleImage';
 
 interface CartItemWithProduct {
+  cartItemId?: string;
   productId: string;
   quantity: number;
   price: number;
@@ -845,7 +846,7 @@ export const CheckoutForm = ({ locale = 'sv', onSuccess }: CheckoutFormProps) =>
                 </div>
               ) : (
                 cartItems.map((item) => (
-                  <div key={item.productId} className="flex gap-3">
+                  <div key={item.cartItemId || item.productId} className="flex gap-3">
                     <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-cream-200 dark:border-[#3f4946] flex items-center justify-center">
                       {item.bundleSelection && item.selectedProducts && item.selectedProducts.length > 0 ? (
                         <div className="bg-gradient-to-br from-sage-50 to-forest-50 dark:from-[#2a3330] dark:to-[#242a28] w-full h-full flex items-center justify-center">

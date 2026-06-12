@@ -2,9 +2,9 @@ import { InventoryRepository } from '@/repositories/inventory/InventoryRepositor
 import { createMockSupabaseClient, mockSupabaseSuccess, mockSupabaseError, mockSupabaseNotFound } from '../helpers/mockSupabase';
 import type { InventoryItem } from '@/types';
 
-// Mock the supabase module
-jest.mock('@/lib/supabase', () => ({
-  supabase: null,
+// Repositories use the service-role client since FABLE-013/015.
+jest.mock('@/lib/supabase-server', () => ({
+  getSupabaseServer: jest.fn(),
 }));
 
 describe('InventoryRepository', () => {
@@ -30,8 +30,8 @@ describe('InventoryRepository', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSupabase = createMockSupabaseClient();
-    const supabaseModule = require('@/lib/supabase');
-    supabaseModule.supabase = mockSupabase;
+    const { getSupabaseServer } = require('@/lib/supabase-server');
+    (getSupabaseServer as jest.Mock).mockReturnValue(mockSupabase);
     repository = new InventoryRepository();
   });
 
