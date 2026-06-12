@@ -1,546 +1,187 @@
-'use client';
+export const dynamic = 'force-dynamic';
+import '@/config/di-init';
+import type { Metadata } from 'next';
+import { cache } from 'react';
+import { headers } from 'next/headers';
+import { notFound } from 'next/navigation';
+import { container, TOKENS } from '@/config/di-container';
+import type { IProductService } from '@/interfaces';
+import type { IReviewRepository, RatingStats } from '@/repositories/reviews/ReviewRepository';
+import type { Locale, Product } from '@/types';
+import { localizedAlternates, localizePath } from '@/lib/i18n';
+import { getRequestLocale } from '@/lib/i18n-server';
+import ProductDetailClient from './ProductDetailClient';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { Product, BundleConfiguration } from '@/types';
-import { PriceCalculator } from '@/utils/helpers';
-import { getProductBenefits } from '@/utils/productBenefits';
-import { useCartStore } from '@/stores/cartStore';
-import { useWishlistStore } from '@/stores/wishlistStore';
-import { ProductGrid } from '@/components/products/ProductGrid';
-import { ProductReviews } from '@/components/products/ProductReviews';
-import { BundleSelector, BundleImage } from '@/components/bundles';
-import {
-  ShoppingCartIcon,
-  HeartIcon,
-  ArrowLeftIcon,
-  CheckCircleIcon,
-  TruckIcon,
-  ShieldCheckIcon
-} from '@heroicons/react/24/outline';
-import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
-import toast from 'react-hot-toast';
-import { useLocale } from '@/contexts/LocaleContext';
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-export default function ProductDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const { data: session } = useSession();
-  const productId = params.id as string;
-
-  const [product, setProduct] = useState<Product | null>(null);
-  const [bundleConfig, setBundleConfig] = useState<BundleConfiguration | null>(null);
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedImage, setSelectedImage] = useState(0);
-  const [quantity, setQuantity] = useState(1);
-  const [imageError, setImageError] = useState(false);
-  const { locale } = useLocale();
-
-  const { addItem, isLoading: cartLoading } = useCartStore();
-  const { items: wishlistItems, addItem: addToWishlist, removeItem: removeFromWishlist, setAuthenticated, refreshWishlist } = useWishlistStore();
-
-  const isInWishlist = wishlistItems.some(item => item.productId === productId);
-
-  // Sync authentication state with wishlist store
-  useEffect(() => {
-    const isAuth = !!session?.user;
-    setAuthenticated(isAuth);
-
-    if (isAuth) {
-      refreshWishlist();
+// Deduped across generateMetadata and the page render within one request.
+const getProduct = cache(async (id: string, locale: Locale): Promise<{ product: Product | null; missing: boolean }> => {
+  try {
+    const productService = container.resolve<IProductService>(TOKENS.IProductService);
+    const result = await productService.getProductWithLocalization(id, locale);
+    if (result.success && result.data) {
+      return { product: result.data, missing: false };
     }
-  }, [session, setAuthenticated, refreshWishlist]);
-
-  useEffect(() => {
-    const fetchProductData = async () => {
-      setLoading(true);
-      try {
-        // Fetch product details
-        const productResponse = await fetch(`/api/products/${productId}`);
-        const productData = await productResponse.json();
-
-        if (productData.success && productData.data) {
-          setProduct(productData.data);
-
-          // If this is a bundle product, fetch bundle configuration
-          if (productData.data.category === 'bundles') {
-            const bundleResponse = await fetch(`/api/bundles/${productId}`);
-            const bundleData = await bundleResponse.json();
-            if (bundleData.success && bundleData.data) {
-              setBundleConfig(bundleData.data);
-            }
-          }
-
-          // Fetch related products
-          const relatedResponse = await fetch(`/api/products?category=${productData.data.category}&limit=4`);
-          const relatedData = await relatedResponse.json();
-
-          if (relatedData.success) {
-            // Filter out current product and limit to 4
-            const filtered = relatedData.data
-              .filter((p: Product) => p.id !== productId)
-              .slice(0, 4);
-            setRelatedProducts(filtered);
-          }
-        } else {
-          toast.error(locale === 'sv' ? 'Produkten hittades inte' : 'Product not found');
-          router.push('/products');
-        }
-      } catch (error) {
-        console.error('Failed to fetch product:', error);
-        toast.error(locale === 'sv' ? 'Kunde inte ladda produkten' : 'Failed to load product');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProductData();
-  }, [productId, router, locale]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-cream-50 flex items-center justify-center">
-        <div className="w-16 h-16 border-4 border-sage-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    if (result.error !== 'Product not found') {
+      console.error('[product-page] product fetch returned error:', result.error);
+    }
+    return { product: null, missing: result.error === 'Product not found' };
+  } catch (error) {
+    // On infrastructure failure, fall through to the client-side fetch rather
+    // than 404ing a product that exists.
+    console.error('[product-page] server-side product fetch failed:', error);
+    return { product: null, missing: false };
   }
+});
 
-  if (!product) {
+const getRatingStats = cache(async (id: string): Promise<RatingStats | null> => {
+  try {
+    const reviewRepository = container.resolve<IReviewRepository>(TOKENS.IReviewRepository);
+    const result = await reviewRepository.getRatingStats(id);
+    if (!result.success) {
+      // A silent null here once masked missing service_role grants (FABLE-018).
+      console.error('[product-page] rating stats returned error:', result.error);
+    }
+    return result.success && result.data ? result.data : null;
+  } catch (error) {
+    console.error('[product-page] rating stats fetch failed:', error);
     return null;
   }
+});
 
-  const localizedName = product.translations[locale].name;
-  const localizedDescription = product.translations[locale].description;
-  const formattedPrice = PriceCalculator.formatPrice(product.price, locale);
-  const isOutOfStock = product.stock === 0;
-  const isLowStock = product.stock > 0 && product.stock <= 5;
-  const productBenefits = getProductBenefits(product.name, product.category);
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
 
-  const getProductImages = () => {
-    if (imageError || !product.images || product.images.length === 0) {
-      return ['/images/placeholder-product.jpg'];
-    }
-    return product.images;
+function localizedProductFields(product: Product, locale: Locale) {
+  const translation = product.translations?.[locale];
+  return {
+    name: translation?.name || product.name,
+    description: translation?.description || product.description || '',
   };
+}
 
-  const images = getProductImages();
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const locale = await getRequestLocale();
+  const { product } = await getProduct(id, locale);
 
-  const handleAddToCart = async () => {
-    if (isOutOfStock || quantity <= 0) return;
+  if (!product) {
+    return { title: locale === 'sv' ? 'Produkt' : 'Product' };
+  }
 
-    try {
-      await addItem({
-        productId: product.id,
-        quantity,
-        price: product.price
-      });
-      toast.success(
-        locale === 'sv'
-          ? `${quantity} st ${localizedName} tillagd i varukorgen`
-          : `${quantity} ${localizedName} added to cart`
-      );
-    } catch {
-      toast.error(locale === 'sv' ? 'Kunde inte lägga till i varukorgen' : 'Failed to add to cart');
-    }
+  const { name, description } = localizedProductFields(product, locale);
+  const image = product.images?.[0];
+
+  return {
+    title: name,
+    description: description.slice(0, 160),
+    alternates: localizedAlternates(`/products/${id}`, locale),
+    openGraph: {
+      title: name,
+      description: description.slice(0, 160),
+      type: 'website',
+      url: localizePath(`/products/${id}`, locale),
+      images: image ? [{ url: image, alt: name }] : undefined,
+    },
   };
+}
 
-  const handleToggleWishlist = async () => {
-    // Check if user is authenticated
-    if (!session?.user) {
-      toast.error(
-        locale === 'sv'
-          ? 'Du måste vara inloggad för att använda önskelistan'
-          : 'You must be logged in to use the wishlist'
-      );
-      router.push('/auth/signin');
-      return;
-    }
+function buildProductJsonLd(product: Product, locale: Locale, ratingStats: RatingStats | null) {
+  const { name, description } = localizedProductFields(product, locale);
 
-    try {
-      if (isInWishlist) {
-        await removeFromWishlist(productId);
-      } else {
-        await addToWishlist(product.id);
-      }
-    } catch (error) {
-      console.error('Failed to toggle wishlist:', error);
-      toast.error(
-        locale === 'sv'
-          ? 'Kunde inte uppdatera önskelistan'
-          : 'Failed to update wishlist'
-      );
-    }
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name,
+    description,
+    sku: product.sku,
+    image: product.images?.length ? product.images : undefined,
+    brand: { '@type': 'Brand', name: 'Fortune Essence' },
+    // Only emitted with actual review data — empty/fabricated rating markup
+    // risks a rich-result penalty.
+    aggregateRating: ratingStats && ratingStats.count > 0
+      ? {
+          '@type': 'AggregateRating',
+          ratingValue: ratingStats.average,
+          reviewCount: ratingStats.count,
+          bestRating: 5,
+          worstRating: 1,
+        }
+      : undefined,
+    offers: {
+      '@type': 'Offer',
+      url: `${appUrl}${localizePath(`/products/${product.id}`, locale)}`,
+      price: product.price,
+      priceCurrency: 'SEK',
+      availability: product.stock > 0
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+    },
   };
+}
 
-  const incrementQuantity = () => {
-    if (quantity < product.stock) {
-      setQuantity(q => q + 1);
-    }
+function buildBreadcrumbJsonLd(product: Product, locale: Locale) {
+  const { name } = localizedProductFields(product, locale);
+  const homePath = localizePath('/', locale);
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: locale === 'sv' ? 'Hem' : 'Home',
+        item: homePath === '/' ? appUrl : `${appUrl}${homePath}`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: locale === 'sv' ? 'Produkter' : 'Products',
+        item: `${appUrl}${localizePath('/products', locale)}`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name,
+        item: `${appUrl}${localizePath(`/products/${product.id}`, locale)}`,
+      },
+    ],
   };
+}
 
-  const decrementQuantity = () => {
-    if (quantity > 1) {
-      setQuantity(q => q - 1);
-    }
-  };
+export default async function ProductDetailPage({ params }: PageProps) {
+  const { id } = await params;
+  const locale = await getRequestLocale();
+  const { product, missing } = await getProduct(id, locale);
 
-  const getCategoryColor = (category: string) => {
-    const colors: { [key: string]: string } = {
-      'essential-oils': 'bg-sage-100 text-sage-700 border-sage-200',
-      'carrier-oils': 'bg-terracotta-100 text-terracotta-700 border-terracotta-200',
-      'diffusers': 'bg-cream-300 text-forest-700 border-cream-400',
-      'accessories': 'bg-forest-100 text-forest-700 border-forest-200',
-      'gift-sets': 'bg-rose-100 text-rose-700 border-rose-200',
-      'bundles': 'bg-gradient-to-r from-sage-100 to-forest-100 text-forest-800 border-sage-300',
-    };
-    return colors[category] || 'bg-cream-200 text-forest-700 border-cream-300';
-  };
+  if (missing) {
+    notFound();
+  }
 
-  const getCategoryName = (category: string) => {
-    const names: { [key: string]: { sv: string; en: string } } = {
-      'essential-oils': { sv: 'Eteriska oljor', en: 'Essential Oils' },
-      'carrier-oils': { sv: 'Bäraroljor', en: 'Carrier Oils' },
-      'diffusers': { sv: 'Diffusers', en: 'Diffusers' },
-      'accessories': { sv: 'Tillbehör', en: 'Accessories' },
-      'gift-sets': { sv: 'Presentset', en: 'Gift Sets' },
-      'bundles': { sv: 'Paket', en: 'Bundles' },
-    };
-    return names[category]?.[locale] || category;
-  };
+  const ratingStats = product ? await getRatingStats(id) : null;
 
-  const handleAddToCartFromRelated = async (relatedProductId: string) => {
-    try {
-      const relatedProduct = relatedProducts.find(p => p.id === relatedProductId);
-      if (!relatedProduct) return;
-
-      await addItem({
-        productId: relatedProductId,
-        quantity: 1,
-        price: relatedProduct.price
-      });
-      toast.success(
-        locale === 'sv'
-          ? 'Produkt tillagd i varukorgen'
-          : 'Product added to cart'
-      );
-    } catch {
-      toast.error(locale === 'sv' ? 'Kunde inte lägga till i varukorgen' : 'Failed to add to cart');
-    }
-  };
-
-  const handleToggleWishlistFromRelated = async (relatedProductId: string) => {
-    // Check if user is authenticated
-    if (!session?.user) {
-      toast.error(
-        locale === 'sv'
-          ? 'Du måste vara inloggad för att använda önskelistan'
-          : 'You must be logged in to use the wishlist'
-      );
-      router.push('/auth/signin');
-      return;
-    }
-
-    const relatedProduct = relatedProducts.find(p => p.id === relatedProductId);
-    if (!relatedProduct) return;
-
-    try {
-      const inWishlist = wishlistItems.some(item => item.productId === relatedProductId);
-      if (inWishlist) {
-        await removeFromWishlist(relatedProductId);
-        toast.success(locale === 'sv' ? 'Borttagen från önskelista' : 'Removed from wishlist');
-      } else {
-        await addToWishlist(relatedProduct.id);
-        toast.success(locale === 'sv' ? 'Tillagd i önskelista' : 'Added to wishlist');
-      }
-    } catch (error) {
-      console.error('Failed to toggle wishlist:', error);
-      toast.error(
-        locale === 'sv'
-          ? 'Kunde inte uppdatera önskelistan'
-          : 'Failed to update wishlist'
-      );
-    }
-  };
+  // The CSP is nonce-based (src/middleware.ts) — inline JSON-LD must carry the nonce.
+  const nonce = (await headers()).get('x-nonce') ?? '';
 
   return (
-    <div className="min-h-screen bg-cream-50">
-      {/* Back Button */}
-      <div className="bg-white border-b border-cream-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Link
-            href="/products"
-            className="inline-flex items-center text-forest-600 hover:text-sage-700 transition-colors"
-          >
-            <ArrowLeftIcon className="h-5 w-5 mr-2" />
-            <span className="font-medium">
-              {locale === 'sv' ? 'Tillbaka till produkter' : 'Back to products'}
-            </span>
-          </Link>
-        </div>
-      </div>
-
-      {/* Product Detail */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-          {/* Image Gallery */}
-          <div className="space-y-4">
-            {/* Main Image */}
-            <div className="relative aspect-square w-full overflow-hidden rounded-3xl bg-gradient-to-br from-sage-50 to-forest-50 shadow-soft flex items-center justify-center">
-              {product.category === 'bundles' && bundleConfig ? (
-                // Show layered bundle image
-                <div className="p-8">
-                  <BundleImage quantity={bundleConfig.requiredQuantity} />
-                </div>
-              ) : (
-                // Show regular product image
-                <Image
-                  src={images[selectedImage]}
-                  alt={localizedName}
-                  fill
-                  className="object-cover object-center"
-                  onError={() => setImageError(true)}
-                  priority
-                />
-              )}
-
-              {/* Benefit Badges on Image */}
-              {productBenefits.length > 0 && (
-                <div className="absolute top-4 left-4 flex flex-wrap gap-2 z-10">
-                  {productBenefits.map((benefit) => (
-                    <span
-                      key={benefit.key}
-                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium backdrop-blur-sm border ${benefit.color} shadow-md`}
-                    >
-                      <span>{benefit.icon}</span>
-                      <span>{benefit.label[locale]}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Thumbnail Images - only show for non-bundle products with multiple images */}
-            {product.category !== 'bundles' && images.length > 1 && (
-              <div className="grid grid-cols-4 gap-3">
-                {images.map((image, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImage(index)}
-                    className={`relative aspect-square overflow-hidden rounded-2xl transition-all ${
-                      selectedImage === index
-                        ? 'ring-4 ring-sage-600 shadow-lg scale-105'
-                        : 'ring-2 ring-cream-200 hover:ring-sage-400 opacity-70 hover:opacity-100'
-                    }`}
-                  >
-                    <Image
-                      src={image}
-                      alt={`${localizedName} - ${index + 1}`}
-                      fill
-                      className="object-cover"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Product Info */}
-          <div className="space-y-6">
-            {/* Category Badge */}
-            <div>
-              <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border ${getCategoryColor(product.category)}`}>
-                {getCategoryName(product.category)}
-              </span>
-            </div>
-
-            {/* Product Name */}
-            <div>
-              <h1 className="text-4xl lg:text-5xl font-serif font-bold text-forest-800 leading-tight mb-2">
-                {localizedName}
-              </h1>
-              <p className="text-forest-600 text-sm">
-                {locale === 'sv' ? 'Art.nr' : 'SKU'}: {product.sku}
-              </p>
-            </div>
-
-            {/* Price */}
-            <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-bold text-forest-800">
-                {formattedPrice}
-              </span>
-              <span className="text-forest-500">
-                {locale === 'sv' ? 'Inkl. 25% moms' : 'Incl. 25% VAT'}
-              </span>
-            </div>
-
-            {/* Stock Status */}
-            <div>
-              {isOutOfStock ? (
-                <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-red-100 text-red-800 border border-red-200">
-                  <span className="w-2 h-2 rounded-full bg-red-500" />
-                  <span className="font-medium">
-                    {locale === 'sv' ? 'Slut i lager' : 'Out of stock'}
-                  </span>
-                </div>
-              ) : isLowStock ? (
-                <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-terracotta-100 text-terracotta-800 border border-terracotta-200">
-                  <span className="w-2 h-2 rounded-full bg-terracotta-500 animate-pulse" />
-                  <span className="font-medium">
-                    {locale === 'sv' ? `Bara ${product.stock} kvar!` : `Only ${product.stock} left!`}
-                  </span>
-                </div>
-              ) : (
-                <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-sage-100 text-sage-800 border border-sage-200">
-                  <CheckCircleIcon className="h-5 w-5" />
-                  <span className="font-medium">
-                    {locale === 'sv' ? 'I lager' : 'In stock'}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Description */}
-            <div className="prose prose-forest max-w-none">
-              <p className="text-forest-700 leading-relaxed text-lg">
-                {localizedDescription}
-              </p>
-            </div>
-
-            {/* Bundle Selector or Regular Add to Cart */}
-            {product.category === 'bundles' && bundleConfig ? (
-              <div className="pt-4">
-                <BundleSelector
-                  bundleProduct={product}
-                  bundleConfig={bundleConfig}
-                  locale={locale}
-                />
-              </div>
-            ) : (
-              <div className="space-y-4 pt-4">
-                {!isOutOfStock && (
-                  <div>
-                    <label className="block text-sm font-medium text-forest-700 mb-2">
-                      {locale === 'sv' ? 'Antal' : 'Quantity'}
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={decrementQuantity}
-                        disabled={quantity <= 1}
-                        className="w-12 h-12 rounded-full bg-white border-2 border-cream-300 text-forest-700 font-bold hover:border-sage-600 hover:bg-sage-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                      >
-                        -
-                      </button>
-                      <span className="text-2xl font-bold text-forest-800 w-16 text-center">
-                        {quantity}
-                      </span>
-                      <button
-                        onClick={incrementQuantity}
-                        disabled={quantity >= product.stock}
-                        className="w-12 h-12 rounded-full bg-white border-2 border-cream-300 text-forest-700 font-bold hover:border-sage-600 hover:bg-sage-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleAddToCart}
-                    disabled={isOutOfStock || cartLoading}
-                    className={`flex-1 flex items-center justify-center px-8 py-4 rounded-full text-lg font-semibold transition-all shadow-lg ${
-                      isOutOfStock
-                        ? 'bg-cream-200 text-forest-400 cursor-not-allowed'
-                        : 'bg-sage-600 text-white hover:bg-sage-700 hover:shadow-xl hover:-translate-y-0.5 transform active:translate-y-0'
-                    } ${cartLoading ? 'opacity-75 cursor-wait' : ''}`}
-                  >
-                    {cartLoading ? (
-                      <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin mr-3" />
-                    ) : (
-                      !isOutOfStock && <ShoppingCartIcon className="h-6 w-6 mr-3" />
-                    )}
-                    {isOutOfStock
-                      ? (locale === 'sv' ? 'Slutsåld' : 'Sold Out')
-                      : (locale === 'sv' ? 'Lägg i varukorg' : 'Add to Cart')
-                    }
-                  </button>
-
-                  <button
-                    onClick={handleToggleWishlist}
-                    className="w-16 h-16 flex items-center justify-center rounded-full bg-white border-2 border-cream-300 hover:border-rose-500 hover:bg-rose-50 transition-all shadow-lg hover:shadow-xl"
-                    aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
-                  >
-                    {isInWishlist ? (
-                      <HeartSolidIcon className="h-7 w-7 text-rose-500" />
-                    ) : (
-                      <HeartIcon className="h-7 w-7 text-forest-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Trust Badges */}
-            <div className="grid grid-cols-2 gap-4 pt-6 border-t border-cream-200">
-              <div className="flex items-start gap-3">
-                <TruckIcon className="h-6 w-6 text-sage-600 flex-shrink-0 mt-1" />
-                <div>
-                  <p className="font-medium text-forest-800">
-                    {locale === 'sv' ? 'Snabb leverans' : 'Fast delivery'}
-                  </p>
-                  <p className="text-sm text-forest-600">
-                    {locale === 'sv' ? '2-4 arbetsdagar' : '2-4 business days'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-3">
-                <ShieldCheckIcon className="h-6 w-6 text-sage-600 flex-shrink-0 mt-1" />
-                <div>
-                  <p className="font-medium text-forest-800">
-                    {locale === 'sv' ? 'Säker betalning' : 'Secure payment'}
-                  </p>
-                  <p className="text-sm text-forest-600">
-                    {locale === 'sv' ? 'Krypterad transaktion' : 'Encrypted transaction'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Product Reviews */}
-        <div className="mt-16 lg:mt-24">
-          <ProductReviews
-            productId={productId}
-            userId={session?.user?.id}
+    <>
+      {product && (
+        <>
+          <script
+            type="application/ld+json"
+            nonce={nonce}
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(buildProductJsonLd(product, locale, ratingStats)) }}
           />
-        </div>
-
-        {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <div className="mt-16 lg:mt-24">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl lg:text-4xl font-serif font-bold text-forest-800 mb-3">
-                {locale === 'sv' ? 'Liknande produkter' : 'Related Products'}
-              </h2>
-              <p className="text-forest-600 max-w-2xl mx-auto">
-                {locale === 'sv'
-                  ? 'Upptäck fler produkter du kanske gillar'
-                  : 'Discover more products you might like'
-                }
-              </p>
-            </div>
-            <ProductGrid
-              products={relatedProducts}
-              locale={locale}
-            />
-          </div>
-        )}
-      </div>
-    </div>
+          <script
+            type="application/ld+json"
+            nonce={nonce}
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBreadcrumbJsonLd(product, locale)) }}
+          />
+        </>
+      )}
+      <ProductDetailClient productId={id} initialProduct={product} />
+    </>
   );
 }

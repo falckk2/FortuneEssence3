@@ -1,215 +1,43 @@
+export const dynamic = 'force-dynamic'
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import type { IOrderService, ICustomerRepository } from '@/interfaces';
+import type { Order } from '@/types';
+import type { TrackingInfo } from '@/interfaces/shipping';
+import { container, TOKENS } from '@/config/di-container';
 
-// Mock tracking data for demonstration
-const mockOrderTracking = {
-  'ORD-001': {
-    orderId: 'ord-abc123',
-    orderNumber: 'ORD-001',
-    status: 'shipped',
-    trackingNumber: 'PN1234567890SE',
-    carrier: 'PostNord',
-    estimatedDelivery: '2024-11-18T12:00:00Z',
-    items: [
-      {
-        id: 'item-1',
-        productName: 'Lavendelolja 10ml',
-        quantity: 2,
-        price: 149.00,
-      },
-      {
-        id: 'item-2',
-        productName: 'Pepparmyntaolja 10ml',
-        quantity: 1,
-        price: 139.00,
-      },
-    ],
-    total: 437.00,
-    shippingAddress: {
-      street: 'Storgatan 12',
-      city: 'Stockholm',
-      postalCode: '11455',
-      country: 'Sverige',
-    },
-    trackingHistory: [
-      {
-        status: 'Paket i transit',
-        location: 'Stockholm, Sverige',
-        timestamp: '2024-11-16T14:30:00Z',
-        description: 'Paketet är på väg till destinationen',
-      },
-      {
-        status: 'Paket sorterat',
-        location: 'Göteborg Terminal, Sverige',
-        timestamp: '2024-11-16T09:15:00Z',
-        description: 'Paketet har sorterats vid Göteborg terminal',
-      },
-      {
-        status: 'Paket hämtat från avsändare',
-        location: 'Malmö, Sverige',
-        timestamp: '2024-11-15T16:45:00Z',
-        description: 'Paketet har hämtats från avsändaren',
-      },
-      {
-        status: 'Fraktetikett skapad',
-        location: 'Malmö, Sverige',
-        timestamp: '2024-11-15T10:20:00Z',
-        description: 'Fraktetikett har skapats och order bekräftad',
-      },
-    ],
-  },
-};
+const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
+const customerRepository = container.resolve<ICustomerRepository>(TOKENS.ICustomerRepository);
 
-const mockTrackingNumbers: { [key: string]: string } = {
-  'PN1234567890SE': 'ORD-001',
-};
-
+/**
+ * Public order tracking — the single canonical tracking endpoint.
+ *
+ * Two lookup modes:
+ *   ?trackingNumber=X        — public; a tracking number is itself a bearer secret
+ *   ?orderId=X&email=Y       — guest lookup; email acts as the second factor so a
+ *                              leaked order ID alone discloses nothing (ISSUE-022)
+ *
+ * Both modes return a reduced field set (no totals, no full address) to minimise
+ * information disclosure when tracking links are shared.
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const orderId = searchParams.get('orderId');
     const trackingNumber = searchParams.get('trackingNumber');
-
-    if (!orderId && !trackingNumber) {
-      return NextResponse.json(
-        { success: false, error: 'Order ID or tracking number is required' },
-        { status: 400 }
-      );
-    }
-
-    // orderId lookups require authentication — tracking number lookups are public
-    if (orderId && !trackingNumber) {
-      const session = await getServerSession(authOptions);
-      if (!session?.user?.id) {
-        return NextResponse.json(
-          { success: false, error: 'Authentication required' },
-          { status: 401 }
-        );
-      }
-    }
-
-    // TODO: Implement database lookup
-    /*
-    let order;
+    const orderId = searchParams.get('orderId');
+    const email = searchParams.get('email');
 
     if (trackingNumber) {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            id,
-            quantity,
-            price,
-            product:products (
-              id,
-              translations
-            )
-          ),
-          shipping_address:addresses (
-            street,
-            city,
-            postalCode,
-            country
-          )
-        `)
-        .eq('trackingNumber', trackingNumber)
-        .single();
-
-      if (error || !data) {
-        return NextResponse.json(
-          { success: false, error: 'Order not found with this tracking number' },
-          { status: 404 }
-        );
-      }
-
-      order = data;
-    } else if (orderId) {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            id,
-            quantity,
-            price,
-            product:products (
-              id,
-              translations
-            )
-          ),
-          shipping_address:addresses (
-            street,
-            city,
-            postalCode,
-            country
-          )
-        `)
-        .or(`id.eq.${orderId},orderNumber.eq.${orderId}`)
-        .single();
-
-      if (error || !data) {
-        return NextResponse.json(
-          { success: false, error: 'Order not found' },
-          { status: 404 }
-        );
-      }
-
-      order = data;
+      return handleTrackByTrackingNumber(trackingNumber.trim());
     }
 
-    let trackingHistory = [];
-
-    if (order.trackingNumber && order.carrier) {
-      const { data: history } = await supabase
-        .from('tracking_events')
-        .select('*')
-        .eq('trackingNumber', order.trackingNumber)
-        .order('timestamp', { ascending: false });
-
-      trackingHistory = history || [];
-    }
-
-    const trackingData = {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      status: order.status,
-      trackingNumber: order.trackingNumber,
-      carrier: order.carrier,
-      estimatedDelivery: order.estimatedDelivery,
-      items: order.order_items.map(item => ({
-        id: item.id,
-        productName: item.product.translations.sv.name,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      total: order.total,
-      shippingAddress: order.shipping_address,
-      trackingHistory,
-    };
-
-    return NextResponse.json({ success: true, data: trackingData });
-    */
-
-    let orderKey: string | null = null;
-
-    if (orderId) {
-      orderKey = orderId;
-    } else if (trackingNumber && mockTrackingNumbers[trackingNumber]) {
-      orderKey = mockTrackingNumbers[trackingNumber];
-    }
-
-    if (orderKey && mockOrderTracking[orderKey as keyof typeof mockOrderTracking]) {
-      return NextResponse.json({
-        success: true,
-        data: mockOrderTracking[orderKey as keyof typeof mockOrderTracking],
-      });
+    if (orderId && email) {
+      return handleTrackByOrderId(orderId.trim(), email);
     }
 
     return NextResponse.json(
-      { success: false, error: 'Order not found' },
-      { status: 404 }
+      { success: false, error: 'Provide a tracking number, or an order number and email' },
+      { status: 400 }
     );
   } catch (error) {
     console.error('Track order error:', error);
@@ -218,4 +46,77 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function buildTrackingResponse(order: Order, tracking: TrackingInfo | null) {
+  return {
+    orderId: order.id,
+    orderNumber: order.id,
+    status: order.status,
+    trackingNumber: order.trackingNumber ?? null,
+    carrier: order.carrier ?? null,
+    estimatedDelivery: tracking?.estimatedDelivery ?? null,
+    trackingHistory: (tracking?.history ?? []).map(event => ({
+      status: event.status,
+      location: event.location,
+      timestamp: event.date,
+      description: event.description,
+    })),
+  };
+}
+
+async function handleTrackByTrackingNumber(trackingNumber: string) {
+  const result = await orderService.trackOrder(trackingNumber);
+
+  if (!result.success || !result.data) {
+    return NextResponse.json(
+      { success: false, error: 'Order not found' },
+      { status: 404 }
+    );
+  }
+
+  const { order, tracking } = result.data;
+  return NextResponse.json({
+    success: true,
+    data: buildTrackingResponse(order, tracking ?? null),
+  });
+}
+
+async function handleTrackByOrderId(orderId: string, email: string) {
+  const result = await orderService.getOrder(orderId);
+
+  if (!result.success || !result.data) {
+    return NextResponse.json(
+      { success: false, error: 'Order not found' },
+      { status: 404 }
+    );
+  }
+
+  const order = result.data;
+
+  // Verify the supplied email matches the customer on this order.
+  // Return 404 on mismatch to avoid confirming the order exists.
+  const customerResult = await customerRepository.findById(order.customerId);
+  const customerEmail = (customerResult.data?.email ?? '').toLowerCase().trim();
+  const suppliedEmail = email.toLowerCase().trim();
+  if (!customerEmail || customerEmail !== suppliedEmail) {
+    return NextResponse.json(
+      { success: false, error: 'Order not found' },
+      { status: 404 }
+    );
+  }
+
+  // Enrich with shipment history when the order already has a tracking number.
+  let tracking: TrackingInfo | null = null;
+  if (order.trackingNumber) {
+    const trackingResult = await orderService.trackOrder(order.trackingNumber);
+    if (trackingResult.success && trackingResult.data) {
+      tracking = trackingResult.data.tracking ?? null;
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    data: buildTrackingResponse(order, tracking),
+  });
 }

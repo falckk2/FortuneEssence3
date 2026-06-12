@@ -9,6 +9,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CookieConsent } from "@/components/gdpr/CookieConsent";
 import { AdvisorProvider } from "@/contexts/AdvisorContext";
+import { getRequestLocale } from "@/lib/i18n-server";
 import { Toaster } from 'react-hot-toast';
 import dynamic from "next/dynamic";
 const DevAdminButton = dynamic(() => import("@/components/admin/DevAdminButton"));
@@ -25,35 +26,68 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+if (!process.env.NEXT_PUBLIC_APP_URL) {
+  // metadataBase, OG urls, sitemap and robots all derive from this — a missing
+  // value in production silently breaks canonical/OG URL resolution.
+  console.warn('[layout] NEXT_PUBLIC_APP_URL is not set — falling back to http://localhost:3000');
+}
 
-export const metadata: Metadata = {
-  metadataBase: appUrl ? new URL(appUrl) : undefined,
-  title: "Fortune Essence - Premium Essential Oils",
-  description: "Discover premium essential oils and aromatherapy products. Natural, organic, and ethically sourced from Fortune Essence.",
-  keywords: "essential oils, aromatherapy, lavender, organic oils, natural wellness, Sweden",
-  authors: [{ name: "Fortune Essence" }],
-  robots: "index, follow",
-  icons: {
-    icon: '/images/logo.jpg',
-    apple: '/images/logo.jpg',
-  },
-  openGraph: {
-    title: "Fortune Essence - Premium Essential Oils",
-    description: "Discover premium essential oils and aromatherapy products. Natural, organic, and ethically sourced.",
-    type: "website",
-    locale: "sv_SE",
-    alternateLocale: "en_US",
-    images: [
-      {
-        url: '/images/logo.jpg',
-        width: 800,
-        height: 800,
-        alt: 'Fortune Essence Logo',
-      },
-    ],
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale();
+
+  const description = locale === 'sv'
+    ? 'Upptäck premium eteriska oljor och aromaterapiprodukter. Naturligt, ekologiskt och etiskt framställt av Fortune Essence.'
+    : 'Discover premium essential oils and aromatherapy products. Natural, organic, and ethically sourced from Fortune Essence.';
+
+  return {
+    metadataBase: new URL(appUrl),
+    title: {
+      default: 'Fortune Essence - Premium Essential Oils',
+      template: '%s | Fortune Essence',
+    },
+    description,
+    authors: [{ name: 'Fortune Essence' }],
+    robots: 'index, follow',
+    // Icons come from the App Router file conventions:
+    // src/app/icon.png, src/app/apple-icon.png, src/app/favicon.ico
+    openGraph: {
+      title: 'Fortune Essence - Premium Essential Oils',
+      description,
+      type: 'website',
+      locale: locale === 'sv' ? 'sv_SE' : 'en_US',
+      alternateLocale: locale === 'sv' ? 'en_US' : 'sv_SE',
+      siteName: 'Fortune Essence',
+      images: [
+        {
+          url: '/images/og-image.jpg',
+          width: 1200,
+          height: 630,
+          alt: 'Fortune Essence - Premium Essential Oils',
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+    },
+  };
+}
+
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Fortune Essence',
+  url: appUrl,
+  logo: `${appUrl}/images/logo.jpg`,
 };
+
+const buildWebSiteJsonLd = (locale: 'sv' | 'en') => ({
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Fortune Essence',
+  url: appUrl,
+  inLanguage: locale === 'sv' ? 'sv-SE' : 'en',
+});
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -68,9 +102,12 @@ export default async function RootLayout({
   // Read the per-request nonce injected by middleware so we can apply it to
   // inline scripts, satisfying the nonce-based CSP set on each response.
   const nonce = (await headers()).get('x-nonce') ?? '';
+  // URL-derived locale, resolved by middleware (FABLE-011). LocaleContext
+  // keeps <html lang> in sync on client-side navigations.
+  const locale = await getRequestLocale();
 
   return (
-    <html lang="sv" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         {/* Inline script runs synchronously before first paint to apply the saved
             theme class, eliminating the light-mode flash on dark-mode page loads.
@@ -88,6 +125,17 @@ export default async function RootLayout({
             } catch (e) {}
           })();
         `}</Script>
+        {/* Site-wide structured data; nonce required by the CSP in middleware. */}
+        <script
+          type="application/ld+json"
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildWebSiteJsonLd(locale)) }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen overflow-x-hidden bg-cream-100 dark:bg-[#1a1f1e] text-forest-700 dark:text-[#E8EDE8] transition-colors duration-300`}

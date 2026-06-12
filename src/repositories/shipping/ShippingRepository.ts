@@ -1,13 +1,19 @@
 import { IShippingRepository } from '@/interfaces';
 import { ShippingRate, ApiResponse, ShippingLabel, CarrierPricingRule } from '@/types';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 export class ShippingRepository implements IShippingRepository {
   private readonly tableName = 'shipping_rates';
 
+  // Server-role client: carrier_pricing_rules is RLS-protected (FABLE-013).
+  // Lazy getter so the module loads without server env vars at build time.
+  private get supabase() {
+    return getSupabaseServer();
+  }
+
   async findRatesByCountry(country: string): Promise<ApiResponse<ShippingRate[]>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .select('*')
         .eq('country', country)
@@ -34,7 +40,7 @@ export class ShippingRepository implements IShippingRepository {
 
   async calculateShipping(weight: number, country: string): Promise<ApiResponse<ShippingRate>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .select('*')
         .eq('country', country)
@@ -121,7 +127,7 @@ export class ShippingRepository implements IShippingRepository {
   // Additional shipping methods
   async findById(id: string): Promise<ApiResponse<ShippingRate>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .select('*')
         .eq('id', id)
@@ -163,7 +169,7 @@ export class ShippingRepository implements IShippingRepository {
         max_weight: shippingRate.maxWeight,
       };
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .insert(shippingData)
         .select()
@@ -199,7 +205,7 @@ export class ShippingRepository implements IShippingRepository {
       if (shippingRate.country) updateData.country = shippingRate.country;
       if (shippingRate.maxWeight !== undefined) updateData.max_weight = shippingRate.maxWeight;
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .update(updateData)
         .eq('id', id)
@@ -234,7 +240,7 @@ export class ShippingRepository implements IShippingRepository {
 
   async delete(id: string): Promise<ApiResponse<void>> {
     try {
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from(this.tableName)
         .delete()
         .eq('id', id);
@@ -259,7 +265,7 @@ export class ShippingRepository implements IShippingRepository {
 
   async getAllCountries(): Promise<ApiResponse<string[]>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .select('country')
         .order('country');
@@ -289,7 +295,7 @@ export class ShippingRepository implements IShippingRepository {
   async getFreeShippingThreshold(country: string): Promise<ApiResponse<number | null>> {
     try {
       // Look for free shipping option
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .select('*')
         .eq('country', country)
@@ -386,7 +392,7 @@ export class ShippingRepository implements IShippingRepository {
   // Multi-carrier shipping methods
   async findRatesByCarrier(carrierCode: string): Promise<ApiResponse<ShippingRate[]>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .select('*')
         .eq('carrier_code', carrierCode)
@@ -422,7 +428,7 @@ export class ShippingRepository implements IShippingRepository {
         qr_code_data: label.qrCodeData,
       };
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('shipping_labels')
         .insert(labelData)
         .select()
@@ -449,7 +455,7 @@ export class ShippingRepository implements IShippingRepository {
 
   async findLabelByOrderId(orderId: string): Promise<ApiResponse<ShippingLabel>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('shipping_labels')
         .select('*')
         .eq('order_id', orderId)
@@ -482,7 +488,7 @@ export class ShippingRepository implements IShippingRepository {
 
   async findLabelByTrackingNumber(trackingNumber: string): Promise<ApiResponse<ShippingLabel>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('shipping_labels')
         .select('*')
         .eq('tracking_number', trackingNumber)
@@ -521,7 +527,7 @@ export class ShippingRepository implements IShippingRepository {
     postalCode?: string
   ): Promise<ApiResponse<CarrierPricingRule>> {
     try {
-      let query = supabase
+      let query = this.supabase
         .from('carrier_pricing_rules')
         .select('*')
         .eq('carrier_code', carrierCode)

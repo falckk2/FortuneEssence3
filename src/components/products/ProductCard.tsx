@@ -7,7 +7,7 @@ import { ShoppingCartIcon, HeartIcon, ArrowRightIcon } from '@heroicons/react/24
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import { BundleImage } from '@/components/bundles';
 import Image from 'next/image';
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import { useState, useEffect } from 'react';
 
 interface ProductCardProps {

@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import { Product } from '@/types';
 import { BundleImage } from './BundleImage';
 import { TagIcon, CheckIcon, ArrowRightIcon } from '@heroicons/react/24/outline';

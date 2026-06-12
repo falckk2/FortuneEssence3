@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import { OrderCard } from './OrderCard';
 import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 

@@ -1,7 +1,7 @@
 import { injectable } from 'tsyringe';
 import type { IAbandonedCartRepository } from '@/interfaces';
 import type { AbandonedCart, AbandonedCartCreateData, ApiResponse } from '@/types';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase-server';
 import { BaseRepository } from '@/repositories/BaseRepository';
 
 @injectable()
@@ -9,7 +9,10 @@ export class AbandonedCartRepository extends BaseRepository<AbandonedCart> imple
   protected readonly tableName = 'abandoned_carts';
 
   constructor() {
-    super(supabase);
+    // Server-role client: abandoned_carts is RLS-protected (FABLE-013).
+    // Safe here — repositories are only instantiated by the DI container at
+    // runtime, never at build time.
+    super(getSupabaseServer());
   }
 
   async create(data: AbandonedCartCreateData): Promise<ApiResponse<AbandonedCart>> {

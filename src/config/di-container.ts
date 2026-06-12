@@ -30,6 +30,7 @@ export const TOKENS = {
   IWishlistRepository: Symbol.for('IWishlistRepository'),
   IReturnRepository: Symbol.for('IReturnRepository'),
   IAnalyticsRepository: Symbol.for('IAnalyticsRepository'),
+  IReviewRepository: Symbol.for('IReviewRepository'),
 
   // Services
   IProductService: Symbol.for('IProductService'),
@@ -92,6 +93,7 @@ export function configureDependencyInjection() {
   const { ReturnRepository } = require('@/repositories/returns/ReturnRepository');
   const { OrderItemRepository } = require('@/repositories/orders/OrderItemRepository');
   const { AnalyticsRepository } = require('@/repositories/analytics/AnalyticsRepository');
+  const { ReviewRepository } = require('@/repositories/reviews/ReviewRepository');
 
   container.register(TOKENS.IProductRepository, { useClass: ProductRepository });
   container.register(TOKENS.ICartRepository, { useClass: CartRepository });
@@ -105,6 +107,7 @@ export function configureDependencyInjection() {
   container.register(TOKENS.IWishlistRepository, { useClass: WishlistRepository });
   container.register(TOKENS.IReturnRepository, { useClass: ReturnRepository });
   container.register(TOKENS.IAnalyticsRepository, { useClass: AnalyticsRepository });
+  container.register(TOKENS.IReviewRepository, { useClass: ReviewRepository });
 
   // Register Services
   const { ProductService } = require('@/services/products/ProductService');

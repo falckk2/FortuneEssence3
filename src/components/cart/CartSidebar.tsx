@@ -7,7 +7,7 @@ import { useCartStore } from '@/stores/cartStore';
 import { Product, BundleSelection } from '@/types';
 import { PriceCalculator } from '@/utils/helpers';
 import Image from 'next/image';
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import { BundleImage } from '@/components/bundles/BundleImage';
 
 interface CartSidebarProps {

@@ -1,4 +1,12 @@
+export const dynamic = 'force-dynamic'
+import '@/config/di-init';
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import type { IReviewRepository } from '@/repositories/reviews/ReviewRepository';
+import { container, TOKENS } from '@/config/di-container';
+
+const reviewRepository = container.resolve<IReviewRepository>(TOKENS.IReviewRepository);
 
 interface RouteParams {
   params: Promise<{
@@ -11,76 +19,40 @@ export async function POST(
   { params }: RouteParams
 ) {
   try {
-    await params;
+    const { id } = await params;
 
-    // TODO: Implement in production
-    /*
-    // Optional: Track who marked it as helpful to prevent spam
-    // const session = await getServerSession();
-    // const userId = session?.user?.id;
+    // Voting requires a session — one vote per customer per review.
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Du måste vara inloggad för att rösta' },
+        { status: 401 }
+      );
+    }
 
-    // if (userId) {
-    //   // Check if user already marked this review as helpful
-    //   const { data: existing } = await supabase
-    //     .from('review_helpful')
-    //     .select('id')
-    //     .eq('reviewId', id)
-    //     .eq('userId', userId)
-    //     .single();
+    const result = await reviewRepository.markHelpful(id, session.user.id);
 
-    //   if (existing) {
-    //     return NextResponse.json(
-    //       { success: false, error: 'You have already marked this review as helpful' },
-    //       { status: 400 }
-    //     );
-    //   }
-
-    //   // Record the helpful mark
-    //   await supabase
-    //     .from('review_helpful')
-    //     .insert({
-    //       reviewId: id,
-    //       userId,
-    //       createdAt: new Date().toISOString(),
-    //     });
-    // }
-
-    // Increment helpful count
-    const { data: review, error } = await supabase
-      .from('reviews')
-      .select('helpful')
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
+    if (!result.success) {
+      if (result.error === 'You have already marked this review as helpful') {
         return NextResponse.json(
-          { success: false, error: 'Review not found' },
+          { success: false, error: result.error },
+          { status: 400 }
+        );
+      }
+      if (result.error === 'Review not found') {
+        return NextResponse.json(
+          { success: false, error: result.error },
           { status: 404 }
         );
       }
-      throw error;
+      console.error('Mark review as helpful failed:', result.error);
+      return NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
+      );
     }
 
-    const { error: updateError } = await supabase
-      .from('reviews')
-      .update({ helpful: review.helpful + 1 })
-      .eq('id', id);
-
-    if (updateError) throw updateError;
-
-    return NextResponse.json({
-      success: true,
-      data: { helpful: review.helpful + 1 }
-    });
-    */
-
-
-    return NextResponse.json({
-      success: true,
-      message: 'Review marked as helpful (requires database implementation)'
-    });
-
+    return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
     console.error('Mark review as helpful error:', error);
     return NextResponse.json(

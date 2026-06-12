@@ -156,6 +156,31 @@ def detect_language_node(state: AgentState) -> AgentState:
 # Node: gather needs
 # ---------------------------------------------------------------------------
 
+def _extract_json(raw: str) -> dict:
+    """Extract the first JSON object from a string, handling markdown fences and leading text."""
+    # Strip markdown fences
+    text = raw.strip()
+    if text.startswith("```"):
+        parts = text.split("```")
+        for part in parts[1:]:
+            if part.startswith("json"):
+                part = part[4:]
+            part = part.strip()
+            if part:
+                text = part
+                break
+
+    # Parse one complete JSON value starting at the first brace. raw_decode
+    # handles braces inside string values correctly, unlike manual counting.
+    start = text.find("{")
+    if start == -1:
+        raise ValueError("No JSON object found")
+    obj, _ = json.JSONDecoder().raw_decode(text[start:])
+    if not isinstance(obj, dict):
+        raise ValueError("Extracted JSON is not an object")
+    return obj
+
+
 def gather_needs_node(state: AgentState) -> AgentState:
     """
     Ask the user clarifying questions and extract structured needs.
@@ -163,34 +188,41 @@ def gather_needs_node(state: AgentState) -> AgentState:
     """
     llm = get_llm()
 
+    # For Ollama, bind JSON mode so the model is forced to output valid JSON.
+    invoke_llm = llm.bind(format="json") if USE_OLLAMA else llm
+
     extraction_prompt = f"""
 {SYSTEM_PROMPT}
 
 Your task right now: Continue the conversation to understand the customer's needs.
 Extract any details you can from the conversation and decide if you have enough to recommend.
 
+You need at minimum to set gathered_enough to true:
+- Their primary goal or concern (e.g. sleep, stress, energy, focus, skin, mood)
+- Any safety considerations (pregnancy, children, medical conditions, allergies) — asking once is enough; "no allergies" or silence counts as clear
+
+You do NOT need all fields — use your judgment. If you know their goal and have checked for safety concerns, set gathered_enough to true.
+
 Current known needs: {json.dumps(state.get("user_needs", {}), ensure_ascii=False)}
 
-Respond with a JSON object with three fields:
-1. "reply" — your conversational reply to the customer (in {state.get("language", "en")})
-2. "needs" — updated UserNeeds dict with any new info extracted (fields: goal, mood, scent_preference, concerns, sensitivity, use_method)
-3. "gathered_enough" — true if you have enough to recommend, false if you need more info
+You MUST respond with ONLY a valid JSON object and nothing else. No markdown, no explanation outside the JSON.
+The JSON must have exactly these three fields:
+{{
+  "reply": "<your conversational reply in {state.get("language", "en")}; if asking a follow-up ask ONE focused question and acknowledge what they shared>",
+  "needs": {{"goal": "", "mood": "", "scent_preference": "", "concerns": "", "sensitivity": "", "use_method": ""}},
+  "gathered_enough": false
+}}
 
-Only respond with the JSON object, no other text.
+Fill in the needs fields with any information extracted from the conversation. Set gathered_enough to true when you have goal + safety check.
 
 Conversation:
 {_format_messages(state["messages"])}
 """
 
-    response = llm.invoke([HumanMessage(content=extraction_prompt)])
+    response = invoke_llm.invoke([HumanMessage(content=extraction_prompt)])
 
     try:
-        content = response.content.strip()
-        if content.startswith("```"):
-            content = content.split("```")[1]
-            if content.startswith("json"):
-                content = content[4:]
-        parsed = json.loads(content)
+        parsed = _extract_json(response.content)
 
         existing_needs = state.get("user_needs", {})
         new_needs = parsed.get("needs", {})
@@ -198,9 +230,11 @@ Conversation:
 
         state["user_needs"] = merged_needs
         state["gathered_enough"] = parsed.get("gathered_enough", False)
-        state["messages"] = state["messages"] + [AIMessage(content=parsed.get("reply", ""))]
+        reply = parsed.get("reply", "")
+        if reply:
+            state["messages"] = state["messages"] + [AIMessage(content=reply)]
 
-    except (json.JSONDecodeError, KeyError):
+    except (json.JSONDecodeError, ValueError, KeyError):
         state["gathered_enough"] = False
         state["messages"] = state["messages"] + [AIMessage(content=response.content)]
 

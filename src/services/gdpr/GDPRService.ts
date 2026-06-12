@@ -1,9 +1,16 @@
 import { IGDPRService, UserData, ConsentData, UserPreferences } from '@/interfaces';
 import { Customer, Order, OrderStatus, Address, PaymentMethod, ApiResponse } from '@/types';
-import { supabase } from '@/lib/supabase/client';
+import { getSupabaseServer } from '@/lib/supabase-server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 export class GDPRService implements IGDPRService {
+  // GDPR export/delete spans RLS-protected tables (customers, user_consent,
+  // user_preferences, gdpr_activity_log, abandoned_carts) and must run with the
+  // service-role client — the anon client silently returns zero rows on
+  // RLS-enabled tables. Lazy getter so the module loads without server env vars.
+  private get supabase() {
+    return getSupabaseServer();
+  }
 
   async exportUserData(userId: string): Promise<ApiResponse<UserData>> {
     try {
@@ -14,8 +21,8 @@ export class GDPRService implements IGDPRService {
         { data: consent, error: consentError },
         { data: preferences, error: preferencesError },
       ] = await Promise.all([
-        supabase.from('customers').select('*').eq('id', userId).single(),
-        supabase.from('orders').select(`
+        this.supabase.from('customers').select('*').eq('id', userId).single(),
+        this.supabase.from('orders').select(`
           *,
           order_items!inner(
             id,
@@ -24,8 +31,8 @@ export class GDPRService implements IGDPRService {
             products!inner(id, name, name_sv, sku)
           )
         `).eq('customer_id', userId).order('created_at', { ascending: false }),
-        supabase.from('user_consent').select('*').eq('user_id', userId).single(),
-        supabase.from('user_preferences').select('*').eq('user_id', userId).single(),
+        this.supabase.from('user_consent').select('*').eq('user_id', userId).single(),
+        this.supabase.from('user_preferences').select('*').eq('user_id', userId).single(),
       ]);
 
       if (customerError) {
@@ -137,8 +144,8 @@ export class GDPRService implements IGDPRService {
       // Delete user data maintaining referential integrity:
       // Step 1: fetch IDs for child records in parallel
       const [ordersQuery, cartsQuery] = await Promise.all([
-        supabase.from('orders').select('id').eq('customer_id', userId),
-        supabase.from('carts').select('id').eq('customer_id', userId),
+        this.supabase.from('orders').select('id').eq('customer_id', userId),
+        this.supabase.from('carts').select('id').eq('customer_id', userId),
       ]);
 
       if (ordersQuery.error && ordersQuery.error.code !== 'PGRST116') {
@@ -154,7 +161,7 @@ export class GDPRService implements IGDPRService {
       if (ordersQuery.data && ordersQuery.data.length > 0) {
         const orderIds = ordersQuery.data.map(o => o.id);
         childDeletes.push(
-          Promise.resolve(supabase.from('order_items').delete().in('order_id', orderIds)).then(({ error }) => {
+          Promise.resolve(this.supabase.from('order_items').delete().in('order_id', orderIds)).then(({ error }) => {
             if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete order items: ${error.message}`);
           })
         );
@@ -163,7 +170,7 @@ export class GDPRService implements IGDPRService {
       if (cartsQuery.data && cartsQuery.data.length > 0) {
         const cartIds = cartsQuery.data.map(c => c.id);
         childDeletes.push(
-          Promise.resolve(supabase.from('cart_items').delete().in('cart_id', cartIds)).then(({ error }) => {
+          Promise.resolve(this.supabase.from('cart_items').delete().in('cart_id', cartIds)).then(({ error }) => {
             if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete cart items: ${error.message}`);
           })
         );
@@ -173,25 +180,25 @@ export class GDPRService implements IGDPRService {
 
       // Step 3: delete parent records and user data in parallel
       await Promise.all([
-        Promise.resolve(supabase.from('orders').delete().eq('customer_id', userId)).then(({ error }) => {
+        Promise.resolve(this.supabase.from('orders').delete().eq('customer_id', userId)).then(({ error }) => {
           if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete orders: ${error.message}`);
         }),
-        Promise.resolve(supabase.from('carts').delete().eq('customer_id', userId)).then(({ error }) => {
+        Promise.resolve(this.supabase.from('carts').delete().eq('customer_id', userId)).then(({ error }) => {
           if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete carts: ${error.message}`);
         }),
-        Promise.resolve(supabase.from('abandoned_carts').delete().eq('customer_id', userId)).then(({ error }) => {
+        Promise.resolve(this.supabase.from('abandoned_carts').delete().eq('customer_id', userId)).then(({ error }) => {
           if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete abandoned carts: ${error.message}`);
         }),
-        Promise.resolve(supabase.from('user_preferences').delete().eq('user_id', userId)).then(({ error }) => {
+        Promise.resolve(this.supabase.from('user_preferences').delete().eq('user_id', userId)).then(({ error }) => {
           if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete preferences: ${error.message}`);
         }),
-        Promise.resolve(supabase.from('user_consent').delete().eq('user_id', userId)).then(({ error }) => {
+        Promise.resolve(this.supabase.from('user_consent').delete().eq('user_id', userId)).then(({ error }) => {
           if (error && error.code !== 'PGRST116') throw new Error(`Failed to delete consent: ${error.message}`);
         }),
       ]);
 
       // Step 4: delete the customer record last
-      const { error: customerError } = await supabase
+      const { error: customerError } = await this.supabase
         .from('customers')
         .delete()
         .eq('id', userId);
@@ -216,7 +223,7 @@ export class GDPRService implements IGDPRService {
   async updateConsent(userId: string, consentData: ConsentData): Promise<ApiResponse<void>> {
     try {
       // Upsert consent data
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from('user_consent')
         .upsert({
           user_id: userId,
@@ -234,7 +241,7 @@ export class GDPRService implements IGDPRService {
       }
 
       // Also update marketing opt-in in customer table
-      const { error: customerError } = await supabase
+      const { error: customerError } = await this.supabase
         .from('customers')
         .update({
           marketing_opt_in: consentData.marketing,
@@ -267,7 +274,7 @@ export class GDPRService implements IGDPRService {
 
   async getConsentStatus(userId: string): Promise<ApiResponse<ConsentData>> {
     try {
-      const { data: consent, error } = await supabase
+      const { data: consent, error } = await this.supabase
         .from('user_consent')
         .select('*')
         .eq('user_id', userId)
@@ -447,7 +454,7 @@ export class GDPRService implements IGDPRService {
     timestamp: string;
   }>>> {
     try {
-      const { data: activities, error } = await supabase
+      const { data: activities, error } = await this.supabase
         .from('gdpr_activity_log')
         .select('*')
         .eq('user_id', userId)
@@ -485,7 +492,7 @@ export class GDPRService implements IGDPRService {
 
   private async logGDPRActivity(userId: string, activity: string, description: string): Promise<void> {
     try {
-      await supabase
+      await this.supabase
         .from('gdpr_activity_log')
         .insert({
           user_id: userId,

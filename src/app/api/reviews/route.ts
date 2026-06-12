@@ -1,54 +1,19 @@
+export const dynamic = 'force-dynamic'
+import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
+import type { IReviewRepository } from '@/repositories/reviews/ReviewRepository';
+import { container, TOKENS } from '@/config/di-container';
 
-// Mock reviews data for demonstration
-// In production, this would be stored in the database
-const mockReviews = [
-  {
-    id: 'rev-001',
-    productId: 'lavender-oil-10ml',
-    userId: 'user-001',
-    userName: 'Anna S.',
-    rating: 5,
-    title: 'Fantastisk kvalitet!',
-    comment: 'Denna lavendelolja är helt underbar. Doften är ren och naturlig, inte kemisk som vissa andra märken. Jag använder den i min diffuser varje kväll och sover mycket bättre nu. Kommer definitivt köpa igen!',
-    verified: true,
-    helpful: 12,
-    createdAt: '2024-10-15T14:30:00Z',
-  },
-  {
-    id: 'rev-002',
-    productId: 'lavender-oil-10ml',
-    userId: 'user-002',
-    userName: 'Emma L.',
-    rating: 4,
-    title: 'Bra produkt',
-    comment: 'Mycket nöjd med oljan. Doften är härlig och lugnar verkligen. Bara minuspoängen är att flaskan är ganska liten för priset, men kvaliteten är värd det.',
-    verified: true,
-    helpful: 8,
-    createdAt: '2024-10-22T09:15:00Z',
-  },
-  {
-    id: 'rev-003',
-    productId: 'peppermint-oil-10ml',
-    userId: 'user-003',
-    userName: 'Sofia M.',
-    rating: 5,
-    title: 'Perfekt mot huvudvärk',
-    comment: 'Använder denna vid huvudvärk och det fungerar verkligen! Blandad med lite kokosolja på tinningarna ger det omedelbar lindring. Stark men behaglig mintdoft.',
-    verified: true,
-    helpful: 15,
-    createdAt: '2024-11-01T16:45:00Z',
-  },
-];
+const reviewRepository = container.resolve<IReviewRepository>(TOKENS.IReviewRepository);
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get('productId');
     const limitParam = parseInt(searchParams.get('limit') || '50');
-    const limit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 50;
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 100) : 50;
 
     if (!productId) {
       return NextResponse.json(
@@ -57,59 +22,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // TODO: Fetch from database
-    /*
-    const { data: reviews, error } = await supabase
-      .from('reviews')
-      .select(`
-        *,
-        user:users (
-          id,
-          name
-        )
-      `)
-      .eq('productId', productId)
-      .eq('status', 'approved') // Only show approved reviews
-      .order('createdAt', { ascending: false })
-      .limit(limit);
+    const result = await reviewRepository.findByProductId(productId, limit);
 
-    if (error) throw error;
+    if (!result.success) {
+      console.error('Get reviews failed:', result.error);
+      return NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
 
-    // Check if reviews are from verified purchases
-    const reviewsWithVerification = await Promise.all(
-      reviews.map(async (review) => {
-        const { data: order } = await supabase
-          .from('orders')
-          .select('id')
-          .eq('userId', review.userId)
-          .eq('status', 'delivered')
-          .contains('items', [{ productId }])
-          .single();
-
-        return {
-          ...review,
-          userName: review.user.name,
-          verified: !!order,
-        };
-      })
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: reviewsWithVerification
-    });
-    */
-
-    // For now, return mock data filtered by productId
-    const filteredReviews = mockReviews
-      .filter(r => r.productId === productId)
-      .slice(0, limit);
-
-    return NextResponse.json({
-      success: true,
-      data: filteredReviews
-    });
-
+    return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
     console.error('Get reviews error:', error);
     return NextResponse.json(
@@ -140,7 +63,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (rating < 1 || rating > 5) {
+    if (typeof rating !== 'number' || rating < 1 || rating > 5) {
       return NextResponse.json(
         { success: false, error: 'Rating must be between 1 and 5' },
         { status: 400 }
@@ -161,105 +84,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Implement in production
-    /*
-    const userId = session.user.id;
+    const result = await reviewRepository.create({
+      productId,
+      customerId: session.user.id,
+      rating: Math.round(rating),
+      title: title.trim(),
+      comment: comment.trim(),
+    });
 
-    // Check if user has already reviewed this product
-    const { data: existingReview } = await supabase
-      .from('reviews')
-      .select('id')
-      .eq('productId', productId)
-      .eq('userId', userId)
-      .single();
-
-    if (existingReview) {
+    if (!result.success) {
+      if (result.error === 'You have already reviewed this product') {
+        return NextResponse.json(
+          { success: false, error: result.error },
+          { status: 400 }
+        );
+      }
+      console.error('Create review failed:', result.error);
       return NextResponse.json(
-        { success: false, error: 'You have already reviewed this product' },
-        { status: 400 }
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
       );
     }
 
-    // Check if user has purchased this product
-    const { data: order } = await supabase
-      .from('orders')
-      .select('id')
-      .eq('userId', userId)
-      .eq('status', 'delivered')
-      .contains('items', [{ productId }])
-      .single();
-
-    const verified = !!order;
-
-    // Create review (with pending status for moderation)
-    const { data: newReview, error } = await supabase
-      .from('reviews')
-      .insert({
-        productId,
-        userId,
-        rating,
-        title: title.trim(),
-        comment: comment.trim(),
-        verified,
-        status: 'pending', // Will be approved by admin
-        helpful: 0,
-        createdAt: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // Update product rating statistics
-    const { data: allReviews } = await supabase
-      .from('reviews')
-      .select('rating')
-      .eq('productId', productId)
-      .eq('status', 'approved');
-
-    if (allReviews) {
-      const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
-      const reviewCount = allReviews.length;
-
-      await supabase
-        .from('products')
-        .update({
-          averageRating: avgRating,
-          reviewCount: reviewCount,
-        })
-        .eq('id', productId);
-    }
-
-    // Notify admin of new review for moderation
-    await sendAdminNotification({
-      type: 'new-review',
-      productId,
-      reviewId: newReview.id,
-      rating,
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Review submitted successfully and is pending approval',
-      data: newReview
-    });
-    */
-
-    return NextResponse.json({
-      success: true,
-      message: 'Review submitted successfully (requires database implementation)',
-      data: {
-        id: `rev-${Date.now()}`,
-        productId,
-        rating,
-        title: title.trim(),
-        comment: comment.trim(),
-        verified: false,
-        helpful: 0,
-        createdAt: new Date().toISOString(),
-      }
-    });
-
+    return NextResponse.json(
+      { success: true, message: 'Review submitted successfully', data: result.data },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Create review error:', error);
     return NextResponse.json(

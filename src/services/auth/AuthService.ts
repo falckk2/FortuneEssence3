@@ -14,7 +14,8 @@ export class AuthService implements IAuthService {
   constructor(
     @inject(TOKENS.ICustomerRepository) private readonly customerRepository: ICustomerRepository,
     @inject(TOKENS.IEmailService) private readonly emailService: IEmailService,
-    @inject(TOKENS.SupabaseClient) private readonly supabase: SupabaseClient
+    // Server-role client: password_reset_tokens is RLS-protected (FABLE-013)
+    @inject(TOKENS.SupabaseServerClient) private readonly supabase: SupabaseClient
   ) {}
 
   async signUp(userData: SignUpData): Promise<ApiResponse<Customer>> {

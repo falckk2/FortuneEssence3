@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic'
 import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+// Server-role client: newsletter_subscriptions is RLS-protected (FABLE-013)
+import { getSupabaseServer } from '@/lib/supabase-server';
 import crypto from 'crypto';
 import { container, TOKENS } from '@/config/di-container';
 import type { IEmailService } from '@/interfaces/email';
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
                       'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    const { data: existingSubscription, error: findError } = await supabase
+    const { data: existingSubscription, error: findError } = await getSupabaseServer()
       .from('newsletter_subscriptions')
       .select('*')
       .eq('email', email)
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
       if (existingSubscription.status === 'unsubscribed') {
         const verificationToken = crypto.randomBytes(32).toString('hex');
 
-        const { error: updateError } = await supabase
+        const { error: updateError } = await getSupabaseServer()
           .from('newsletter_subscriptions')
           .update({
             status: 'active',
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
 
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
-    const { data: newSubscription, error: insertError } = await supabase
+    const { data: newSubscription, error: insertError } = await getSupabaseServer()
       .from('newsletter_subscriptions')
       .insert({
         email,
@@ -192,7 +193,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { data: subscription, error: findError } = await supabase
+    const { data: subscription, error: findError } = await getSupabaseServer()
       .from('newsletter_subscriptions')
       .select('*')
       .eq('email', email)
@@ -212,7 +213,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await getSupabaseServer()
       .from('newsletter_subscriptions')
       .update({
         status: 'unsubscribed',

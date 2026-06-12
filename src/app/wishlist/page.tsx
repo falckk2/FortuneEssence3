@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useLocale } from '@/contexts/LocaleContext';
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Product } from '@/types';

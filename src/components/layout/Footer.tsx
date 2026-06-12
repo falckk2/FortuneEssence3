@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import Image from 'next/image';
 import { useState } from 'react';
 import {
@@ -57,7 +57,7 @@ export const Footer = () => {
         { label: locale === 'sv' ? 'Skapa konto' : 'Create Account', href: '/auth/signup' },
         { label: locale === 'sv' ? 'Mina beställningar' : 'My Orders', href: '/account/orders' },
         { label: locale === 'sv' ? 'Önskelista' : 'Wishlist', href: '/wishlist' },
-        { label: locale === 'sv' ? 'Spåra order' : 'Track Order', href: '/orders/track' },
+        { label: locale === 'sv' ? 'Spåra order' : 'Track Order', href: '/track-order' },
       ]
     },
     support: {

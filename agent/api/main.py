@@ -88,14 +88,22 @@ async def chat_stream(request: ChatRequest):
     session_id = request.session_id or str(uuid.uuid4())
     config = {"configurable": {"thread_id": session_id}}
 
-    initial_state: AgentState = {
-        "messages": [HumanMessage(content=request.message)],
-        "user_needs": {},
-        "gathered_enough": False,
-        "rag_context": "",
-        "recommended_products": [],
-        "language": "en",
-    }
+    # For an existing session, only send the new message — the checkpoint already
+    # holds user_needs, gathered_enough, etc. and they must not be overwritten.
+    # Plain (non-annotated) TypedDict fields in LangGraph are replaced, not merged,
+    # so passing them again would reset all extracted context to empty defaults.
+    graph_input: AgentState = (
+        {"messages": [HumanMessage(content=request.message)]}
+        if request.session_id
+        else {
+            "messages": [HumanMessage(content=request.message)],
+            "user_needs": {},
+            "gathered_enough": False,
+            "rag_context": "",
+            "recommended_products": [],
+            "language": "en",
+        }
+    )
 
     async def event_generator() -> AsyncGenerator[str, None]:
         # Send session id immediately so the client can store it
@@ -103,7 +111,7 @@ async def chat_stream(request: ChatRequest):
 
         try:
             # Run the graph — stream node outputs as they complete
-            async for event in agent.astream(initial_state, config=config):
+            async for event in agent.astream(graph_input, config=config):
                 for node_name, node_output in event.items():
                     if node_name == "gather_needs":
                         # Stream the clarifying question back
@@ -144,17 +152,21 @@ async def chat(request: ChatRequest):
     session_id = request.session_id or str(uuid.uuid4())
     config = {"configurable": {"thread_id": session_id}}
 
-    initial_state: AgentState = {
-        "messages": [HumanMessage(content=request.message)],
-        "user_needs": {},
-        "gathered_enough": False,
-        "rag_context": "",
-        "recommended_products": [],
-        "language": "en",
-    }
+    graph_input: AgentState = (
+        {"messages": [HumanMessage(content=request.message)]}
+        if request.session_id
+        else {
+            "messages": [HumanMessage(content=request.message)],
+            "user_needs": {},
+            "gathered_enough": False,
+            "rag_context": "",
+            "recommended_products": [],
+            "language": "en",
+        }
+    )
 
     try:
-        final_state = await agent.ainvoke(initial_state, config=config)
+        final_state = await agent.ainvoke(graph_input, config=config)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

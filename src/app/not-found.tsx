@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import { ArrowLeftIcon, HomeIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 export default function NotFound() {

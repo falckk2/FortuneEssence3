@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import { MinusIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { ChatBubbleOvalLeftEllipsisIcon } from '@heroicons/react/24/solid';
 import { useLocale } from '@/contexts/LocaleContext';

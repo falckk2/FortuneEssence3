@@ -8,8 +8,8 @@ import { injectable } from 'tsyringe';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import bwipjs from 'bwip-js';
 import QRCode from 'qrcode';
-import fs from 'fs/promises';
 import path from 'path';
+import { getSupabaseServer } from '@/lib/supabase-server';
 import { Order, ShippingLabel, Address, ApiResponse } from '@/types';
 import { getCarrierByCode, SENDER_ADDRESS } from '@/config/carriers';
 import { config } from '@/config';
@@ -29,7 +29,10 @@ interface LabelData {
 
 @injectable()
 export class LabelGenerationService {
-  private readonly labelsDirectory = '/tmp/shipping-labels';
+  // Labels contain customer names and addresses (PII) — they live in a PRIVATE
+  // Supabase Storage bucket, never on the local filesystem (ephemeral on
+  // serverless) and never under public/ (FABLE-014).
+  private readonly storageBucket = 'shipping-labels';
 
   /**
    * Generate a shipping label for an order
@@ -292,33 +295,30 @@ export class LabelGenerationService {
   }
 
   /**
-   * Save PDF to file system
+   * Save PDF to the private storage bucket. Returns the storage object path,
+   * which is what gets persisted as `label_pdf_url` — the download route
+   * streams it back after authorization.
    */
   private async savePDF(fileName: string, pdfBytes: Uint8Array): Promise<string> {
-    // Validate file name to prevent directory traversal
+    // Validate file name to prevent path traversal into other objects
     const sanitizedFileName = path.basename(fileName);
     if (sanitizedFileName !== fileName) {
       throw new Error('Invalid file name: directory traversal detected');
     }
 
-    // { recursive: true } is idempotent — no error if directory already exists
-    await fs.mkdir(this.labelsDirectory, { recursive: true });
+    const { error } = await getSupabaseServer()
+      .storage
+      .from(this.storageBucket)
+      .upload(sanitizedFileName, Buffer.from(pdfBytes), {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
 
-    const filePath = path.join(this.labelsDirectory, sanitizedFileName);
-
-    try {
-      await fs.writeFile(filePath, pdfBytes);
-    } catch (writeError) {
-      const err = writeError as NodeJS.ErrnoException;
-      if (err.code === 'ENOSPC') {
-        throw new Error('Insufficient disk space to save shipping label');
-      } else if (err.code === 'EACCES') {
-        throw new Error('Permission denied: cannot write to labels directory');
-      }
-      throw new Error(`Failed to write PDF file: ${err.message ?? String(err)}`);
+    if (error) {
+      throw new Error(`Failed to upload shipping label to storage: ${error.message}`);
     }
 
-    return filePath;
+    return sanitizedFileName;
   }
 
   /**

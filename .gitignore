@@ -91,3 +91,6 @@ public/shipping-labels/
 
 # Temporary files
 nul
+
+# Shipping labels contain customer PII - never serve from public/ (FABLE-014)
+public/shipping-labels/

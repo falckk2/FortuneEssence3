@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, Suspense } from 'react';
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import { useSearchParams } from 'next/navigation';
 import { useLocale } from '@/contexts/LocaleContext';
 import { CheckCircleIcon, ArrowRightIcon, DocumentArrowDownIcon, TruckIcon } from '@heroicons/react/24/outline';

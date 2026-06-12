@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import Image from 'next/image';
 import { 
   ClockIcon, 
@@ -227,7 +227,7 @@ export function OrderCard({ order, locale = 'sv', onCancel }: OrderCardProps) {
             <div className="flex flex-col sm:flex-row gap-3">
               {order.trackingNumber && (
                 <Link
-                  href={`/orders/track?tracking=${order.trackingNumber}`}
+                  href={`/track-order?tracking=${encodeURIComponent(order.trackingNumber)}`}
                   className="flex-1 text-center px-4 py-2 bg-sage-600 text-white font-medium rounded-lg hover:bg-sage-700 transition-colors"
                 >
                   {locale === 'sv' ? 'Spåra paket' : 'Track package'}

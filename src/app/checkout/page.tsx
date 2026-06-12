@@ -2,7 +2,7 @@
 
 import { CheckoutForm } from '@/components/checkout/CheckoutForm';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import { useLocale } from '@/contexts/LocaleContext';
 
 export default function CheckoutPage() {

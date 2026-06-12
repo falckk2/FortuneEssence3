@@ -9,7 +9,8 @@ const LOW_STOCK_THRESHOLD = 10;
 @injectable()
 export class InventoryService implements IInventoryService {
   constructor(
-    @inject(TOKENS.SupabaseClient) private readonly supabase: SupabaseClient
+    // Server-role client: inventory_movements is RLS-protected (FABLE-013)
+    @inject(TOKENS.SupabaseServerClient) private readonly supabase: SupabaseClient
   ) {}
 
   async checkAvailability(productId: string, quantity: number): Promise<ApiResponse<boolean>> {

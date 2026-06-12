@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 
 /**
  * Floating Admin Button (Development Only)

@@ -1,7 +1,8 @@
 import { injectable } from 'tsyringe';
 import { IOrderRepository } from '@/interfaces';
 import { Order, ApiResponse, OrderStatus, PaymentMethod } from '@/types';
-import { supabase } from '@/lib/supabase';
+// Server-role client: orders is RLS-protected with no anon policies (FABLE-015)
+import { getSupabaseServer } from '@/lib/supabase-server';
 import { BaseRepository } from '@/repositories/BaseRepository';
 
 @injectable()
@@ -9,7 +10,7 @@ export class OrderRepository extends BaseRepository<Order> implements IOrderRepo
   protected readonly tableName = 'orders';
 
   constructor() {
-    super(supabase);
+    super(getSupabaseServer());
   }
 
   async findAll(customerId?: string): Promise<ApiResponse<Order[]>> {

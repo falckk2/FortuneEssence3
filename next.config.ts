@@ -35,6 +35,32 @@ const nextConfig: NextConfig = {
 
   // Security headers
   async headers() {
+    // CORS headers are only emitted when the canonical app URL is configured.
+    // Fail closed: with no configured origin, no cross-origin access is granted
+    // (same-origin requests don't need CORS headers at all).
+    const corsOrigin = process.env.NEXT_PUBLIC_APP_URL;
+    const apiCorsBlock = corsOrigin
+      ? [
+          {
+            source: '/api/(.*)',
+            headers: [
+              {
+                key: 'Access-Control-Allow-Origin',
+                value: corsOrigin
+              },
+              {
+                key: 'Access-Control-Allow-Methods',
+                value: 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
+              },
+              {
+                key: 'Access-Control-Allow-Headers',
+                value: 'X-Requested-With, Content-Type, Authorization'
+              }
+            ]
+          }
+        ]
+      : [];
+
     return [
       {
         source: '/(.*)',
@@ -56,23 +82,7 @@ const nextConfig: NextConfig = {
           // Do NOT add a static CSP header here — it would conflict with the middleware header.
         ]
       },
-      {
-        source: '/api/(.*)',
-        headers: [
-          {
-            key: 'Access-Control-Allow-Origin',
-            value: process.env.NEXT_PUBLIC_APP_URL || '*'
-          },
-          {
-            key: 'Access-Control-Allow-Methods',
-            value: 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
-          },
-          {
-            key: 'Access-Control-Allow-Headers',
-            value: 'X-Requested-With, Content-Type, Authorization'
-          }
-        ]
-      }
+      ...apiCorsBlock
     ];
   },
 
@@ -92,6 +102,13 @@ const nextConfig: NextConfig = {
       {
         source: '/shop',
         destination: '/products',
+        permanent: true,
+      },
+      {
+        // Old tracking page consolidated into /track-order; query params
+        // (e.g. ?tracking=) are passed through automatically.
+        source: '/orders/track',
+        destination: '/track-order',
         permanent: true,
       }
     ];
@@ -148,9 +165,11 @@ const nextConfig: NextConfig = {
 
   // Compiler options
   compiler: {
-    // Remove console.log in production
+    // Remove console.log in production; keep error AND warn — several fixes
+    // (e.g. is_admin lookup fallback, rate-limiter fail-open) rely on
+    // console.warn for production observability.
     removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error']
+      exclude: ['error', 'warn']
     } : false,
   },
 };

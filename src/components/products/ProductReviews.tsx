@@ -103,12 +103,19 @@ export function ProductReviews({ productId, userId }: ProductReviewsProps) {
       const response = await fetch(`/api/reviews/${reviewId}/helpful`, {
         method: 'POST',
       });
+      const data = await response.json();
 
-      if (response.ok) {
+      if (response.ok && data.success) {
         setReviews(reviews.map(r =>
-          r.id === reviewId ? { ...r, helpful: r.helpful + 1 } : r
+          r.id === reviewId ? { ...r, helpful: data.data?.helpful ?? r.helpful + 1 } : r
         ));
         toast.success('Tack för din feedback!');
+      } else if (response.status === 401) {
+        toast.error('Du måste vara inloggad för att rösta');
+      } else if (data.error) {
+        toast.error(data.error === 'You have already marked this review as helpful'
+          ? 'Du har redan röstat på denna recension'
+          : data.error);
       }
     } catch (error) {
       console.error('Failed to mark review as helpful:', error);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
+import Link from '@/components/i18n/Link';
 import { useAuth } from '@/hooks/useAuth';
 import {
   HomeIcon,

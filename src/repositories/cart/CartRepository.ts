@@ -1,13 +1,19 @@
 import { ICartRepository } from '@/interfaces';
 import { Cart, ApiResponse } from '@/types';
-import { supabase } from '@/lib/supabase';
+// Server-role client: carts is RLS-protected with no anon policies (FABLE-015)
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 export class CartRepository implements ICartRepository {
   private readonly tableName = 'carts';
 
+  // Lazy getter so the client is only created at request time, never at build time
+  private get supabase() {
+    return getSupabaseServer();
+  }
+
   async findById(id: string): Promise<ApiResponse<Cart>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .select('*')
         .eq('id', id)
@@ -34,7 +40,7 @@ export class CartRepository implements ICartRepository {
 
   async findByUserId(userId: string): Promise<ApiResponse<Cart>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .select('*')
         .eq('user_id', userId)
@@ -69,7 +75,7 @@ export class CartRepository implements ICartRepository {
 
   async findBySessionId(sessionId: string): Promise<ApiResponse<Cart>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .select('*')
         .eq('session_id', sessionId)
@@ -111,7 +117,7 @@ export class CartRepository implements ICartRepository {
         total: cart.total,
       };
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .insert(cartData)
         .select()
@@ -144,7 +150,7 @@ export class CartRepository implements ICartRepository {
       if (cart.total !== undefined) updateData.total = cart.total;
       if (cart.userId !== undefined) updateData.user_id = cart.userId;
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .update(updateData)
         .eq('id', id)
@@ -179,7 +185,7 @@ export class CartRepository implements ICartRepository {
 
   async delete(id: string): Promise<ApiResponse<void>> {
     try {
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from(this.tableName)
         .delete()
         .eq('id', id);
@@ -286,7 +292,7 @@ export class CartRepository implements ICartRepository {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .delete()
         .lt('updated_at', cutoffDate.toISOString())
@@ -314,7 +320,7 @@ export class CartRepository implements ICartRepository {
 
   async getCartCount(userId?: string, sessionId?: string): Promise<ApiResponse<number>> {
     try {
-      let query = supabase.from(this.tableName).select('items');
+      let query = this.supabase.from(this.tableName).select('items');
 
       if (userId) {
         query = query.eq('user_id', userId);

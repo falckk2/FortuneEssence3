@@ -1,13 +1,19 @@
 import { IInventoryRepository } from '@/interfaces';
 import { InventoryItem, ApiResponse } from '@/types';
-import { supabase } from '@/lib/supabase';
+// Server-role client: inventory is RLS-protected with no anon policies (FABLE-015)
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 export class InventoryRepository implements IInventoryRepository {
   private readonly tableName = 'inventory';
 
+  // Lazy getter so the client is only created at request time, never at build time
+  private get supabase() {
+    return getSupabaseServer();
+  }
+
   async findByProductId(productId: string): Promise<ApiResponse<InventoryItem>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .select('*')
         .eq('product_id', productId)
@@ -45,7 +51,7 @@ export class InventoryRepository implements IInventoryRepository {
       
       if (!existingResult.success) {
         // Create new inventory record
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
           .from(this.tableName)
           .insert({
             product_id: productId,
@@ -70,7 +76,7 @@ export class InventoryRepository implements IInventoryRepository {
       }
 
       // Update existing record
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .update({
           quantity: Math.max(0, quantity),
@@ -120,7 +126,7 @@ export class InventoryRepository implements IInventoryRepository {
       }
 
       // Reserve the stock
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from(this.tableName)
         .update({
           reserved_quantity: inventory.reservedQuantity + quantity,
@@ -161,7 +167,7 @@ export class InventoryRepository implements IInventoryRepository {
       const newReservedQuantity = Math.max(0, inventory.reservedQuantity - quantity);
 
       // Release the stock
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from(this.tableName)
         .update({
           reserved_quantity: newReservedQuantity,
@@ -249,7 +255,7 @@ export class InventoryRepository implements IInventoryRepository {
       }
 
       // Confirm reservation by reducing both quantity and reserved quantity
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .update({
           quantity: inventory.quantity - quantity,
@@ -280,7 +286,7 @@ export class InventoryRepository implements IInventoryRepository {
 
   async getLowStockItems(threshold?: number): Promise<ApiResponse<InventoryItem[]>> {
     try {
-      let query = supabase
+      let query = this.supabase
         .from(this.tableName)
         .select('*')
         .order('quantity', { ascending: true });
@@ -326,7 +332,7 @@ export class InventoryRepository implements IInventoryRepository {
   }>> {
     try {
       // Get all inventory with product prices
-      const { data: inventoryData, error: inventoryError } = await supabase
+      const { data: inventoryData, error: inventoryError } = await this.supabase
         .from(this.tableName)
         .select(`
           *,
@@ -368,7 +374,7 @@ export class InventoryRepository implements IInventoryRepository {
 
   async updateReorderLevel(productId: string, reorderLevel: number): Promise<ApiResponse<InventoryItem>> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .update({
           reorder_level: Math.max(0, reorderLevel),

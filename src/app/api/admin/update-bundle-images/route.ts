@@ -3,7 +3,8 @@ import '@/config/di-init';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
+// Server-role client: products writes must not depend on anon policies (FABLE-015)
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 export async function POST() {
   try {
@@ -25,7 +26,7 @@ export async function POST() {
     ];
 
     for (const { sku, image, name } of updates) {
-      const { data, error } = await supabase
+      const { data, error } = await getSupabaseServer()
         .from('products')
         .update({ images: [image] })
         .eq('sku', sku)
@@ -45,7 +46,7 @@ export async function POST() {
       }
     }
 
-    const { data: bundles, error: verifyError } = await supabase
+    const { data: bundles, error: verifyError } = await getSupabaseServer()
       .from('products')
       .select('name, sku, images')
       .eq('category', 'bundles')
