@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { container, TOKENS } from '@/config/di-container';
 import type { IProductService, IProductRepository } from '@/interfaces';
+import { productUpdateSchema } from '@/utils/validation';
 
 const productService = container.resolve<IProductService>(TOKENS.IProductService);
 const productRepository = container.resolve<IProductRepository>(TOKENS.IProductRepository);
@@ -50,7 +51,16 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const result = await productRepository.update(id, body);
+
+    const validation = productUpdateSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: validation.error.issues.map(i => i.message).join(', ') },
+        { status: 400 }
+      );
+    }
+
+    const result = await productRepository.update(id, validation.data);
 
     if (!result.success) {
       console.error('Product PATCH - failed to update product:', result.error);

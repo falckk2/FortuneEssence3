@@ -249,6 +249,19 @@ export class AuthService implements IAuthService {
         // Don't fail the operation if we can't mark the token as used
       }
 
+      // Invalidate ALL remaining unused tokens for this customer
+      // This prevents an intercepted earlier reset email from being usable
+      try {
+        await this.supabase
+          .from('password_reset_tokens')
+          .update({ used_at: new Date().toISOString() })
+          .eq('customer_id', customer.id)
+          .is('used_at', null);
+      } catch (invalidateError) {
+        console.error('Failed to invalidate other reset tokens:', invalidateError);
+        // Non-fatal: the specific token was already marked used above
+      }
+
       return {
         success: true,
       };

@@ -6,6 +6,11 @@ import bcrypt from 'bcryptjs';
 export class CustomerRepository implements ICustomerRepository {
   private readonly tableName = 'customers';
 
+  /** Escape LIKE-special characters (%, _) to prevent pattern manipulation */
+  private escapeLikePattern(s: string): string {
+    return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+  }
+
   async findAll(params?: CustomerSearchParams): Promise<ApiResponse<Customer[]>> {
     try {
       let query = getSupabaseServer()
@@ -14,7 +19,7 @@ export class CustomerRepository implements ICustomerRepository {
         .order('created_at', { ascending: false });
 
       if (params?.search) {
-        const s = params.search;
+        const s = this.escapeLikePattern(params.search);
         query = query.or(`email.ilike.%${s}%,first_name.ilike.%${s}%,last_name.ilike.%${s}%,phone.ilike.%${s}%`);
       }
 

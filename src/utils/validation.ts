@@ -77,6 +77,17 @@ export const searchSchema = z.object({
   locale: z.enum(['en', 'sv']).default('sv'),
 });
 
+export const productUpdateSchema = productSchema.partial();
+
+export const bundleCreateSchema = z.object({
+  bundleProductId: z.string().min(1, 'Bundle product ID is required'),
+  requiredQuantity: z.number().int().min(1, 'Required quantity must be at least 1').max(20, 'Required quantity cannot exceed 20'),
+  allowedCategory: z.string().min(1, 'Allowed category is required'),
+  discountPercentage: z.number().min(0, 'Discount cannot be negative').max(100, 'Discount cannot exceed 100%'),
+});
+
+export const bundleUpdateSchema = bundleCreateSchema.partial();
+
 export const gdprSchema = z.object({
   marketing: z.boolean(),
   analytics: z.boolean(),

@@ -10,6 +10,16 @@ import { config } from '@/config';
 
 const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
 
+// ISSUE-025 fix: HTML-escape user-supplied values to prevent XSS in email templates.
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // Rate limiting — persisted in Supabase so it survives serverless restarts.
 // Falls back to in-memory if the DB write fails (degraded but non-blocking).
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -214,12 +224,12 @@ export async function POST(request: NextRequest) {
                 <h2>New Contact Form Submission</h2>
               </div>
               <div class="content">
-                <div class="field"><span class="label">Submission ID:</span> ${contactSubmission.id}</div>
-                <div class="field"><span class="label">Name:</span> ${sanitizedData.name}</div>
-                <div class="field"><span class="label">Email:</span> ${sanitizedData.email}</div>
-                ${sanitizedData.phone ? `<div class="field"><span class="label">Phone:</span> ${sanitizedData.phone}</div>` : ''}
-                <div class="field"><span class="label">Subject:</span> ${sanitizedData.subject}</div>
-                <div class="field"><span class="label">Message:</span><br>${sanitizedData.message.replace(/\n/g, '<br>')}</div>
+                <div class="field"><span class="label">Submission ID:</span> ${escapeHtml(contactSubmission.id)}</div>
+                <div class="field"><span class="label">Name:</span> ${escapeHtml(sanitizedData.name)}</div>
+                <div class="field"><span class="label">Email:</span> ${escapeHtml(sanitizedData.email)}</div>
+                ${sanitizedData.phone ? `<div class="field"><span class="label">Phone:</span> ${escapeHtml(sanitizedData.phone)}</div>` : ''}
+                <div class="field"><span class="label">Subject:</span> ${escapeHtml(sanitizedData.subject)}</div>
+                <div class="field"><span class="label">Message:</span><br>${escapeHtml(sanitizedData.message).replace(/\n/g, '<br>')}</div>
                 <div class="field"><span class="label">IP Address:</span> ${ip}</div>
                 <div class="field"><span class="label">Submitted At:</span> ${sanitizedData.submittedAt}</div>
                 <a href="${adminUrl}" class="button">View in Admin Panel</a>

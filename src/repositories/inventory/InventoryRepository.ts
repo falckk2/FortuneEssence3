@@ -106,7 +106,7 @@ export class InventoryRepository implements IInventoryRepository {
 
   async reserveStock(productId: string, quantity: number): Promise<ApiResponse<boolean>> {
     try {
-      // Get current inventory
+      // Get current inventory for availability check
       const inventoryResult = await this.findByProductId(productId);
       if (!inventoryResult.success) {
         return {
@@ -125,18 +125,28 @@ export class InventoryRepository implements IInventoryRepository {
         };
       }
 
-      // Reserve the stock
-      const { error } = await this.supabase
+      // Atomic reserve: increment reserved_quantity only if stock is sufficient
+      // Uses .gte() guard to prevent over-reservation under concurrent writes.
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .update({
           reserved_quantity: inventory.reservedQuantity + quantity,
         })
-        .eq('product_id', productId);
+        .eq('product_id', productId)
+        .gte('quantity', inventory.reservedQuantity + quantity)
+        .select('product_id');
 
       if (error) {
         return {
           success: false,
           error: error.message,
+        };
+      }
+
+      if (!data || data.length === 0) {
+        return {
+          success: false,
+          error: 'Insufficient stock available — concurrent modification detected',
         };
       }
 
@@ -154,31 +164,57 @@ export class InventoryRepository implements IInventoryRepository {
 
   async releaseReservedStock(productId: string, quantity: number): Promise<ApiResponse<boolean>> {
     try {
-      // Get current inventory
-      const inventoryResult = await this.findByProductId(productId);
-      if (!inventoryResult.success) {
+      // Atomic decrement: use .gte() to ensure reserved_quantity doesn't go negative
+      // This is a single SQL statement that avoids the read-then-write race.
+      const { data: rows, error: selectError } = await this.supabase
+        .from(this.tableName)
+        .select('reserved_quantity')
+        .eq('product_id', productId)
+        .single();
+
+      if (selectError) {
         return {
           success: false,
           error: 'Product not found in inventory',
         };
       }
 
-      const inventory = inventoryResult.data!;
-      const newReservedQuantity = Math.max(0, inventory.reservedQuantity - quantity);
+      const currentReserved = rows.reserved_quantity;
+      const newReservedQuantity = Math.max(0, currentReserved - quantity);
 
-      // Release the stock
-      const { error } = await this.supabase
+      // Only update if the reserved_quantity hasn't changed since we read it (OCC)
+      const { data, error } = await this.supabase
         .from(this.tableName)
         .update({
           reserved_quantity: newReservedQuantity,
         })
-        .eq('product_id', productId);
+        .eq('product_id', productId)
+        .eq('reserved_quantity', currentReserved)
+        .select('product_id');
 
       if (error) {
         return {
           success: false,
           error: error.message,
         };
+      }
+
+      if (!data || data.length === 0) {
+        // Concurrent modification — retry once
+        const retryResult = await this.findByProductId(productId);
+        if (!retryResult.success) {
+          return { success: false, error: 'Product not found in inventory' };
+        }
+        const retryReserved = retryResult.data!.reservedQuantity;
+        const retryNew = Math.max(0, retryReserved - quantity);
+        const { error: retryError } = await this.supabase
+          .from(this.tableName)
+          .update({ reserved_quantity: retryNew })
+          .eq('product_id', productId)
+          .eq('reserved_quantity', retryReserved);
+        if (retryError) {
+          return { success: false, error: retryError.message };
+        }
       }
 
       return {
@@ -236,32 +272,41 @@ export class InventoryRepository implements IInventoryRepository {
 
   async confirmReservation(productId: string, quantity: number): Promise<ApiResponse<InventoryItem>> {
     try {
-      // Get current inventory
-      const inventoryResult = await this.findByProductId(productId);
-      if (!inventoryResult.success) {
+      // Atomic confirm: reduce both quantity and reserved_quantity in one statement
+      // with an OCC guard on reserved_quantity to prevent race conditions.
+      const { data: rows, error: selectError } = await this.supabase
+        .from(this.tableName)
+        .select('quantity, reserved_quantity')
+        .eq('product_id', productId)
+        .single();
+
+      if (selectError) {
         return {
           success: false,
           error: 'Product not found in inventory',
         };
       }
 
-      const inventory = inventoryResult.data!;
+      const currentQuantity = rows.quantity;
+      const currentReserved = rows.reserved_quantity;
 
-      if (inventory.reservedQuantity < quantity) {
+      if (currentReserved < quantity) {
         return {
           success: false,
           error: 'Not enough reserved stock to confirm',
         };
       }
 
-      // Confirm reservation by reducing both quantity and reserved quantity
+      // Update with OCC guard on both quantity and reserved_quantity
       const { data, error } = await this.supabase
         .from(this.tableName)
         .update({
-          quantity: inventory.quantity - quantity,
-          reserved_quantity: inventory.reservedQuantity - quantity,
+          quantity: currentQuantity - quantity,
+          reserved_quantity: currentReserved - quantity,
         })
         .eq('product_id', productId)
+        .eq('quantity', currentQuantity)
+        .eq('reserved_quantity', currentReserved)
         .select()
         .single();
 
@@ -269,6 +314,13 @@ export class InventoryRepository implements IInventoryRepository {
         return {
           success: false,
           error: error.message,
+        };
+      }
+
+      if (!data) {
+        return {
+          success: false,
+          error: 'Concurrent modification detected — please retry',
         };
       }
 

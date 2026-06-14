@@ -29,6 +29,16 @@ const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
 // Webhook signing secret for verifying webhook authenticity
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
+// ISSUE-027 fix: HTML-escape Stripe-sourced values to prevent XSS in email templates.
+function escapeHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
@@ -174,14 +184,14 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 
     await emailService.sendEmail({
       to: config.email.supportEmail,
-      subject: `Ny betalning mottagen - Order ${orderId}`,
+      subject: `Ny betalning mottagen - Order ${escapeHtml(orderId)}`,
       html: `
         <h2>Ny betalning mottagen</h2>
-        <p><strong>Order ID:</strong> ${orderId}</p>
+        <p><strong>Order ID:</strong> ${escapeHtml(orderId)}</p>
         <p><strong>Belopp:</strong> ${(paymentIntent.amount / 100).toFixed(2)} ${paymentIntent.currency.toUpperCase()}</p>
         <p><strong>Betalningsmetod:</strong> Stripe</p>
-        <p><strong>Kund:</strong> ${customerEmail}</p>
-        <p><strong>PaymentIntent ID:</strong> ${paymentIntent.id}</p>
+        <p><strong>Kund:</strong> ${escapeHtml(customerEmail)}</p>
+        <p><strong>PaymentIntent ID:</strong> ${escapeHtml(paymentIntent.id)}</p>
         <p><a href="${process.env.NEXTAUTH_URL}/admin/orders/${orderId}">Visa order</a></p>
       `,
     });
@@ -222,8 +232,8 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
         html: `
           <h2>Betalningen misslyckades</h2>
           <p>Tyvärr misslyckades betalningen för din order.</p>
-          <p><strong>Order ID:</strong> ${orderId}</p>
-          <p><strong>Anledning:</strong> ${failureMessage}</p>
+          <p><strong>Order ID:</strong> ${escapeHtml(orderId)}</p>
+          <p><strong>Anledning:</strong> ${escapeHtml(failureMessage)}</p>
           <p>Du kan försöka igen genom att gå till kassan och slutföra din beställning.</p>
           <p><a href="${process.env.NEXTAUTH_URL}/checkout?orderId=${orderId}">Försök igen</a></p>
           <p>Om problemet kvarstår, vänligen kontakta vår kundtjänst.</p>
@@ -235,14 +245,14 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 
     await emailService.sendEmail({
       to: config.email.supportEmail,
-      subject: `Betalning misslyckades - Order ${orderId}`,
+      subject: `Betalning misslyckades - Order ${escapeHtml(orderId)}`,
       html: `
         <h2>Betalning misslyckades</h2>
-        <p><strong>Order ID:</strong> ${orderId}</p>
-        <p><strong>PaymentIntent ID:</strong> ${paymentIntent.id}</p>
+        <p><strong>Order ID:</strong> ${escapeHtml(orderId)}</p>
+        <p><strong>PaymentIntent ID:</strong> ${escapeHtml(paymentIntent.id)}</p>
         <p><strong>Belopp:</strong> ${(paymentIntent.amount / 100).toFixed(2)} ${paymentIntent.currency.toUpperCase()}</p>
-        <p><strong>Kund:</strong> ${customerEmail || 'Okänd'}</p>
-        <p><strong>Felmeddelande:</strong> ${failureMessage}</p>
+        <p><strong>Kund:</strong> ${escapeHtml(customerEmail || 'Okänd')}</p>
+        <p><strong>Felmeddelande:</strong> ${escapeHtml(failureMessage)}</p>
         <p><a href="${process.env.NEXTAUTH_URL}/admin/orders/${orderId}">Visa order</a></p>
       `,
     });
@@ -300,7 +310,7 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
         html: `
           <h2>Återbetalning bekräftad</h2>
           <p>Din återbetalning har behandlats.</p>
-          ${orderId ? `<p><strong>Order ID:</strong> ${orderId}</p>` : ''}
+          ${orderId ? `<p><strong>Order ID:</strong> ${escapeHtml(orderId)}</p>` : ''}
           <p><strong>Återbetalat belopp:</strong> ${refundAmount.toFixed(2)} ${charge.currency.toUpperCase()}</p>
           <p><strong>Referensnummer:</strong> ${charge.id}</p>
           <p>Pengarna kommer att återbetalas till ditt originalkort inom 5-10 arbetsdagar.</p>
@@ -390,13 +400,4 @@ function formatAddress(address: any): string {
     address.country
   ].filter(Boolean);
   return parts.join('\n');
-}
-
-// Verify webhook endpoint is reachable (for Stripe CLI testing)
-export async function GET() {
-  return NextResponse.json({
-    success: true,
-    message: 'Stripe webhook endpoint is active',
-    timestamp: new Date().toISOString(),
-  });
 }

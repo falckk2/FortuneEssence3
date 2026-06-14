@@ -5,6 +5,7 @@ import { container, TOKENS } from '@/config/di-container';
 import type { IBundleService, IBundleRepository } from '@/interfaces';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
+import { bundleUpdateSchema } from '@/utils/validation';
 
 const bundleService = container.resolve<IBundleService>(TOKENS.IBundleService);
 const bundleRepo = container.resolve<IBundleRepository>(TOKENS.IBundleRepository);
@@ -53,7 +54,14 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const result = await bundleRepo.update(id, body);
+    const validation = bundleUpdateSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { success: false, error: 'Validation failed', details: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+    const result = await bundleRepo.update(id, validation.data);
 
     if (!result.success) {
       console.error('Bundle PATCH - failed to update bundle:', result.error);

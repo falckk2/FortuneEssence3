@@ -157,15 +157,22 @@ export class OrderRepository extends BaseRepository<Order> implements IOrderRepo
         return { success: false, error: error.message };
       }
 
+      // Single-pass reduce instead of 6 .filter() calls over the same array
+      // TODO: Replace with Supabase RPC (GROUP BY status) for large datasets
+      const counts = data.reduce((acc, o) => {
+        acc[o.status] = (acc[o.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
       return {
         success: true,
         data: {
           total: data.length,
-          pending: data.filter(o => o.status === 'pending').length,
-          confirmed: data.filter(o => o.status === 'confirmed').length,
-          shipped: data.filter(o => o.status === 'shipped').length,
-          delivered: data.filter(o => o.status === 'delivered').length,
-          cancelled: data.filter(o => o.status === 'cancelled').length,
+          pending: counts['pending'] || 0,
+          confirmed: counts['confirmed'] || 0,
+          shipped: counts['shipped'] || 0,
+          delivered: counts['delivered'] || 0,
+          cancelled: counts['cancelled'] || 0,
         },
       };
     } catch (error) {

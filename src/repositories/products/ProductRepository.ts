@@ -74,7 +74,7 @@ export class ProductRepository extends BaseRepository<Product> implements IProdu
       }
 
       if (params?.search) {
-        const searchTerm = `%${params.search.toLowerCase()}%`;
+        const searchTerm = `%${this.escapeLikePattern(params.search.toLowerCase())}%`;
         if (params.locale === 'sv') {
           query = query.or(`name_sv.ilike.${searchTerm},description_sv.ilike.${searchTerm}`);
         } else {
@@ -478,6 +478,11 @@ export class ProductRepository extends BaseRepository<Product> implements IProdu
         error: `Failed to get categories: ${error}`,
       };
     }
+  }
+
+  /** Escape LIKE-special characters (% and _) for Supabase ilike patterns. */
+  private escapeLikePattern(s: string): string {
+    return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
   }
 
   // Helper method to filter mock data based on search parameters

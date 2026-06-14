@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         }
-        result = await cartService.updateQuantity(targetCartId, productId, quantity);
+        result = await cartService.updateQuantity(targetCartId, productId, quantity, cartItemId);
         break;
       }
 

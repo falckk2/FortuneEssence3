@@ -11,11 +11,66 @@ import { NextRequest, NextResponse } from 'next/server';
 import { container, TOKENS } from '@/config/di-container';
 import type { IShippingService } from '@/interfaces';
 import type { CartItem } from '@/types';
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 const shippingService = container.resolve<IShippingService>(TOKENS.IShippingService);
 
+// Rate limiting for shipping calculations to prevent quota exhaustion from scrapers.
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const MAX_REQUESTS_PER_WINDOW = 20;
+const FORM_TYPE = 'shipping-calculate';
+
+async function checkRateLimit(ip: string): Promise<boolean> {
+  const now = new Date();
+  const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW_MS);
+  const bucketId = `${FORM_TYPE}:${ip}`;
+
+  try {
+    const supabase = getSupabaseServer();
+    const { data: existing } = await supabase
+      .from('rate_limit_buckets')
+      .select('timestamps')
+      .eq('id', bucketId)
+      .single();
+
+    const allTimestamps: string[] = existing?.timestamps ?? [];
+    const recentTimestamps = allTimestamps.filter(
+      (ts: string) => new Date(ts) > windowStart
+    );
+
+    if (recentTimestamps.length >= MAX_REQUESTS_PER_WINDOW) {
+      return false;
+    }
+
+    recentTimestamps.push(now.toISOString());
+
+    await supabase
+      .from('rate_limit_buckets')
+      .upsert({
+        id: bucketId,
+        form_type: FORM_TYPE,
+        ip,
+        timestamps: recentTimestamps,
+        updated_at: now.toISOString(),
+      });
+
+    return true;
+  } catch (err) {
+    console.error('[rate-limit] DB check failed, failing open:', err);
+    return true;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+    if (!await checkRateLimit(ip)) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { items, country, postalCode, orderValue } = body;
 

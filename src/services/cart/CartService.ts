@@ -177,7 +177,7 @@ export class CartService implements ICartService {
     }
   }
 
-  async updateQuantity(cartId: string, productId: string, quantity: number): Promise<ApiResponse<Cart>> {
+  async updateQuantity(cartId: string, productId: string, quantity: number, cartItemId?: string): Promise<ApiResponse<Cart>> {
     try {
       if (quantity < 0) {
         return {
@@ -220,7 +220,7 @@ export class CartService implements ICartService {
 
       const cart = cartResult.data!;
       const updatedItems = cart.items.map(item =>
-        item.productId === productId
+        (cartItemId ? item.cartItemId === cartItemId : item.productId === productId)
           ? { ...item, quantity, price: product.price } // Update price in case it changed
           : item
       );

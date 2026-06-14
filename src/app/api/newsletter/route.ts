@@ -166,10 +166,9 @@ export async function POST(request: NextRequest) {
       data: {
         subscriptionId: newSubscription.id,
         email,
-        discountCode,
         message: locale === 'sv'
-          ? 'Du har fått 10% rabatt på din första beställning!'
-          : 'You received 10% off your first order!',
+          ? 'Du har fått 10% rabatt på din första beställning! Kolla din e-post.'
+          : 'You received 10% off your first order! Check your email.',
       },
     });
   } catch (error) {

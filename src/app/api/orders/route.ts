@@ -8,6 +8,8 @@ import { container, TOKENS } from '@/config/di-container';
 
 const orderService = container.resolve<IOrderService>(TOKENS.IOrderService);
 
+const VALID_ORDER_STATUSES = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'] as const;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -112,6 +114,13 @@ export async function PATCH(request: NextRequest) {
     if (!orderId || !status) {
       return NextResponse.json(
         { success: false, error: 'Order ID and status are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!VALID_ORDER_STATUSES.includes(status as any)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid order status' },
         { status: 400 }
       );
     }
