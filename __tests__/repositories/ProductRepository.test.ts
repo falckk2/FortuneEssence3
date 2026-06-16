@@ -142,6 +142,20 @@ describe('ProductRepository', () => {
       expect(mockSupabase.mockQuery.or).toHaveBeenCalled();
     });
 
+    it('escapes LIKE wildcards in search term (ISSUE-035)', async () => {
+      const params: ProductSearchParams = { search: '100%_off', locale: 'en' };
+      mockSupabase.mockQuery.or = jest.fn().mockReturnThis();
+      mockSupabase.mockQuery.order = jest.fn().mockResolvedValue(
+        mockSupabaseSuccess([mockDbProduct])
+      );
+
+      await repository.findAll(params);
+
+      expect(mockSupabase.mockQuery.or).toHaveBeenCalledWith(
+        'name_en.ilike.%100\\%\\_off%,description_en.ilike.%100\\%\\_off%'
+      );
+    });
+
     it('should return mock data on database error', async () => {
       mockSupabase.mockQuery.order = jest.fn().mockResolvedValue(
         mockSupabaseError('Database connection failed')

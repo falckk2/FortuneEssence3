@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { container, TOKENS } from '@/config/di-container';
 import type { IShipmentSimulationService } from '@/interfaces/test';
+import { getTestModeStatus } from '@/lib/testMode';
 
 /**
  * SHIPMENT SIMULATION API
@@ -26,7 +27,7 @@ const shipmentSimulationService = container.resolve<IShipmentSimulationService>(
 const orderRepository = container.resolve<any>(TOKENS.IOrderRepository);
 
 export async function POST(request: NextRequest) {
-  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
+  if (!(await getTestModeStatus())) {
     return NextResponse.json(
       { success: false, error: 'Test endpoints are disabled in production' },
       { status: 403 }
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
+  if (!(await getTestModeStatus())) {
     return NextResponse.json(
       { success: false, error: 'Test endpoints are disabled in production' },
       { status: 403 }

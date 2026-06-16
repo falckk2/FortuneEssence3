@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { container, TOKENS } from '@/config/di-container';
 import type { ITestCheckoutService } from '@/interfaces/test';
+import { getTestModeStatus } from '@/lib/testMode';
 
 const testCheckoutService = container.resolve<ITestCheckoutService>(TOKENS.ITestCheckoutService);
 
@@ -24,8 +25,7 @@ const testCheckoutService = container.resolve<ITestCheckoutService>(TOKENS.ITest
  */
 
 export async function POST(request: NextRequest) {
-  // Check if we're in development/test mode
-  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
+  if (!(await getTestModeStatus())) {
     return NextResponse.json(
       {
         success: false,

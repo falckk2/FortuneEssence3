@@ -6,11 +6,21 @@ import { getSupabaseServer } from '@/lib/supabase-server';
 import crypto from 'crypto';
 import { container, TOKENS } from '@/config/di-container';
 import type { IEmailService } from '@/interfaces/email';
+import { checkRateLimit, getClientIp } from '@/utils/rateLimit';
 
 const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const allowed = await checkRateLimit('newsletter', ip, 5);
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { email, locale = 'sv' } = body;
 

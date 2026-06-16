@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { container, TOKENS } from '@/config/di-container';
+import { getTestModeStatus } from '@/lib/testMode';
 
 /**
  * TEST ORDERS API
@@ -13,7 +14,7 @@ import { container, TOKENS } from '@/config/di-container';
  */
 
 export async function GET(request: NextRequest) {
-  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
+  if (!(await getTestModeStatus())) {
     return NextResponse.json(
       { success: false, error: 'Test endpoints are disabled in production' },
       { status: 403 }
@@ -165,7 +166,7 @@ async function getOrderStatistics(userId: string | undefined, orderRepository: a
 }
 
 export async function DELETE(request: NextRequest) {
-  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_TEST_ENDPOINTS !== 'true') {
+  if (!(await getTestModeStatus())) {
     return NextResponse.json(
       { success: false, error: 'Test endpoints are disabled in production' },
       { status: 403 }

@@ -108,8 +108,8 @@ export default function DevAdminButton() {
               disabled={isLoading || testModeEnabled === null}
               className={`w-full flex items-center justify-between p-3 rounded-lg mb-2 transition-all ${
                 testModeEnabled
-                  ? 'bg-green-50 hover:bg-green-100 border border-green-300'
-                  : 'bg-red-50 hover:bg-red-100 border border-red-300'
+                  ? 'bg-green-50 hover:bg-green-100 border border-green-300 dark:bg-green-950/40 dark:hover:bg-green-950/60 dark:border-green-700'
+                  : 'bg-red-50 hover:bg-red-100 border border-red-300 dark:bg-red-950/40 dark:hover:bg-red-950/60 dark:border-red-700'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <div className="flex items-center space-x-3">

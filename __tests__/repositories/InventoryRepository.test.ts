@@ -128,11 +128,9 @@ describe('InventoryRepository', () => {
       mockSupabase.mockQuery.single = jest.fn().mockResolvedValue(
         mockSupabaseSuccess(mockDbInventoryItem)
       );
-
-      // eq is intermediate in findByProductId (.eq().single()), then terminal in update (.update().eq())
-      mockSupabase.mockQuery.eq = jest.fn()
-        .mockReturnValueOnce(mockSupabase.mockQuery) // findByProductId: chain to .single()
-        .mockResolvedValueOnce(mockSupabaseSuccess(null)); // update: terminal
+      mockSupabase.mockQuery.select = jest.fn()
+        .mockReturnValueOnce(mockSupabase.mockQuery) // findByProductId chain
+        .mockResolvedValueOnce(mockSupabaseSuccess([{ product_id: 'prod-1' }])); // update OCC guard
 
       const result = await repository.reserveStock('prod-1', 5);
 
@@ -141,6 +139,8 @@ describe('InventoryRepository', () => {
       expect(mockSupabase.mockQuery.update).toHaveBeenCalledWith({
         reserved_quantity: 15, // 10 + 5
       });
+      expect(mockSupabase.mockQuery.eq).toHaveBeenCalledWith('reserved_quantity', 10);
+      expect(mockSupabase.mockQuery.gte).toHaveBeenCalledWith('quantity', 15);
     });
 
     it('should return error when insufficient stock available', async () => {
@@ -164,17 +164,46 @@ describe('InventoryRepository', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('Product not found in inventory');
     });
+
+    it('ISSUE-025: uses gte quantity guard and reserved_quantity OCC', async () => {
+      mockSupabase.mockQuery.single = jest.fn().mockResolvedValue(
+        mockSupabaseSuccess(mockDbInventoryItem)
+      );
+      mockSupabase.mockQuery.select = jest.fn()
+        .mockReturnValueOnce(mockSupabase.mockQuery)
+        .mockResolvedValueOnce(mockSupabaseSuccess([{ product_id: 'prod-1' }]));
+
+      await repository.reserveStock('prod-1', 5);
+
+      expect(mockSupabase.mockQuery.gte).toHaveBeenCalledWith('quantity', 15);
+      expect(mockSupabase.mockQuery.eq).toHaveBeenCalledWith('reserved_quantity', 10);
+    });
+
+    it('ISSUE-025: fails when concurrent modification prevents the guarded update', async () => {
+      mockSupabase.mockQuery.single = jest.fn()
+        .mockResolvedValueOnce(mockSupabaseSuccess(mockDbInventoryItem))
+        .mockResolvedValueOnce(mockSupabaseSuccess(mockDbInventoryItem));
+      mockSupabase.mockQuery.select = jest.fn()
+        .mockReturnValueOnce(mockSupabase.mockQuery)
+        .mockResolvedValueOnce(mockSupabaseSuccess([]))
+        .mockReturnValueOnce(mockSupabase.mockQuery)
+        .mockResolvedValueOnce(mockSupabaseSuccess([]));
+
+      const result = await repository.reserveStock('prod-1', 5);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('concurrent modification');
+    });
   });
 
   describe('releaseReservedStock', () => {
     it('should release reserved stock', async () => {
       mockSupabase.mockQuery.single = jest.fn().mockResolvedValue(
-        mockSupabaseSuccess(mockDbInventoryItem)
+        mockSupabaseSuccess({ reserved_quantity: 10 })
       );
-
-      mockSupabase.mockQuery.eq = jest.fn()
-        .mockReturnValueOnce(mockSupabase.mockQuery)
-        .mockResolvedValueOnce(mockSupabaseSuccess(null));
+      mockSupabase.mockQuery.select = jest.fn()
+        .mockReturnValueOnce(mockSupabase.mockQuery) // read reserved_quantity
+        .mockResolvedValueOnce(mockSupabaseSuccess([{ product_id: 'prod-1' }])); // OCC update
 
       const result = await repository.releaseReservedStock('prod-1', 5);
 
@@ -187,12 +216,11 @@ describe('InventoryRepository', () => {
 
     it('should not allow negative reserved quantities', async () => {
       mockSupabase.mockQuery.single = jest.fn().mockResolvedValue(
-        mockSupabaseSuccess(mockDbInventoryItem)
+        mockSupabaseSuccess({ reserved_quantity: 10 })
       );
-
-      mockSupabase.mockQuery.eq = jest.fn()
+      mockSupabase.mockQuery.select = jest.fn()
         .mockReturnValueOnce(mockSupabase.mockQuery)
-        .mockResolvedValueOnce(mockSupabaseSuccess(null));
+        .mockResolvedValueOnce(mockSupabaseSuccess([{ product_id: 'prod-1' }]));
 
       const result = await repository.releaseReservedStock('prod-1', 20); // More than reserved
 

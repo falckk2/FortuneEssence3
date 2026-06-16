@@ -312,7 +312,7 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
           <p>Din återbetalning har behandlats.</p>
           ${orderId ? `<p><strong>Order ID:</strong> ${escapeHtml(orderId)}</p>` : ''}
           <p><strong>Återbetalat belopp:</strong> ${refundAmount.toFixed(2)} ${charge.currency.toUpperCase()}</p>
-          <p><strong>Referensnummer:</strong> ${charge.id}</p>
+          <p><strong>Referensnummer:</strong> ${escapeHtml(charge.id)}</p>
           <p>Pengarna kommer att återbetalas till ditt originalkort inom 5-10 arbetsdagar.</p>
           <p>Observera att det kan ta lite längre tid beroende på din bank.</p>
           <br>
@@ -349,7 +349,7 @@ async function handleDisputeCreated(dispute: Stripe.Dispute) {
 
     await emailService.sendEmail({
       to: config.email.supportEmail,
-      subject: `BRADSKANDE: Betalningsdispyt skapad - ${dispute.id}`,
+      subject: `BRADSKANDE: Betalningsdispyt skapad - ${escapeHtml(dispute.id)}`,
       html: `
         <div style="border: 3px solid #dc3545; padding: 20px; background-color: #fff5f5;">
           <h1 style="color: #dc3545;">BRADSKANDE ATGARD KRAVS</h1>
@@ -357,19 +357,19 @@ async function handleDisputeCreated(dispute: Stripe.Dispute) {
 
           <h3>Disputinformation:</h3>
           <ul>
-            <li><strong>Dispyt ID:</strong> ${dispute.id}</li>
-            <li><strong>Charge ID:</strong> ${chargeId}</li>
+            <li><strong>Dispyt ID:</strong> ${escapeHtml(dispute.id)}</li>
+            <li><strong>Charge ID:</strong> ${escapeHtml(chargeId)}</li>
             <li><strong>Belopp:</strong> ${disputeAmount.toFixed(2)} ${dispute.currency.toUpperCase()}</li>
-            <li><strong>Anledning:</strong> ${reason}</li>
-            <li><strong>Status:</strong> ${dispute.status}</li>
-            <li><strong>Svarsfrist:</strong> <span style="color: #dc3545; font-weight: bold;">${evidenceDeadline}</span></li>
+            <li><strong>Anledning:</strong> ${escapeHtml(reason)}</li>
+            <li><strong>Status:</strong> ${escapeHtml(dispute.status)}</li>
+            <li><strong>Svarsfrist:</strong> <span style="color: #dc3545; font-weight: bold;">${escapeHtml(evidenceDeadline)}</span></li>
           </ul>
 
           <h3>Vad du behover gora:</h3>
           <ol>
             <li>Granska disputen omedelbart i Stripe Dashboard</li>
             <li>Samla in all relevant dokumentation och bevis</li>
-            <li>Svara innan deadline: ${evidenceDeadline}</li>
+            <li>Svara innan deadline: ${escapeHtml(evidenceDeadline)}</li>
             <li>Kontakta kunden om mojligt for att losa situationen</li>
           </ol>
 

@@ -145,20 +145,55 @@ export class OrderRepository extends BaseRepository<Order> implements IOrderRepo
     cancelled: number;
   }>> {
     try {
-      let query = this.supabase.from(this.tableName).select('status');
+      const { data: rpcData, error: rpcError } = await this.supabase.rpc(
+        'get_order_status_counts',
+        { p_customer_id: customerId ?? null }
+      );
 
+      if (!rpcError && Array.isArray(rpcData)) {
+        const counts: Record<string, number> = {};
+        let total = 0;
+        for (const row of rpcData as { status: string; count: number }[]) {
+          const n = Number(row.count);
+          counts[row.status] = n;
+          total += n;
+        }
+
+        return {
+          success: true,
+          data: {
+            total,
+            pending: counts.pending || 0,
+            confirmed: counts.confirmed || 0,
+            shipped: counts.shipped || 0,
+            delivered: counts.delivered || 0,
+            cancelled: counts.cancelled || 0,
+          },
+        };
+      }
+
+      if (rpcError) {
+        const msg = rpcError.message ?? '';
+        const rpcMissing =
+          msg.includes('get_order_status_counts') ||
+          rpcError.code === 'PGRST202' ||
+          rpcError.code === '42883';
+        if (!rpcMissing) {
+          return { success: false, error: rpcError.message };
+        }
+      }
+
+      // Fallback when migration 018 is not yet deployed
+      let query = this.supabase.from(this.tableName).select('status');
       if (customerId) {
         query = query.eq('customer_id', customerId);
       }
 
       const { data, error } = await query;
-
       if (error) {
         return { success: false, error: error.message };
       }
 
-      // Single-pass reduce instead of 6 .filter() calls over the same array
-      // TODO: Replace with Supabase RPC (GROUP BY status) for large datasets
       const counts = data.reduce((acc, o) => {
         acc[o.status] = (acc[o.status] || 0) + 1;
         return acc;
@@ -168,11 +203,11 @@ export class OrderRepository extends BaseRepository<Order> implements IOrderRepo
         success: true,
         data: {
           total: data.length,
-          pending: counts['pending'] || 0,
-          confirmed: counts['confirmed'] || 0,
-          shipped: counts['shipped'] || 0,
-          delivered: counts['delivered'] || 0,
-          cancelled: counts['cancelled'] || 0,
+          pending: counts.pending || 0,
+          confirmed: counts.confirmed || 0,
+          shipped: counts.shipped || 0,
+          delivered: counts.delivered || 0,
+          cancelled: counts.cancelled || 0,
         },
       };
     } catch (error) {

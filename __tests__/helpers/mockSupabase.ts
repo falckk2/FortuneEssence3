@@ -40,11 +40,15 @@ export function createMockSupabaseClient() {
     single: jest.fn(),
   };
 
+  const mockRpc = jest.fn();
+
   const mockFrom = jest.fn(() => mockQuery);
 
   return {
     from: mockFrom,
+    rpc: mockRpc,
     mockQuery,
+    mockRpc,
   };
 }
 

@@ -79,10 +79,19 @@ export const searchSchema = z.object({
 
 export const productUpdateSchema = productSchema.partial();
 
+const productCategoryEnum = z.enum([
+  'essential-oils',
+  'carrier-oils',
+  'diffusers',
+  'accessories',
+  'gift-sets',
+  'bundles',
+]);
+
 export const bundleCreateSchema = z.object({
   bundleProductId: z.string().min(1, 'Bundle product ID is required'),
   requiredQuantity: z.number().int().min(1, 'Required quantity must be at least 1').max(20, 'Required quantity cannot exceed 20'),
-  allowedCategory: z.string().min(1, 'Allowed category is required'),
+  allowedCategory: productCategoryEnum,
   discountPercentage: z.number().min(0, 'Discount cannot be negative').max(100, 'Discount cannot exceed 100%'),
 });
 

@@ -187,7 +187,7 @@ export class CartService implements ICartService {
       }
 
       if (quantity === 0) {
-        return this.removeItem(cartId, productId);
+        return this.removeItem(cartId, productId, cartItemId);
       }
 
       // Verify product availability

@@ -111,7 +111,7 @@ export interface ICartService extends IAbandonedCartService {
     quantity?: number
   ): Promise<ApiResponse<Cart>>;
   removeItem(cartId: string, productId: string, cartItemId?: string): Promise<ApiResponse<Cart>>;
-  updateQuantity(cartId: string, productId: string, quantity: number): Promise<ApiResponse<Cart>>;
+  updateQuantity(cartId: string, productId: string, quantity: number, cartItemId?: string): Promise<ApiResponse<Cart>>;
   clearCart(cartId: string): Promise<ApiResponse<void>>;
   calculateTotal(items: CartItem[]): Promise<number>;
   validateCartItems(cartId: string): Promise<ApiResponse<{ valid: boolean; issues?: string[] }>>;

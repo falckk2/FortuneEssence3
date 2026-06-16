@@ -3,66 +3,18 @@ import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import type { IShippingService } from '@/interfaces';
 import { container, TOKENS } from '@/config/di-container';
-import { getSupabaseServer } from '@/lib/supabase-server';
+import { checkRateLimit, getClientIp } from '@/utils/rateLimit';
 
 const shippingService = container.resolve<IShippingService>(TOKENS.IShippingService);
 
-// Rate limiting for shipping API to prevent quota exhaustion from scrapers.
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 20;
 const SHIPPING_RATE_FORM_TYPE = 'shipping-api';
-
-async function checkRateLimit(ip: string): Promise<boolean> {
-  const now = new Date();
-  const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW_MS);
-  const bucketId = `${SHIPPING_RATE_FORM_TYPE}:${ip}`;
-
-  try {
-    const supabase = getSupabaseServer();
-    const { data: existing } = await supabase
-      .from('rate_limit_buckets')
-      .select('timestamps')
-      .eq('id', bucketId)
-      .single();
-
-    const allTimestamps: string[] = existing?.timestamps ?? [];
-    const recentTimestamps = allTimestamps.filter(
-      (ts: string) => new Date(ts) > windowStart
-    );
-
-    if (recentTimestamps.length >= MAX_REQUESTS_PER_WINDOW) {
-      return false;
-    }
-
-    recentTimestamps.push(now.toISOString());
-
-    await supabase
-      .from('rate_limit_buckets')
-      .upsert({
-        id: bucketId,
-        form_type: SHIPPING_RATE_FORM_TYPE,
-        ip,
-        timestamps: recentTimestamps,
-        updated_at: now.toISOString(),
-      });
-
-    return true;
-  } catch (err) {
-    console.error('[rate-limit] DB check failed, failing open:', err);
-    return true;
-  }
-}
-
-function getClientIp(request: NextRequest): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || request.headers.get('x-real-ip')
-    || 'unknown';
-}
 
 export async function GET(request: NextRequest) {
   try {
     const ip = getClientIp(request);
-    const allowed = await checkRateLimit(ip);
+    const allowed = await checkRateLimit(SHIPPING_RATE_FORM_TYPE, ip, MAX_REQUESTS_PER_WINDOW, RATE_LIMIT_WINDOW_MS);
     if (!allowed) {
       return NextResponse.json(
         { success: false, error: 'Too many requests. Please try again later.' },
@@ -104,7 +56,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request);
-    const allowed = await checkRateLimit(ip);
+    const allowed = await checkRateLimit(SHIPPING_RATE_FORM_TYPE, ip, MAX_REQUESTS_PER_WINDOW, RATE_LIMIT_WINDOW_MS);
     if (!allowed) {
       return NextResponse.json(
         { success: false, error: 'Too many requests. Please try again later.' },

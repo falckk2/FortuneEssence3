@@ -18,6 +18,8 @@ import { TOKENS } from '@/config/di-container';
 
 @injectable()
 export class OrderService implements IOrderService {
+  private static readonly PRICE_TOLERANCE = 0.01;
+
   constructor(
     @inject(TOKENS.IOrderRepository) private readonly orderRepository: IOrderRepository,
     @inject(TOKENS.IOrderItemRepository) private readonly orderItemRepository: IOrderItemRepository,
@@ -30,18 +32,24 @@ export class OrderService implements IOrderService {
 
   async createOrder(orderData: CreateOrderData): Promise<ApiResponse<Order>> {
     try {
+      const priceResolution = await this.resolveCatalogPrices(orderData.items);
+      if (!priceResolution.success) {
+        return { success: false, error: priceResolution.error };
+      }
+      const items = priceResolution.data!;
+
       // Validate cart items and check stock
-      const stockValidation = await this.validateOrderStock(orderData.items);
+      const stockValidation = await this.validateOrderStock(items);
       if (!stockValidation.success) {
         return { success: false, error: stockValidation.error };
       }
 
-      // Calculate totals
-      const subtotal = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      // Calculate totals from server-side catalog prices
+      const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       const tax = subtotal * 0.25; // 25% Swedish VAT
 
       // Get shipping cost
-      const shippingResult = await this.shippingService.calculateShipping(orderData.items, orderData.shippingAddress.country);
+      const shippingResult = await this.shippingService.calculateShipping(items, orderData.shippingAddress.country);
       if (!shippingResult.success) {
         return {
           success: false,
@@ -53,7 +61,7 @@ export class OrderService implements IOrderService {
       const totalAmount = subtotal + tax + shippingCost;
 
       // Reserve stock before charging — prevents charging a customer for unavailable stock
-      const stockReservation = await this.inventoryService.reserveStock(orderData.items);
+      const stockReservation = await this.inventoryService.reserveStock(items);
       if (!stockReservation.success) {
         return {
           success: false,
@@ -87,7 +95,7 @@ export class OrderService implements IOrderService {
       }
 
       // Transform CartItems to OrderItems
-      const orderItemsResult = await this.transformCartItemsToOrderItems(orderData.items);
+      const orderItemsResult = await this.transformCartItemsToOrderItems(items);
       if (!orderItemsResult.success) {
         await this.inventoryService.releaseReservation(stockReservation.data!);
         await this.paymentService.refundPayment(paymentResult.data!.paymentId);
@@ -345,8 +353,8 @@ export class OrderService implements IOrderService {
           productId: cartItem.productId,
           productName: product.name,
           quantity: cartItem.quantity,
-          price: cartItem.price,
-          total: cartItem.price * cartItem.quantity,
+          price: product.price,
+          total: product.price * cartItem.quantity,
         });
       }
 
@@ -356,6 +364,50 @@ export class OrderService implements IOrderService {
       return {
         success: false,
         error: `Failed to transform cart items: ${error}`,
+      };
+    }
+  }
+
+  private async resolveCatalogPrices(items: CartItem[]): Promise<ApiResponse<CartItem[]>> {
+    try {
+      const productIds = [...new Set(items.map(item => item.productId))];
+      const productsResult = await this.productRepository.findByIds(productIds);
+      const productMap = new Map((productsResult.data ?? []).map(p => [p.id, p]));
+
+      const resolved: CartItem[] = [];
+
+      for (const item of items) {
+        const product = productMap.get(item.productId);
+        if (!product) {
+          return {
+            success: false,
+            error: `Product with ID ${item.productId} not found`,
+          };
+        }
+
+        if (
+          item.price !== undefined &&
+          Math.abs(item.price - product.price) > OrderService.PRICE_TOLERANCE
+        ) {
+          console.warn('[DEBUG-ISSUE-042] Client price differs from catalog price', {
+            productId: item.productId,
+            clientPrice: item.price,
+            catalogPrice: product.price,
+          });
+          return {
+            success: false,
+            error: `Price mismatch for product ${item.productId}`,
+          };
+        }
+
+        resolved.push({ ...item, price: product.price });
+      }
+
+      return { success: true, data: resolved };
+    } catch (error) {
+      return {
+        success: false,
+        error: `Failed to resolve catalog prices: ${error}`,
       };
     }
   }

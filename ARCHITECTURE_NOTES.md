@@ -1,7 +1,7 @@
 # Architecture Notes — Handoff for Future Agents/Developers
 
 _Last updated: 2026-06-12 (Claude Fable 5 session — FABLE-008/010/011/015/016/017; §5 DI/async-module gotcha)._
-_Cross-reference: `fable_issues.md` for the issue-by-issue history, `issues.md` for the older ISSUE-XXX registry._
+_Cross-reference: `issues.md` (ISSUE-001..068) for the full issue registry._
 
 This file documents deliberate architectural decisions made during the June 2026
 resolution pass, so that anyone debugging a regression knows what is intentional,

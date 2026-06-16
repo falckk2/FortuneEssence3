@@ -257,6 +257,33 @@ describe('OrderRepository', () => {
       expect(mockSupabase.mockQuery.insert).toHaveBeenCalled();
     });
 
+    it('should persist reservation_id on create (ISSUE-008)', async () => {
+      const newOrder = {
+        customerId: 'customer-1',
+        items: mockOrderItems,
+        total: 649.98,
+        tax: 50,
+        shipping: 0,
+        status: 'pending' as const,
+        shippingAddress: mockAddress,
+        billingAddress: mockAddress,
+        paymentMethod: 'stripe' as const,
+        paymentId: 'pi_123',
+        reservationId: 'res-abc-123',
+      };
+
+      mockSupabase.mockQuery.single = jest.fn().mockResolvedValue(
+        mockSupabaseSuccess({ ...mockDbOrder, reservation_id: 'res-abc-123' })
+      );
+
+      const result = await repository.create(newOrder);
+
+      const insertCall = (mockSupabase.mockQuery.insert as jest.Mock).mock.calls[0][0];
+      expect(insertCall.reservation_id).toBe('res-abc-123');
+      expect(result.success).toBe(true);
+      expect(result.data?.reservationId).toBe('res-abc-123');
+    });
+
     it('should handle database errors during creation', async () => {
       const newOrder = {
         customerId: 'customer-1',
@@ -369,16 +396,13 @@ describe('OrderRepository', () => {
   });
 
   describe('getOrderStatistics', () => {
-    it('should return order statistics for all orders', async () => {
-      const mockOrders = [
-        { status: 'pending' },
-        { status: 'confirmed' },
-        { status: 'pending' },
-        { status: 'shipped' },
-      ];
-
-      mockSupabase.mockQuery.select = jest.fn().mockResolvedValue(
-        mockSupabaseSuccess(mockOrders)
+    it('should return order statistics via RPC (ISSUE-037)', async () => {
+      mockSupabase.mockRpc.mockResolvedValue(
+        mockSupabaseSuccess([
+          { status: 'pending', count: 2 },
+          { status: 'confirmed', count: 1 },
+          { status: 'shipped', count: 1 },
+        ])
       );
 
       const result = await repository.getOrderStatistics();
@@ -388,26 +412,46 @@ describe('OrderRepository', () => {
       expect(result.data?.pending).toBe(2);
       expect(result.data?.confirmed).toBe(1);
       expect(result.data?.shipped).toBe(1);
+      expect(mockSupabase.mockRpc).toHaveBeenCalledWith('get_order_status_counts', {
+        p_customer_id: null,
+      });
     });
 
-    it('should return order statistics for specific customer', async () => {
-      const mockOrders = [
-        { status: 'pending' },
-        { status: 'confirmed' },
-      ];
-
-      mockSupabase.mockQuery.eq = jest.fn().mockResolvedValue(
-        mockSupabaseSuccess(mockOrders)
+    it('should pass customer id to RPC when filtering', async () => {
+      mockSupabase.mockRpc.mockResolvedValue(
+        mockSupabaseSuccess([
+          { status: 'pending', count: 1 },
+          { status: 'confirmed', count: 1 },
+        ])
       );
 
       const result = await repository.getOrderStatistics('customer-1');
 
       expect(result.success).toBe(true);
-      expect(mockSupabase.mockQuery.eq).toHaveBeenCalledWith('customer_id', 'customer-1');
+      expect(mockSupabase.mockRpc).toHaveBeenCalledWith('get_order_status_counts', {
+        p_customer_id: 'customer-1',
+      });
+    });
+
+    it('should fall back to select when RPC is not deployed', async () => {
+      mockSupabase.mockRpc.mockResolvedValue({
+        data: null,
+        error: { message: 'function get_order_status_counts does not exist', code: '42883' },
+      });
+      mockSupabase.mockQuery.select = jest.fn().mockResolvedValue(
+        mockSupabaseSuccess([{ status: 'pending' }, { status: 'cancelled' }])
+      );
+
+      const result = await repository.getOrderStatistics();
+
+      expect(result.success).toBe(true);
+      expect(result.data?.total).toBe(2);
+      expect(result.data?.pending).toBe(1);
+      expect(result.data?.cancelled).toBe(1);
     });
 
     it('should handle database errors', async () => {
-      mockSupabase.mockQuery.select = jest.fn().mockResolvedValue(
+      mockSupabase.mockRpc.mockResolvedValue(
         mockSupabaseError('Query failed')
       );
 

@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { injectable } from 'tsyringe';
 import type { IEmailService } from '@/interfaces/email';
 import { EmailOptions, EmailTemplate } from '@/interfaces/email';
@@ -187,8 +188,8 @@ export class EmailService implements IEmailService {
             </p>
 
             <h3>${isSwedish ? 'Orderdetaljer' : 'Order Details'}</h3>
-            <p><strong>${isSwedish ? 'Ordernummer' : 'Order Number'}:</strong> ${orderData.orderId}</p>
-            ${orderData.trackingNumber ? `<p><strong>${isSwedish ? 'Spårningsnummer' : 'Tracking Number'}:</strong> ${orderData.trackingNumber}</p>` : ''}
+            <p><strong>${isSwedish ? 'Ordernummer' : 'Order Number'}:</strong> ${this.escapeHtml(orderData.orderId)}</p>
+            ${orderData.trackingNumber ? `<p><strong>${isSwedish ? 'Spårningsnummer' : 'Tracking Number'}:</strong> ${this.escapeHtml(orderData.trackingNumber)}</p>` : ''}
 
             <table>
               <thead>
@@ -256,6 +257,7 @@ export class EmailService implements IEmailService {
       subject,
       html,
       text: `${subject}\n\n${isSwedish ? 'Tack för din beställning!' : 'Thank you for your order!'}\n\nOrder: ${orderData.orderId}\n${orderData.trackingNumber ? `${isSwedish ? 'Spårningsnummer' : 'Tracking'}: ${orderData.trackingNumber}\n` : ''}\n${textBreakdown}`,
+      idempotencyKey: `order-confirm:${orderData.orderId}`,
     });
   }
 
@@ -309,11 +311,14 @@ export class EmailService implements IEmailService {
       </html>
     `;
 
+    const tokenHash = createHash('sha256').update(resetToken).digest('hex');
+
     return this.sendEmail({
       to: email,
       subject,
       html,
       text: `${subject}\n\n${resetUrl}\n\n${isSwedish ? 'Länken är giltig i 1 timme.' : 'This link is valid for 1 hour.'}`,
+      idempotencyKey: `password-reset:${tokenHash}`,
     });
   }
 
@@ -516,10 +521,10 @@ export class EmailService implements IEmailService {
         <div class="container">
           <h2>${subject}</h2>
           <div class="status">
-            <p><strong>${isSwedish ? 'Ordernummer' : 'Order Number'}:</strong> ${orderData.orderId}</p>
-            <p><strong>${isSwedish ? 'Status' : 'Status'}:</strong> ${statusText}</p>
+            <p><strong>${isSwedish ? 'Ordernummer' : 'Order Number'}:</strong> ${this.escapeHtml(orderData.orderId)}</p>
+            <p><strong>${isSwedish ? 'Status' : 'Status'}:</strong> ${this.escapeHtml(statusText)}</p>
             ${orderData.trackingNumber ? `
-              <p><strong>${isSwedish ? 'Spårningsnummer' : 'Tracking Number'}:</strong> ${orderData.trackingNumber}</p>
+              <p><strong>${isSwedish ? 'Spårningsnummer' : 'Tracking Number'}:</strong> ${this.escapeHtml(orderData.trackingNumber)}</p>
             ` : ''}
           </div>
           <p>

@@ -116,7 +116,8 @@ export class InventoryRepository implements IInventoryRepository {
       }
 
       const inventory = inventoryResult.data!;
-      const availableStock = inventory.quantity - inventory.reservedQuantity;
+      const currentReserved = inventory.reservedQuantity;
+      const availableStock = inventory.quantity - currentReserved;
 
       if (availableStock < quantity) {
         return {
@@ -125,15 +126,17 @@ export class InventoryRepository implements IInventoryRepository {
         };
       }
 
-      // Atomic reserve: increment reserved_quantity only if stock is sufficient
-      // Uses .gte() guard to prevent over-reservation under concurrent writes.
+      const newReservedQuantity = currentReserved + quantity;
+
+      // OCC reserve: only update if reserved_quantity is unchanged and capacity allows it.
       const { data, error } = await this.supabase
         .from(this.tableName)
         .update({
-          reserved_quantity: inventory.reservedQuantity + quantity,
+          reserved_quantity: newReservedQuantity,
         })
         .eq('product_id', productId)
-        .gte('quantity', inventory.reservedQuantity + quantity)
+        .eq('reserved_quantity', currentReserved)
+        .gte('quantity', newReservedQuantity)
         .select('product_id');
 
       if (error) {
@@ -144,10 +147,37 @@ export class InventoryRepository implements IInventoryRepository {
       }
 
       if (!data || data.length === 0) {
-        return {
-          success: false,
-          error: 'Insufficient stock available — concurrent modification detected',
-        };
+        // Concurrent modification — retry once with fresh read
+        const retryResult = await this.findByProductId(productId);
+        if (!retryResult.success) {
+          return { success: false, error: 'Product not found in inventory' };
+        }
+        const retryInventory = retryResult.data!;
+        const retryReserved = retryInventory.reservedQuantity;
+        const retryAvailable = retryInventory.quantity - retryReserved;
+        if (retryAvailable < quantity) {
+          return {
+            success: false,
+            error: 'Insufficient stock available — concurrent modification detected',
+          };
+        }
+        const retryNewReserved = retryReserved + quantity;
+        const { data: retryData, error: retryError } = await this.supabase
+          .from(this.tableName)
+          .update({ reserved_quantity: retryNewReserved })
+          .eq('product_id', productId)
+          .eq('reserved_quantity', retryReserved)
+          .gte('quantity', retryNewReserved)
+          .select('product_id');
+        if (retryError) {
+          return { success: false, error: retryError.message };
+        }
+        if (!retryData || retryData.length === 0) {
+          return {
+            success: false,
+            error: 'Insufficient stock available — concurrent modification detected',
+          };
+        }
       }
 
       return {

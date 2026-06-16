@@ -323,6 +323,27 @@ describe('CustomerRepository', () => {
       expect(result.success).toBe(false);
       expect(result.error).toBe('Customer with this email already exists');
     });
+
+    it('should set is_admin false and default marketing_opt_in when undefined (ISSUE-005)', async () => {
+      const newCustomer = {
+        email: 'new@example.com',
+        firstName: 'Jane',
+        lastName: 'Smith',
+        address: mockAddress,
+        consentGiven: true,
+        marketingOptIn: undefined as unknown as boolean,
+      };
+
+      mockSupabase.mockQuery.single = jest.fn().mockResolvedValue(
+        mockSupabaseSuccess(mockDbCustomer)
+      );
+
+      await repository.createWithPassword(newCustomer, 'password123');
+
+      const insertCall = (mockSupabase.mockQuery.insert as jest.Mock).mock.calls[0][0];
+      expect(insertCall.is_admin).toBe(false);
+      expect(insertCall.marketing_opt_in).toBe(false);
+    });
   });
 
   describe('verifyPassword', () => {

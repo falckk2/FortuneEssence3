@@ -53,26 +53,42 @@ export async function POST(request: NextRequest) {
     const sessionId = request.headers.get('x-session-id') || SessionHelper.generateSessionId();
     const body = await request.json();
 
+    if (!session?.user?.id && !request.headers.get('x-session-id')) {
+      return NextResponse.json(
+        { success: false, error: 'Session required' },
+        { status: 401 }
+      );
+    }
+
     const { action, productId, quantity, cartId, cartItemId } = body;
 
-    let targetCartId = cartId;
+    const cartResult = await cartService.getCart(
+      session?.user?.id,
+      sessionId
+    );
 
-    if (!targetCartId) {
-      const cartResult = await cartService.getCart(
-        session?.user?.id,
-        sessionId
+    if (!cartResult.success || !cartResult.data) {
+      console.error('Cart POST - failed to get cart:', cartResult.error);
+      return NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
       );
-
-      if (!cartResult.success || !cartResult.data) {
-        console.error('Cart POST - failed to get cart:', cartResult.error);
-        return NextResponse.json(
-          { success: false, error: 'Internal server error' },
-          { status: 500 }
-        );
-      }
-
-      targetCartId = cartResult.data.id;
     }
+
+    if (cartId && cartId !== cartResult.data.id) {
+      console.warn('[DEBUG-ISSUE-044] Rejected cartId that does not match session cart', {
+        suppliedCartId: cartId,
+        ownedCartId: cartResult.data.id,
+        userId: session?.user?.id ?? null,
+        action,
+      });
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    const targetCartId = cartResult.data.id;
 
     let result;
 

@@ -272,6 +272,27 @@ describe('OrderService', () => {
       expect(mockOrderRepository.create).toHaveBeenCalled();
     });
 
+    it('should persist reservationId from stock reservation (ISSUE-008)', async () => {
+      await orderService.createOrder(mockOrderData);
+
+      expect(mockOrderRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ reservationId: 'reservation-1' })
+      );
+    });
+
+    it('should reject orders with tampered client prices (ISSUE-042)', async () => {
+      const tamperedData: CreateOrderData = {
+        ...mockOrderData,
+        items: [{ productId: 'prod-1', quantity: 2, price: 0.01 }],
+      };
+
+      const result = await orderService.createOrder(tamperedData);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Price mismatch');
+      expect(mockOrderRepository.create).not.toHaveBeenCalled();
+    });
+
     it('should validate stock before creating order', async () => {
       // Arrange
       mockInventoryService.checkAvailability.mockResolvedValue({

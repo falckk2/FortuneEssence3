@@ -7,7 +7,7 @@ from typing import AsyncGenerator
 from dotenv import load_dotenv
 load_dotenv()  # must run before agent imports so USE_OLLAMA and keys are set
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
@@ -58,6 +58,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+ADVISOR_API_SECRET = os.environ.get("ADVISOR_API_SECRET")
+
+
+def verify_advisor_secret(x_advisor_secret: str | None = Header(None)) -> None:
+    """Reject direct calls when a shared secret is configured."""
+    if ADVISOR_API_SECRET and x_advisor_secret != ADVISOR_API_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
 
 # ---------------------------------------------------------------------------
 # Request / Response models
@@ -79,7 +87,7 @@ class ChatResponse(BaseModel):
 # Streaming endpoint (SSE)
 # ---------------------------------------------------------------------------
 
-@app.post("/api/advisor/chat/stream")
+@app.post("/api/advisor/chat/stream", dependencies=[Depends(verify_advisor_secret)])
 async def chat_stream(request: ChatRequest):
     """
     Streaming SSE endpoint. Each chunk is a JSON line prefixed with 'data: '.
@@ -146,7 +154,7 @@ async def chat_stream(request: ChatRequest):
 # Non-streaming endpoint (simpler for initial integration)
 # ---------------------------------------------------------------------------
 
-@app.post("/api/advisor/chat", response_model=ChatResponse)
+@app.post("/api/advisor/chat", response_model=ChatResponse, dependencies=[Depends(verify_advisor_secret)])
 async def chat(request: ChatRequest):
     """Simple non-streaming endpoint — easier to integrate initially."""
     session_id = request.session_id or str(uuid.uuid4())

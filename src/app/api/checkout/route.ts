@@ -9,6 +9,7 @@ import type { IEmailService } from '@/interfaces/email';
 import { container, TOKENS } from '@/config/di-container';
 import { config } from '@/config';
 import { orderSchema } from '@/utils/validation';
+import { escapeHtml } from '@/utils/escapeHtml';
 
 const cartService = container.resolve<ICartService>(TOKENS.ICartService);
 const shippingService = container.resolve<IShippingService>(TOKENS.IShippingService);
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
       case 'calculate-shipping':
         return handleCalculateShipping(body);
       case 'create-payment-intent':
-        return handleCreatePaymentIntent(body);
+        return handleCreatePaymentIntent(body, session?.user?.id, sessionId);
       case 'process-payment':
         return handleProcessPayment(body, session?.user?.id);
       default:
@@ -152,18 +153,74 @@ async function handleCalculateShipping(body: any) {
   }
 }
 
-async function handleCreatePaymentIntent(body: any) {
+async function handleCreatePaymentIntent(
+  body: any,
+  userId?: string,
+  sessionId?: string | null
+) {
   try {
-    const { amount, currency = 'SEK' } = body;
+    const { currency = 'SEK', country = 'SE' } = body;
 
-    if (!amount || amount <= 0) {
+    const cartResult = await cartService.getCart(userId, sessionId || undefined);
+    if (!cartResult.success || !cartResult.data) {
       return NextResponse.json(
-        { success: false, error: 'Valid amount is required' },
+        { success: false, error: 'Cart not found' },
         { status: 400 }
       );
     }
 
-    const result = await paymentService.createPaymentIntent(amount, currency);
+    const cart = cartResult.data;
+    if (cart.items.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Cart is empty' },
+        { status: 400 }
+      );
+    }
+
+    const syncResult = await cartService.syncCartPrices(cart.id);
+    if (!syncResult.success || !syncResult.data) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to sync cart prices' },
+        { status: 500 }
+      );
+    }
+
+    const summaryResult = await cartService.getCartSummary(syncResult.data.id);
+    if (!summaryResult.success || !summaryResult.data) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to calculate cart total' },
+        { status: 500 }
+      );
+    }
+
+    const shippingResult = await shippingService.calculateShipping(
+      syncResult.data.items,
+      country
+    );
+    if (!shippingResult.success || !shippingResult.data) {
+      return NextResponse.json(
+        { success: false, error: 'Shipping calculation failed' },
+        { status: 400 }
+      );
+    }
+
+    const subtotal = summaryResult.data.subtotal;
+    const tax = summaryResult.data.estimatedTax;
+    const shippingCost = shippingResult.data.price;
+    const serverAmount = Math.round((subtotal + tax + shippingCost) * 100) / 100;
+
+    if (body.amount !== undefined) {
+      const clientAmountOre = Math.round(Number(body.amount));
+      const serverAmountOre = Math.round(serverAmount * 100);
+      if (Math.abs(clientAmountOre - serverAmountOre) > 1) {
+        return NextResponse.json(
+          { success: false, error: 'Payment amount does not match cart total' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const result = await paymentService.createPaymentIntent(serverAmount, currency);
 
     if (!result.success) {
       console.error('Checkout - failed to create payment intent:', result.error);
@@ -205,14 +262,13 @@ async function handleProcessPayment(body: any, userId?: string) {
       );
     }
 
-    const itemsWithPrices = orderData.items.map(item => ({
-      ...item,
-      price: item.price || 0,
-    }));
-
     const orderResult = await orderService.createOrder({
       ...orderData,
-      items: itemsWithPrices,
+      items: orderData.items.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price ?? 0,
+      })),
     });
 
     if (!orderResult.success || !orderResult.data) {
@@ -276,9 +332,16 @@ async function handleProcessPayment(body: any, userId?: string) {
       }
 
       try {
+        const safeCustomerName = escapeHtml(customerName);
+        const safeCustomerEmail = escapeHtml(customerEmail);
+        const safePhone = escapeHtml(body.phone || 'Ej angivet');
+        const safeOrderId = escapeHtml(order.id);
+        const safePaymentMethod = escapeHtml(order.paymentMethod);
+        const safeStatus = escapeHtml(order.status);
+
         const itemRows = order.items.map((item: any) =>
           `<tr>
-            <td style="padding:8px;border-bottom:1px solid #eee;">${item.productName || item.name || 'Produkt'}</td>
+            <td style="padding:8px;border-bottom:1px solid #eee;">${escapeHtml(item.productName || item.name || 'Produkt')}</td>
             <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
             <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${(item.price * item.quantity).toFixed(2)} kr</td>
           </tr>`
@@ -291,12 +354,12 @@ async function handleProcessPayment(body: any, userId?: string) {
             <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
               <h2 style="color:#8B4513;">Ny order mottagen</h2>
               <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
-                <tr><td style="padding:4px 0;font-weight:bold;">Order ID:</td><td>${order.id}</td></tr>
-                <tr><td style="padding:4px 0;font-weight:bold;">Kund:</td><td>${customerName}</td></tr>
-                <tr><td style="padding:4px 0;font-weight:bold;">E-post:</td><td>${customerEmail}</td></tr>
-                <tr><td style="padding:4px 0;font-weight:bold;">Telefon:</td><td>${body.phone || 'Ej angivet'}</td></tr>
-                <tr><td style="padding:4px 0;font-weight:bold;">Betalningsmetod:</td><td>${order.paymentMethod}</td></tr>
-                <tr><td style="padding:4px 0;font-weight:bold;">Status:</td><td>${order.status}</td></tr>
+                <tr><td style="padding:4px 0;font-weight:bold;">Order ID:</td><td>${safeOrderId}</td></tr>
+                <tr><td style="padding:4px 0;font-weight:bold;">Kund:</td><td>${safeCustomerName}</td></tr>
+                <tr><td style="padding:4px 0;font-weight:bold;">E-post:</td><td>${safeCustomerEmail}</td></tr>
+                <tr><td style="padding:4px 0;font-weight:bold;">Telefon:</td><td>${safePhone}</td></tr>
+                <tr><td style="padding:4px 0;font-weight:bold;">Betalningsmetod:</td><td>${safePaymentMethod}</td></tr>
+                <tr><td style="padding:4px 0;font-weight:bold;">Status:</td><td>${safeStatus}</td></tr>
               </table>
 
               <h3 style="color:#8B4513;">Produkter att packa</h3>
@@ -318,15 +381,15 @@ async function handleProcessPayment(body: any, userId?: string) {
               </table>
 
               <h3 style="color:#8B4513;">Leveransadress</h3>
-              <p style="white-space:pre-line;">${formatAddress(order.shippingAddress)}</p>
+              <p style="white-space:pre-line;">${escapeHtml(formatAddress(order.shippingAddress))}</p>
 
               <h3 style="color:#8B4513;">Faktureringsadress</h3>
-              <p style="white-space:pre-line;">${formatAddress(order.billingAddress)}</p>
+              <p style="white-space:pre-line;">${escapeHtml(formatAddress(order.billingAddress))}</p>
 
               ${shippingLabel ? `
                 <h3 style="color:#8B4513;">Fraktinformation</h3>
-                <p><strong>Transportör:</strong> ${shippingLabel.carrierCode}</p>
-                <p><strong>Spårningsnummer:</strong> ${shippingLabel.trackingNumber}</p>
+                <p><strong>Transportör:</strong> ${escapeHtml(shippingLabel.carrierCode)}</p>
+                <p><strong>Spårningsnummer:</strong> ${escapeHtml(shippingLabel.trackingNumber)}</p>
               ` : ''}
 
               <p style="margin-top:24px;"><a href="${process.env.NEXTAUTH_URL || ''}/admin/orders/${order.id}" style="color:#8B4513;">Visa order i admin</a></p>

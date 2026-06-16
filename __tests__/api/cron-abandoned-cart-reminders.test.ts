@@ -140,6 +140,31 @@ describe('Abandoned Cart Reminders Cron Job', () => {
       delete process.env.CRON_SECRET;
     });
 
+    it('should reject request when CRON_SECRET is unset (fail-closed)', async () => {
+      // Arrange — simulate misconfigured deployment
+      delete process.env.CRON_SECRET;
+      const request = new NextRequest(
+        'http://localhost:3000/api/cron/send-abandoned-cart-reminders',
+        { headers: { authorization: 'Bearer any-secret' } }
+      );
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      // Act
+      const response = await GET(request);
+      const data = await response.json();
+
+      // Assert
+      expect(response.status).toBe(401);
+      expect(data.success).toBe(false);
+      expect(data.error).toBe('Unauthorized');
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[cron-abandoned-cart] CRON_SECRET is not set — refusing request to prevent open endpoint'
+      );
+      expect(mockCartService.getAbandonedCartsForReminder).not.toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+    });
+
     it('should reject request with invalid cron secret', async () => {
       // Arrange
       process.env.CRON_SECRET = 'correct-secret';

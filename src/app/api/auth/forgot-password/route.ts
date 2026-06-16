@@ -3,11 +3,21 @@ import '@/config/di-init';
 import { NextRequest, NextResponse } from 'next/server';
 import { container, TOKENS } from '@/config/di-container';
 import type { IAuthService } from '@/interfaces';
+import { checkRateLimit, getClientIp } from '@/utils/rateLimit';
 
 const authService = container.resolve<IAuthService>(TOKENS.IAuthService);
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const allowed = await checkRateLimit('forgot-password', ip, 3);
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Too many requests. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { email } = body;
 

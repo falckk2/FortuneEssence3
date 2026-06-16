@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { getSupabaseServer } from '@/lib/supabase-server';
+import { getTestModeStatus } from '@/lib/testMode';
 
 /**
  * TEST MODE CONFIGURATION API
@@ -13,24 +14,6 @@ import { getSupabaseServer } from '@/lib/supabase-server';
  */
 
 const FLAG_KEY = 'enable_test_endpoints';
-
-async function getTestModeStatus(): Promise<boolean> {
-  // Env var always takes precedence (useful for CI / dev without DB)
-  if (process.env.ENABLE_TEST_ENDPOINTS === 'true') return true;
-  if (process.env.NODE_ENV === 'development') return true;
-
-  try {
-    const supabase = getSupabaseServer();
-    const { data } = await supabase
-      .from('feature_flags')
-      .select('value')
-      .eq('key', FLAG_KEY)
-      .single();
-    return data?.value === true;
-  } catch {
-    return false;
-  }
-}
 
 async function setTestModeStatus(enabled: boolean): Promise<boolean> {
   try {

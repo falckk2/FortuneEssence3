@@ -7,6 +7,7 @@ import { getSupabaseServer } from '@/lib/supabase-server';
 import { container, TOKENS } from '@/config/di-container';
 import type { IEmailService } from '@/interfaces/email';
 import { config } from '@/config';
+import { checkRateLimit, getClientIp } from '@/utils/rateLimit';
 
 const emailService = container.resolve<IEmailService>(TOKENS.IEmailService);
 
@@ -20,59 +21,9 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
-// Rate limiting — persisted in Supabase so it survives serverless restarts.
-// Falls back to in-memory if the DB write fails (degraded but non-blocking).
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const MAX_REQUESTS_PER_WINDOW = 5;
 const FORM_TYPE = 'contact';
-
-async function checkRateLimit(ip: string): Promise<boolean> {
-  const now = new Date();
-  const windowStart = new Date(now.getTime() - RATE_LIMIT_WINDOW_MS);
-  const bucketId = `${FORM_TYPE}:${ip}`;
-
-  try {
-    const supabase = getSupabaseServer();
-
-    // Fetch existing bucket row
-    const { data: existing } = await supabase
-      .from('rate_limit_buckets')
-      .select('timestamps')
-      .eq('id', bucketId)
-      .single();
-
-    const allTimestamps: string[] = existing?.timestamps ?? [];
-
-    // Keep only timestamps within the current window
-    const recentTimestamps = allTimestamps.filter(
-      (ts: string) => new Date(ts) > windowStart
-    );
-
-    if (recentTimestamps.length >= MAX_REQUESTS_PER_WINDOW) {
-      return false; // rate limit exceeded
-    }
-
-    // Record this request
-    recentTimestamps.push(now.toISOString());
-
-    await supabase
-      .from('rate_limit_buckets')
-      .upsert({
-        id: bucketId,
-        form_type: FORM_TYPE,
-        ip,
-        timestamps: recentTimestamps,
-        updated_at: now.toISOString(),
-      });
-
-    return true;
-  } catch (err) {
-    // If the DB is unavailable, fail open (allow the request) to avoid blocking
-    // legitimate users on infrastructure errors. Log so ops can investigate.
-    console.error('[rate-limit] DB check failed, failing open:', err);
-    return true;
-  }
-}
 
 function detectSpam(message: string): boolean {
   const lowerMessage = message.toLowerCase();
@@ -108,8 +59,8 @@ function detectSpam(message: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-    if (!await checkRateLimit(ip)) {
+    const ip = getClientIp(request);
+    if (!await checkRateLimit(FORM_TYPE, ip, MAX_REQUESTS_PER_WINDOW, RATE_LIMIT_WINDOW_MS)) {
       return NextResponse.json(
         { success: false, error: 'Too many requests. Please try again later.' },
         { status: 429 }
