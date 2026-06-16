@@ -52,6 +52,14 @@ next-env.d.ts
 .claude/
 agent/.claude/
 
+# Grok — track project agent definitions only
+.grok/*
+!.grok/agents/
+!.grok/agents/**
+
+# Grok agent temp output (merge simulations, tool dumps)
+agent-tools/
+
 # MCP server configuration (local)
 .mcp.json
 
