@@ -6,7 +6,15 @@ from langchain_core.documents import Document
 from supabase import create_client
 
 from .state import AgentState, UserNeeds
-from .prompts import SYSTEM_PROMPT, RECOMMEND_PROMPT
+from .prompts import SYSTEM_PROMPT, RECOMMEND_PROMPT, render_prompt
+from .needs_heuristics import (
+    build_template_recommendation,
+    extract_needs_from_messages,
+    goal_product_keywords,
+    is_small_local_model,
+    sanitize_advisor_reply,
+    template_gather_reply,
+)
 from .tools import search_products
 
 # ---------------------------------------------------------------------------
@@ -122,33 +130,88 @@ def retrieve_similar_docs(query: str, k: int = 6) -> list[Document]:
 
 
 # ---------------------------------------------------------------------------
+# Language + gathering guards
+# ---------------------------------------------------------------------------
+
+_SWEDISH_INDICATORS = [
+    "hej", "hejsan", "hallå", "tjena", "tack", "snälla", "gärna",
+    "jag", "du", "vi", "ni", "det", "den", "han", "hon", "de", "mig", "dig",
+    "är", "vill", "kan", "har", "ska", "söker", "hjälper", "behöver", "letar", "sover", "sova", "vaknar",
+    "sömn", "sämn", "sov", "sömnig", "trött", "utvilad", "natt", "säng", "kudde",
+    "olja", "doft", "avslappning", "stress", "oro", "energi",
+    "och", "eller", "för", "med", "men", "som", "till", "på", "av", "om", "hur",
+    "vad", "var", "när", "varför", "vilken", "vilket", "hjälp", "ingen", "inget",
+    "allergi", "gravid", "barn", "hud", "kväll", "morgon",
+]
+
+_ENGLISH_INDICATORS = [
+    "the", "and", "for", "with", "help", "sleep", "stress", "energy", "want", "need",
+    "looking", "please", "thanks", "hello", "hi", "my", "have", "would", "could",
+    "diffuser", "topical", "allergy", "allergies", "pregnant", "children", "skin",
+]
+
+
+def _message_words(text: str) -> set[str]:
+    return set(re.sub(r"[^\w\s]", "", text.lower()).split())
+
+
+def _score_language(text: str) -> tuple[int, int]:
+    words = _message_words(text)
+    sv = sum(1 for w in _SWEDISH_INDICATORS if w in words)
+    en = sum(1 for w in _ENGLISH_INDICATORS if w in words)
+    return sv, en
+
+
+def _resolve_language(human_texts: list[str], previous: str | None) -> str:
+    """
+    Pick conversation language from the full customer history, not just the latest turn.
+    Short follow-ups like 'diffuser' or 'ja' should not flip Swedish → English.
+    """
+    sv_total = 0
+    en_total = 0
+    for text in human_texts:
+        sv, en = _score_language(text)
+        sv_total += sv
+        en_total += en
+
+    if sv_total >= 2 and sv_total >= en_total:
+        return "sv"
+    if en_total >= 2 and en_total > sv_total:
+        return "en"
+    if previous in ("sv", "en"):
+        return previous
+    return "sv" if sv_total > en_total else "en"
+
+
+def _human_messages(messages: list) -> list[str]:
+    return [m.content for m in messages if isinstance(m, HumanMessage)]
+
+
+def _needs_sufficient(needs: UserNeeds, human_count: int) -> bool:
+    """
+    Code-level guard so the graph does not jump to recommendations too early.
+    Turn 1: need goal + use_method. Turn 2+: goal is enough (safety was asked).
+    """
+    goal = (needs.get("goal") or "").strip()
+    if not goal:
+        return False
+
+    use_method = (needs.get("use_method") or "").strip()
+    if human_count <= 1:
+        return bool(use_method)
+
+    sensitivity = (needs.get("sensitivity") or "").strip()
+    return bool(use_method or sensitivity or human_count >= 2)
+
+
+# ---------------------------------------------------------------------------
 # Node: detect language
 # ---------------------------------------------------------------------------
 
 def detect_language_node(state: AgentState) -> AgentState:
-    """Detect if the user is writing in Swedish or English."""
-    last_human = next(
-        (m.content for m in reversed(state["messages"]) if isinstance(m, HumanMessage)),
-        "",
-    )
-    swedish_indicators = [
-        # Greetings
-        "hej", "hejsan", "hallå", "tjena",
-        # Pronouns
-        "jag", "du", "vi", "ni", "det", "den", "han", "hon", "de",
-        # Common verbs
-        "är", "vill", "kan", "har", "ska", "söker", "hjälper", "behöver", "letar",
-        # Conjunctions / prepositions
-        "och", "eller", "för", "med", "men", "som", "till", "på", "av", "om",
-        # Question words
-        "vad", "var", "hur", "när", "varför", "vilken", "vilket",
-        # Useful nouns / phrases
-        "hjälp", "tack", "snälla", "gärna", "bra", "olja", "doft",
-    ]
-    text_lower = last_human.lower()
-    words = set(re.sub(r"[^\w\s]", "", text_lower).split())
-    is_swedish = sum(1 for w in swedish_indicators if w in words) >= 2
-    state["language"] = "sv" if is_swedish else "en"
+    """Detect conversation language from full history; stay sticky on short follow-ups."""
+    human_texts = _human_messages(state["messages"])
+    state["language"] = _resolve_language(human_texts, state.get("language"))
     return state
 
 
@@ -181,63 +244,47 @@ def _extract_json(raw: str) -> dict:
     return obj
 
 
+def _last_advisor_message(messages: list) -> str:
+    for message in reversed(messages):
+        if isinstance(message, AIMessage) and message.content:
+            return message.content.strip()
+    return ""
+
+
 def gather_needs_node(state: AgentState) -> AgentState:
     """
-    Ask the user clarifying questions and extract structured needs.
-    Sets gathered_enough=True when enough info exists to make a recommendation.
+    Ask clarifying questions and extract structured needs.
+    Deterministic only — keyword extraction + templates (no LLM gather).
     """
-    llm = get_llm()
+    lang = state.get("language", "en")
+    human_texts = _human_messages(state["messages"])
+    human_count = len(human_texts)
 
-    # For Ollama, bind JSON mode so the model is forced to output valid JSON.
-    invoke_llm = llm.bind(format="json") if USE_OLLAMA else llm
+    merged_needs = extract_needs_from_messages(human_texts)
+    if state.get("user_needs"):
+        merged_needs = {**state.get("user_needs", {}), **{k: v for k, v in merged_needs.items() if v}}
+    state["user_needs"] = merged_needs
 
-    extraction_prompt = f"""
-{SYSTEM_PROMPT}
+    if _needs_sufficient(merged_needs, human_count):
+        state["gathered_enough"] = True
+        return state
 
-Your task right now: Continue the conversation to understand the customer's needs.
-Extract any details you can from the conversation and decide if you have enough to recommend.
+    state["gathered_enough"] = False
+    reply = template_gather_reply(lang, merged_needs) or (
+        "Berätta gärna lite mer om hur du vill använda oljan så jag kan ge ett bra förslag."
+        if lang == "sv"
+        else "Could you tell me a bit more about how you'd like to use the oil?"
+    )
 
-You need at minimum to set gathered_enough to true:
-- Their primary goal or concern (e.g. sleep, stress, energy, focus, skin, mood)
-- Any safety considerations (pregnancy, children, medical conditions, allergies) — asking once is enough; "no allergies" or silence counts as clear
+    previous_reply = _last_advisor_message(state["messages"])
+    if previous_reply and reply.strip() == previous_reply:
+        reply = (
+            "Tack! Hur tänker du använda oljan — i en diffuser, som kuddspray, eller på huden?"
+            if lang == "sv"
+            else "Thanks! How would you like to use the oil — diffuser, pillow spray, or on the skin?"
+        )
 
-You do NOT need all fields — use your judgment. If you know their goal and have checked for safety concerns, set gathered_enough to true.
-
-Current known needs: {json.dumps(state.get("user_needs", {}), ensure_ascii=False)}
-
-You MUST respond with ONLY a valid JSON object and nothing else. No markdown, no explanation outside the JSON.
-The JSON must have exactly these three fields:
-{{
-  "reply": "<your conversational reply in {state.get("language", "en")}; if asking a follow-up ask ONE focused question and acknowledge what they shared>",
-  "needs": {{"goal": "", "mood": "", "scent_preference": "", "concerns": "", "sensitivity": "", "use_method": ""}},
-  "gathered_enough": false
-}}
-
-Fill in the needs fields with any information extracted from the conversation. Set gathered_enough to true when you have goal + safety check.
-
-Conversation:
-{_format_messages(state["messages"])}
-"""
-
-    response = invoke_llm.invoke([HumanMessage(content=extraction_prompt)])
-
-    try:
-        parsed = _extract_json(response.content)
-
-        existing_needs = state.get("user_needs", {})
-        new_needs = parsed.get("needs", {})
-        merged_needs: UserNeeds = {**existing_needs, **{k: v for k, v in new_needs.items() if v}}
-
-        state["user_needs"] = merged_needs
-        state["gathered_enough"] = parsed.get("gathered_enough", False)
-        reply = parsed.get("reply", "")
-        if reply:
-            state["messages"] = state["messages"] + [AIMessage(content=reply)]
-
-    except (json.JSONDecodeError, ValueError, KeyError):
-        state["gathered_enough"] = False
-        state["messages"] = state["messages"] + [AIMessage(content=response.content)]
-
+    state["messages"] = state["messages"] + [AIMessage(content=reply)]
     return state
 
 
@@ -276,7 +323,7 @@ def search_products_node(state: AgentState) -> AgentState:
     needs = state.get("user_needs", {})
 
     keywords = ",".join(filter(None, [
-        _str(needs.get("goal")),
+        goal_product_keywords(_str(needs.get("goal"))),
         _str(needs.get("scent_preference")),
         _str(needs.get("concerns")),
     ]))
@@ -299,25 +346,40 @@ def search_products_node(state: AgentState) -> AgentState:
 # ---------------------------------------------------------------------------
 
 def recommend_node(state: AgentState) -> AgentState:
-    """Generate the final recommendation using LLM with RAG context + product data."""
-    llm = get_llm()
+    """Generate the final recommendation — templates for small local models, LLM otherwise."""
     lang = state.get("language", "en")
+    products = state.get("recommended_products", [])
+    needs = state.get("user_needs", {})
 
-    prompt = RECOMMEND_PROMPT.format(
-        user_needs=json.dumps(state.get("user_needs", {}), ensure_ascii=False, indent=2),
-        rag_context=state.get("rag_context", "No additional context available."),
-        products=json.dumps(state.get("recommended_products", []), ensure_ascii=False, indent=2),
-        language="Swedish" if lang == "sv" else "English",
-    )
+    use_template = USE_OLLAMA and (lang == "sv" or is_small_local_model(OLLAMA_LLM_MODEL))
+    if use_template:
+        reply = build_template_recommendation(lang, needs, products)
+    else:
+        llm = get_llm()
+        lang_name = "Swedish" if lang == "sv" else "English"
+        prompt = render_prompt(
+            RECOMMEND_PROMPT,
+            user_needs=json.dumps(needs, ensure_ascii=False, indent=2),
+            rag_context=state.get("rag_context", "No additional context available."),
+            products=json.dumps(products, ensure_ascii=False, indent=2),
+            language=lang_name,
+        )
+        language_lock = (
+            "VIKTIGT: Svara ENDAST på naturlig svenska. Max 120 ord. Inga engelska rubriker."
+            if lang == "sv"
+            else "IMPORTANT: Reply only in natural English. Max 120 words."
+        )
+        messages = [
+            SystemMessage(content=SYSTEM_PROMPT),
+            SystemMessage(content=language_lock),
+            HumanMessage(content=prompt),
+        ]
+        response = llm.invoke(messages)
+        reply = response.content
 
-    messages = [
-        SystemMessage(content=SYSTEM_PROMPT),
-        *state["messages"][:-1],
-        HumanMessage(content=prompt),
+    state["messages"] = state["messages"] + [
+        AIMessage(content=sanitize_advisor_reply(reply, lang))
     ]
-
-    response = llm.invoke(messages)
-    state["messages"] = state["messages"] + [AIMessage(content=response.content)]
     return state
 
 

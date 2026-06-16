@@ -11,7 +11,7 @@ type AdvisorProduct = { name: string; name_sv?: string; price_sek?: number; sku?
 
 export function OilAdvisorWidget() {
   const { locale } = useLocale();
-  const { open, setOpen, messages, setMessages, sessionId, setSessionId, products, setProducts, reset } = useAdvisor();
+  const { open, setOpen, messages, setMessages, sessionId, setSessionId, sessionIdRef, products, setProducts, reset } = useAdvisor();
 
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,7 +51,7 @@ export function OilAdvisorWidget() {
       const res = await fetch('/api/advisor/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, session_id: sessionId }),
+        body: JSON.stringify({ message: text, session_id: sessionIdRef.current ?? sessionId }),
         signal: controller.signal,
       });
       clearTimeout(timeout);
@@ -64,6 +64,7 @@ export function OilAdvisorWidget() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let gotAdvisorReply = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -82,13 +83,15 @@ export function OilAdvisorWidget() {
           try { event = JSON.parse(raw); } catch { continue; }
 
           if (event.type === 'session' && event.session_id) {
+            sessionIdRef.current = event.session_id;
             setSessionId(event.session_id);
           } else if (event.type === 'message' || event.type === 'recommendation') {
-            if (event.content) {
+            if (event.content && !gotAdvisorReply) {
+              gotAdvisorReply = true;
               setLoading(false);
               setMessages(prev => [...prev, { role: 'advisor', content: event.content! }]);
             }
-            if (event.products?.length) {
+            if (event.type === 'recommendation' && event.products?.length) {
               setProducts(event.products);
             }
           } else if (event.type === 'error') {

@@ -14,6 +14,7 @@ from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
 from agent import agent, AgentState
+from agent.stream_output import pick_single_user_response
 
 
 def _validate_env() -> None:
@@ -118,22 +119,15 @@ async def chat_stream(request: ChatRequest):
         yield f"data: {json.dumps({'type': 'session', 'session_id': session_id})}\n\n"
 
         try:
-            # Run the graph — stream node outputs as they complete
+            # Collect all node outputs, then emit exactly one user-facing reply.
+            node_events: list[tuple[str, dict]] = []
             async for event in agent.astream(graph_input, config=config):
                 for node_name, node_output in event.items():
-                    if node_name == "gather_needs":
-                        # Stream the clarifying question back
-                        messages = node_output.get("messages", [])
-                        if messages:
-                            last_msg = messages[-1]
-                            yield f"data: {json.dumps({'type': 'message', 'content': last_msg.content, 'node': node_name})}\n\n"
+                    node_events.append((node_name, node_output))
 
-                    elif node_name == "recommend":
-                        messages = node_output.get("messages", [])
-                        products = node_output.get("recommended_products", [])
-                        if messages:
-                            last_msg = messages[-1]
-                            yield f"data: {json.dumps({'type': 'recommendation', 'content': last_msg.content, 'products': products, 'node': node_name})}\n\n"
+            payload = pick_single_user_response(node_events)
+            if payload:
+                yield f"data: {json.dumps(payload)}\n\n"
 
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 

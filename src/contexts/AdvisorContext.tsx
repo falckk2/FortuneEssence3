@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useRef, ReactNode } from 'react';
 
 interface Message {
   role: 'user' | 'advisor';
@@ -21,6 +21,7 @@ interface AdvisorState {
   setMessages: (v: Message[] | ((prev: Message[]) => Message[])) => void;
   sessionId: string | null;
   setSessionId: (v: string | null) => void;
+  sessionIdRef: React.MutableRefObject<string | null>;
   products: Product[];
   setProducts: (v: Product[] | ((prev: Product[]) => Product[])) => void;
   reset: (greeting: string) => void;
@@ -31,8 +32,14 @@ const AdvisorContext = createContext<AdvisorState | null>(null);
 export function AdvisorProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionIdState] = useState<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+
+  function setSessionId(v: string | null) {
+    sessionIdRef.current = v;
+    setSessionIdState(v);
+  }
 
   function reset(greeting: string) {
     setMessages([{ role: 'advisor', content: greeting }]);
@@ -41,7 +48,7 @@ export function AdvisorProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AdvisorContext.Provider value={{ open, setOpen, messages, setMessages, sessionId, setSessionId, products, setProducts, reset }}>
+    <AdvisorContext.Provider value={{ open, setOpen, messages, setMessages, sessionId, setSessionId, sessionIdRef, products, setProducts, reset }}>
       {children}
     </AdvisorContext.Provider>
   );
